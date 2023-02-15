@@ -46,3 +46,8 @@ lonmax = 160
 latmin = -10
 latmax = 0
 
+[taal]
+lonmin = 115
+lonmax = 160
+latmin = 8
+latmax = 40

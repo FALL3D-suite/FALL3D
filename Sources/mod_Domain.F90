@@ -22,7 +22,7 @@ MODULE Domain
   integer(ip) :: COMM_GRIDZ           !< MPI grid communicator along z (used for parallel sums along z)
   integer(ip) :: COMM_GRIDY           !< MPI grid communicator along y (used for parallel sums along y)
   integer(ip) :: COMM_GRIDX           !< MPI grid communicator along x (used for parallel sums along x)
-  integer(ip) :: my_grid_coord(3)     !< grid coordinates of mpime
+  integer(ip) :: my_grid_coord(3)     !< grid coordinates of mype_model
   integer(ip) :: my_W_proc            !< my W (left)   processor id
   integer(ip) :: my_E_proc            !< my E (right)  processor id
   integer(ip) :: my_N_proc            !< my N (top)    processor id
@@ -61,30 +61,30 @@ MODULE Domain
   integer(ip) :: gl_nby               !< global number of boundaries  along y
   integer(ip) :: gl_nbz               !< global number of boundaries  along z
   !
-  integer(ip), allocatable :: gl_ips   (:)   !< gl_ips   (nproc) : value of my_ips    for all processors
-  integer(ip), allocatable :: gl_jps   (:)   !< gl_jps   (nproc) : value of my_jps    for all processors
-  integer(ip), allocatable :: gl_kps   (:)   !< gl_kps   (nproc) : value of my_kps    for all processors
-  integer(ip), allocatable :: gl_ipe   (:)   !< gl_ipe   (nproc) : value of my_ipe    for all processors
-  integer(ip), allocatable :: gl_jpe   (:)   !< gl_jpe   (nproc) : value of my_jpe    for all processors
-  integer(ip), allocatable :: gl_kpe   (:)   !< gl_kpe   (nproc) : value of my_kpe    for all processors
-  integer(ip), allocatable :: gl_ips_2h(:)   !< gl_ips_2h(nproc) : value of my_ips_2h for all processors
-  integer(ip), allocatable :: gl_jps_2h(:)   !< gl_jps_2h(nproc) : value of my_jps_2h for all processors
-  integer(ip), allocatable :: gl_kps_2h(:)   !< gl_kps_2h(nproc) : value of my_kps_2h for all processors
-  integer(ip), allocatable :: gl_ipe_2h(:)   !< gl_ipe_2h(nproc) : value of my_ipe_2h for all processors
-  integer(ip), allocatable :: gl_jpe_2h(:)   !< gl_jpe_2h(nproc) : value of my_jpe_2h for all processors
-  integer(ip), allocatable :: gl_kpe_2h(:)   !< gl_kpe_2h(nproc) : value of my_kpe_2h for all processors
-  integer(ip), allocatable :: gl_ibs   (:)   !< gl_ibs   (nproc) : value of my_ibs    for all processors
-  integer(ip), allocatable :: gl_jbs   (:)   !< gl_jbs   (nproc) : value of my_jbs    for all processors
-  integer(ip), allocatable :: gl_kbs   (:)   !< gl_kbs   (nproc) : value of my_kbs    for all processors
-  integer(ip), allocatable :: gl_ibe   (:)   !< gl_ibe   (nproc) : value of my_ibe    for all processors
-  integer(ip), allocatable :: gl_jbe   (:)   !< gl_jbe   (nproc) : value of my_jbe    for all processors
-  integer(ip), allocatable :: gl_kbe   (:)   !< gl_kbe   (nproc) : value of my_kbe    for all processors
-  integer(ip), allocatable :: gl_ibs_1h(:)   !< gl_ibs_1h(nproc) : value of my_ibs_1h for all processors
-  integer(ip), allocatable :: gl_jbs_1h(:)   !< gl_jbs_1h(nproc) : value of my_jbs_1h for all processors
-  integer(ip), allocatable :: gl_kbs_1h(:)   !< gl_kbs_1h(nproc) : value of my_kbs_1h for all processors
-  integer(ip), allocatable :: gl_ibe_1h(:)   !< gl_ibe_1h(nproc) : value of my_ibe_1h for all processors
-  integer(ip), allocatable :: gl_jbe_1h(:)   !< gl_jbe_1h(nproc) : value of my_jbe_1h for all processors
-  integer(ip), allocatable :: gl_kbe_1h(:)   !< gl_kbe_1h(nproc) : value of my_kbe_1h for all processors
+  integer(ip), allocatable :: gl_ips   (:)   !< gl_ips   (npes_model) : value of my_ips    for all processors
+  integer(ip), allocatable :: gl_jps   (:)   !< gl_jps   (npes_model) : value of my_jps    for all processors
+  integer(ip), allocatable :: gl_kps   (:)   !< gl_kps   (npes_model) : value of my_kps    for all processors
+  integer(ip), allocatable :: gl_ipe   (:)   !< gl_ipe   (npes_model) : value of my_ipe    for all processors
+  integer(ip), allocatable :: gl_jpe   (:)   !< gl_jpe   (npes_model) : value of my_jpe    for all processors
+  integer(ip), allocatable :: gl_kpe   (:)   !< gl_kpe   (npes_model) : value of my_kpe    for all processors
+  integer(ip), allocatable :: gl_ips_2h(:)   !< gl_ips_2h(npes_model) : value of my_ips_2h for all processors
+  integer(ip), allocatable :: gl_jps_2h(:)   !< gl_jps_2h(npes_model) : value of my_jps_2h for all processors
+  integer(ip), allocatable :: gl_kps_2h(:)   !< gl_kps_2h(npes_model) : value of my_kps_2h for all processors
+  integer(ip), allocatable :: gl_ipe_2h(:)   !< gl_ipe_2h(npes_model) : value of my_ipe_2h for all processors
+  integer(ip), allocatable :: gl_jpe_2h(:)   !< gl_jpe_2h(npes_model) : value of my_jpe_2h for all processors
+  integer(ip), allocatable :: gl_kpe_2h(:)   !< gl_kpe_2h(npes_model) : value of my_kpe_2h for all processors
+  integer(ip), allocatable :: gl_ibs   (:)   !< gl_ibs   (npes_model) : value of my_ibs    for all processors
+  integer(ip), allocatable :: gl_jbs   (:)   !< gl_jbs   (npes_model) : value of my_jbs    for all processors
+  integer(ip), allocatable :: gl_kbs   (:)   !< gl_kbs   (npes_model) : value of my_kbs    for all processors
+  integer(ip), allocatable :: gl_ibe   (:)   !< gl_ibe   (npes_model) : value of my_ibe    for all processors
+  integer(ip), allocatable :: gl_jbe   (:)   !< gl_jbe   (npes_model) : value of my_jbe    for all processors
+  integer(ip), allocatable :: gl_kbe   (:)   !< gl_kbe   (npes_model) : value of my_kbe    for all processors
+  integer(ip), allocatable :: gl_ibs_1h(:)   !< gl_ibs_1h(npes_model) : value of my_ibs_1h for all processors
+  integer(ip), allocatable :: gl_jbs_1h(:)   !< gl_jbs_1h(npes_model) : value of my_jbs_1h for all processors
+  integer(ip), allocatable :: gl_kbs_1h(:)   !< gl_kbs_1h(npes_model) : value of my_kbs_1h for all processors
+  integer(ip), allocatable :: gl_ibe_1h(:)   !< gl_ibe_1h(npes_model) : value of my_ibe_1h for all processors
+  integer(ip), allocatable :: gl_jbe_1h(:)   !< gl_jbe_1h(npes_model) : value of my_jbe_1h for all processors
+  integer(ip), allocatable :: gl_kbe_1h(:)   !< gl_kbe_1h(npes_model) : value of my_kbe_1h for all processors
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
@@ -164,11 +164,11 @@ CONTAINS
     !
     !*** Get Cartesian mesh communicator COMM_GRID
     !
-    call MPI_CART_CREATE(MPI_COMM_WORLD,3_ip,mproc,periods,.false.,COMM_GRID,MY_ERR%flag)
+    call MPI_CART_CREATE(COMM_MODEL,3_ip,mproc,periods,.false.,COMM_GRID,MY_ERR%flag)
     !
     !*** Get my_grid_coord(3), i.e. the cartesian grid coods of each processor
     !
-    call MPI_CART_COORDS(COMM_GRID,mpime,3_ip,my_grid_coord,MY_ERR%flag)
+    call MPI_CART_COORDS(COMM_GRID,mype_model,3_ip,my_grid_coord,MY_ERR%flag)
     !
     !*** Get processor neighbours
     !
@@ -333,30 +333,30 @@ CONTAINS
     !*** Finally, store information about the range of each procesor in
     !*** the global grid. Note that all the processors have this info
     !
-    allocate (gl_ips   (0:nproc-1))
-    allocate (gl_ipe   (0:nproc-1))
-    allocate (gl_jps   (0:nproc-1))
-    allocate (gl_jpe   (0:nproc-1))
-    allocate (gl_kps   (0:nproc-1))
-    allocate (gl_kpe   (0:nproc-1))
-    allocate (gl_ips_2h(0:nproc-1))
-    allocate (gl_ipe_2h(0:nproc-1))
-    allocate (gl_jps_2h(0:nproc-1))
-    allocate (gl_jpe_2h(0:nproc-1))
-    allocate (gl_kps_2h(0:nproc-1))
-    allocate (gl_kpe_2h(0:nproc-1))
-    allocate (gl_ibs   (0:nproc-1))
-    allocate (gl_ibe   (0:nproc-1))
-    allocate (gl_jbs   (0:nproc-1))
-    allocate (gl_jbe   (0:nproc-1))
-    allocate (gl_kbs   (0:nproc-1))
-    allocate (gl_kbe   (0:nproc-1))
-    allocate (gl_ibs_1h(0:nproc-1))
-    allocate (gl_ibe_1h(0:nproc-1))
-    allocate (gl_jbs_1h(0:nproc-1))
-    allocate (gl_jbe_1h(0:nproc-1))
-    allocate (gl_kbs_1h(0:nproc-1))
-    allocate (gl_kbe_1h(0:nproc-1))
+    allocate (gl_ips   (0:npes_model-1))
+    allocate (gl_ipe   (0:npes_model-1))
+    allocate (gl_jps   (0:npes_model-1))
+    allocate (gl_jpe   (0:npes_model-1))
+    allocate (gl_kps   (0:npes_model-1))
+    allocate (gl_kpe   (0:npes_model-1))
+    allocate (gl_ips_2h(0:npes_model-1))
+    allocate (gl_ipe_2h(0:npes_model-1))
+    allocate (gl_jps_2h(0:npes_model-1))
+    allocate (gl_jpe_2h(0:npes_model-1))
+    allocate (gl_kps_2h(0:npes_model-1))
+    allocate (gl_kpe_2h(0:npes_model-1))
+    allocate (gl_ibs   (0:npes_model-1))
+    allocate (gl_ibe   (0:npes_model-1))
+    allocate (gl_jbs   (0:npes_model-1))
+    allocate (gl_jbe   (0:npes_model-1))
+    allocate (gl_kbs   (0:npes_model-1))
+    allocate (gl_kbe   (0:npes_model-1))
+    allocate (gl_ibs_1h(0:npes_model-1))
+    allocate (gl_ibe_1h(0:npes_model-1))
+    allocate (gl_jbs_1h(0:npes_model-1))
+    allocate (gl_jbe_1h(0:npes_model-1))
+    allocate (gl_kbs_1h(0:npes_model-1))
+    allocate (gl_kbe_1h(0:npes_model-1))
     !
     gl_ips   (:) = 0
     gl_ipe   (:) = 0
@@ -383,55 +383,55 @@ CONTAINS
     gl_kbs_1h(:) = 0
     gl_kbe_1h(:) = 0
     !
-    gl_ips   (mpime) = my_ips
-    gl_ipe   (mpime) = my_ipe
-    gl_jps   (mpime) = my_jps
-    gl_jpe   (mpime) = my_jpe
-    gl_kps   (mpime) = my_kps
-    gl_kpe   (mpime) = my_kpe
-    gl_ips_2h(mpime) = my_ips_2h
-    gl_ipe_2h(mpime) = my_ipe_2h
-    gl_jps_2h(mpime) = my_jps_2h
-    gl_jpe_2h(mpime) = my_jpe_2h
-    gl_kps_2h(mpime) = my_kps_2h
-    gl_kpe_2h(mpime) = my_kpe_2h
-    gl_ibs   (mpime) = my_ibs
-    gl_ibe   (mpime) = my_ibe
-    gl_jbs   (mpime) = my_jbs
-    gl_jbe   (mpime) = my_jbe
-    gl_kbs   (mpime) = my_kbs
-    gl_kbe   (mpime) = my_kbe
-    gl_ibs_1h(mpime) = my_ibs_1h
-    gl_ibe_1h(mpime) = my_ibe_1h
-    gl_jbs_1h(mpime) = my_jbs_1h
-    gl_jbe_1h(mpime) = my_jbe_1h
-    gl_kbs_1h(mpime) = my_kbs_1h
-    gl_kbe_1h(mpime) = my_kbe_1h
+    gl_ips   (mype_model) = my_ips
+    gl_ipe   (mype_model) = my_ipe
+    gl_jps   (mype_model) = my_jps
+    gl_jpe   (mype_model) = my_jpe
+    gl_kps   (mype_model) = my_kps
+    gl_kpe   (mype_model) = my_kpe
+    gl_ips_2h(mype_model) = my_ips_2h
+    gl_ipe_2h(mype_model) = my_ipe_2h
+    gl_jps_2h(mype_model) = my_jps_2h
+    gl_jpe_2h(mype_model) = my_jpe_2h
+    gl_kps_2h(mype_model) = my_kps_2h
+    gl_kpe_2h(mype_model) = my_kpe_2h
+    gl_ibs   (mype_model) = my_ibs
+    gl_ibe   (mype_model) = my_ibe
+    gl_jbs   (mype_model) = my_jbs
+    gl_jbe   (mype_model) = my_jbe
+    gl_kbs   (mype_model) = my_kbs
+    gl_kbe   (mype_model) = my_kbe
+    gl_ibs_1h(mype_model) = my_ibs_1h
+    gl_ibe_1h(mype_model) = my_ibe_1h
+    gl_jbs_1h(mype_model) = my_jbs_1h
+    gl_jbe_1h(mype_model) = my_jbe_1h
+    gl_kbs_1h(mype_model) = my_kbs_1h
+    gl_kbe_1h(mype_model) = my_kbe_1h
     !
-    call parallel_sum(gl_ips   ,COMM_WORLD)
-    call parallel_sum(gl_ipe   ,COMM_WORLD)
-    call parallel_sum(gl_jps   ,COMM_WORLD)
-    call parallel_sum(gl_jpe   ,COMM_WORLD)
-    call parallel_sum(gl_kps   ,COMM_WORLD)
-    call parallel_sum(gl_kpe   ,COMM_WORLD)
-    call parallel_sum(gl_ips_2h,COMM_WORLD)
-    call parallel_sum(gl_ipe_2h,COMM_WORLD)
-    call parallel_sum(gl_jps_2h,COMM_WORLD)
-    call parallel_sum(gl_jpe_2h,COMM_WORLD)
-    call parallel_sum(gl_kps_2h,COMM_WORLD)
-    call parallel_sum(gl_kpe_2h,COMM_WORLD)
-    call parallel_sum(gl_ibs   ,COMM_WORLD)
-    call parallel_sum(gl_ibe   ,COMM_WORLD)
-    call parallel_sum(gl_jbs   ,COMM_WORLD)
-    call parallel_sum(gl_jbe   ,COMM_WORLD)
-    call parallel_sum(gl_kbs   ,COMM_WORLD)
-    call parallel_sum(gl_kbe   ,COMM_WORLD)
-    call parallel_sum(gl_ibs_1h,COMM_WORLD)
-    call parallel_sum(gl_ibe_1h,COMM_WORLD)
-    call parallel_sum(gl_jbs_1h,COMM_WORLD)
-    call parallel_sum(gl_jbe_1h,COMM_WORLD)
-    call parallel_sum(gl_kbs_1h,COMM_WORLD)
-    call parallel_sum(gl_kbe_1h,COMM_WORLD)
+    call parallel_sum(gl_ips   ,COMM_MODEL)
+    call parallel_sum(gl_ipe   ,COMM_MODEL)
+    call parallel_sum(gl_jps   ,COMM_MODEL)
+    call parallel_sum(gl_jpe   ,COMM_MODEL)
+    call parallel_sum(gl_kps   ,COMM_MODEL)
+    call parallel_sum(gl_kpe   ,COMM_MODEL)
+    call parallel_sum(gl_ips_2h,COMM_MODEL)
+    call parallel_sum(gl_ipe_2h,COMM_MODEL)
+    call parallel_sum(gl_jps_2h,COMM_MODEL)
+    call parallel_sum(gl_jpe_2h,COMM_MODEL)
+    call parallel_sum(gl_kps_2h,COMM_MODEL)
+    call parallel_sum(gl_kpe_2h,COMM_MODEL)
+    call parallel_sum(gl_ibs   ,COMM_MODEL)
+    call parallel_sum(gl_ibe   ,COMM_MODEL)
+    call parallel_sum(gl_jbs   ,COMM_MODEL)
+    call parallel_sum(gl_jbe   ,COMM_MODEL)
+    call parallel_sum(gl_kbs   ,COMM_MODEL)
+    call parallel_sum(gl_kbe   ,COMM_MODEL)
+    call parallel_sum(gl_ibs_1h,COMM_MODEL)
+    call parallel_sum(gl_ibe_1h,COMM_MODEL)
+    call parallel_sum(gl_jbs_1h,COMM_MODEL)
+    call parallel_sum(gl_jbe_1h,COMM_MODEL)
+    call parallel_sum(gl_kbs_1h,COMM_MODEL)
+    call parallel_sum(gl_kbe_1h,COMM_MODEL)
     !
     return
   end subroutine domain_decompose
@@ -469,11 +469,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ips+1,my_jps:my_jpe,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -486,11 +486,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe-1:my_ipe,my_jps:my_jpe,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -556,11 +556,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( S_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(dim1ps:dim1ps+1,dim2ps:dim2pe,dim3ps:dim3pe)
-       call parallel_isend( work_send(1,1,1), dim, S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -573,11 +573,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( E_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(dim1pe-1:dim1pe,dim2ps:dim2pe,dim3ps:dim3pe)
-       call parallel_isend( work_send(1,1,1), dim, E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -629,11 +629,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy) = my_c(my_ips:my_ips+1,my_jps:my_jpe)
-       call parallel_isend( work_send(1,1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -646,11 +646,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy) = my_c(my_ipe-1:my_ipe,my_jps:my_jpe)
-       call parallel_isend( work_send(1,1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -703,11 +703,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ipe,my_jps:my_jps+1,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -720,11 +720,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ipe,my_jpe-1:my_jpe,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -776,11 +776,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy) = my_c(my_ips:my_ipe,my_jps:my_jps+1)
-       call parallel_isend( work_send(1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -793,11 +793,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy) = my_c(my_ips:my_ipe,my_jpe-1:my_jpe)
-       call parallel_isend( work_send(1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -850,11 +850,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_U_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ipe,my_jps:my_jpe,my_kps:my_kps+1)
-       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -867,11 +867,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_D_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ipe,my_jps:my_jpe,my_kpe-1:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -919,11 +919,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(1:2) = my_c(my_ips:my_ips+1)
-       call parallel_isend( work_send(1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -936,11 +936,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(1:dim) = my_c(my_ipe-1:my_ipe)
-       call parallel_isend( work_send(1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -983,11 +983,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dim) = my_c(my_jps:my_jps+1)
-       call parallel_isend( work_send(1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1000,11 +1000,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dim) = my_c(my_jpe-1:my_jpe)
-       call parallel_isend( work_send(1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1047,11 +1047,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_U_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1), dim, my_U_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1), dim, my_U_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        work_send(1:dim) = my_c(my_kps:my_kps+1)
-       call parallel_isend( work_send(1), dim, my_D_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1), dim, my_D_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1064,11 +1064,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_D_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1), dim, my_D_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1), dim, my_D_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        work_send(1:dim) = my_c(my_kpe-1:my_kpe)
-       call parallel_isend( work_send(1), dim, my_U_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1), dim, my_U_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1120,11 +1120,11 @@ CONTAINS
     !*** Send data to the next processor (UN corner)
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jps:my_jps+1,my_kpe+1:my_kpe+2)
-       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1135,11 +1135,11 @@ CONTAINS
     end if
     !
     if( my_U_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jpe+1:my_jpe+2,my_kps:my_kps+1)
-       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1152,11 +1152,11 @@ CONTAINS
     !*** Send data to the next processor (DN corner)
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jps:my_jps+1,my_kps-2:my_kps-1)
-       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1167,11 +1167,11 @@ CONTAINS
     end if
     !
     if( my_D_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jpe+1:my_jpe+2,my_kpe-1:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1184,11 +1184,11 @@ CONTAINS
     !*** Send data to the previous processor (US corner)
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jpe-1:my_jpe,my_kpe+1:my_kpe+2)
-       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1199,11 +1199,11 @@ CONTAINS
     end if
     !
     if( my_U_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jps-2:my_jps-1,my_kps:my_kps+1)
-       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1216,11 +1216,11 @@ CONTAINS
     !*** Send data to the previous processor (DS corner)
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jpe-1:my_jpe,my_kpe-2:my_kpe-1)
-       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1231,11 +1231,11 @@ CONTAINS
     end if
     !
     if( my_D_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jps-2:my_jps-1,my_kpe-1:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1292,11 +1292,11 @@ CONTAINS
     !*** Send data to the next processor (UE corner)
     !
     if( my_U_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe+1:my_ipe+2,my_jps_2h:my_jpe_2h,my_kps:my_kps+1)
-       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1307,11 +1307,11 @@ CONTAINS
     end if
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ips+1,my_jps_2h:my_jpe_2h,my_kpe+1:my_kpe+2)
-       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1324,11 +1324,11 @@ CONTAINS
     !*** Send data to the next processor (UW corner)
     !
     if( my_U_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips-2:my_ips-1,my_jps_2h:my_jpe_2h,my_kps:my_kps+1)
-       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1339,11 +1339,11 @@ CONTAINS
     end if
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe-2:my_ipe-1,my_jps_2h:my_jpe_2h,my_kpe+1:my_kpe+2)
-       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1356,11 +1356,11 @@ CONTAINS
     !*** Send data to the previous processor (DE corner)
     !
     if( my_D_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe+1:my_ipe+2,my_jps_2h:my_jpe_2h,my_kpe-1:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1371,11 +1371,11 @@ CONTAINS
     end if
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ips+1,my_jps_2h:my_jpe_2h,my_kps-2:my_kps-1)
-       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1388,11 +1388,11 @@ CONTAINS
     !*** Send data to the previous processor (DW corner)
     !
     if( my_D_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips-2:my_ips-1,my_jps_2h:my_jpe_2h,my_kpe-1:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1403,11 +1403,11 @@ CONTAINS
     end if
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe-1:my_ipe,my_jps_2h:my_jpe_2h,my_kps-2:my_kps-1)
-       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1464,11 +1464,11 @@ CONTAINS
     !*** Send data to the next processor (NE corner)
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ips+1,my_jpe+1:my_jpe+2,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1479,11 +1479,11 @@ CONTAINS
     end if
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe+1:my_ipe+2,my_jps:my_jps+1,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1496,11 +1496,11 @@ CONTAINS
     !*** Send data to the next processor (SE corner)
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips:my_ips+1,my_jps-2:my_jps-1,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1511,11 +1511,11 @@ CONTAINS
     end if
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe+1:my_ipe+2,my_jpe-2:my_jpe-1,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1528,11 +1528,11 @@ CONTAINS
     !*** Send data to the previous processor (NW corner)
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe-1:my_ipe,my_jpe+1:my_jpe+2,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1543,11 +1543,11 @@ CONTAINS
     end if
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips-2:my_ips-1,my_jps:my_jps+1,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1560,11 +1560,11 @@ CONTAINS
     !*** Send data to the previous processor (SW corner)
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe-1:my_ipe,my_jps-2:my_jps-1,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1575,11 +1575,11 @@ CONTAINS
     end if
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips-2:my_ips-1,my_jpe-1:my_jpe-1,my_kps_2h:my_kpe_2h)
-       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1632,11 +1632,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_E_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_E_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        work_send(dimx,1:dimy,1:dimz) = my_u(my_ibs+1,my_jps:my_jpe,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_W_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1649,11 +1649,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_W_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
        work_send(dimx,1:dimy,1:dimz) = my_u(my_ibe-1,my_jps:my_jpe,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1706,11 +1706,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(1:dimx,dimy,1:dimz) = my_v(my_ips:my_ipe,my_jbs+1,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1723,11 +1723,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(1:dimx,dimy,1:dimz) = my_v(my_ips:my_ipe,my_jbe-1,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1781,11 +1781,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_N_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_N_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        work_send(dimy,1:dimx,1:dimz) = my_v(my_jbs+1,my_ips:my_ipe,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_S_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1798,11 +1798,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_S_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
        work_send(dimy,1:dimx,1:dimz) = my_v(my_jbe-1,my_ips:my_ipe,my_kps:my_kpe)
-       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1855,11 +1855,11 @@ CONTAINS
     !*** Send data to the next processor
     !
     if( my_U_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_U_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,dimz) = my_w(my_ips:my_ipe,my_jps:my_jpe,my_kbs+1)
-       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_D_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1872,11 +1872,11 @@ CONTAINS
     !*** Send data to the previous processor
     !
     if( my_D_proc.ne.-1 ) then
-       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, my_D_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_U_proc.ne.-1 ) then
        work_send(1:dimx,1:dimy,dimz) = my_w(my_ips:my_ipe,my_jps:my_jpe,my_kbe-1)
-       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, my_U_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_D_proc.ne.-1 ) then
        call parallel_wait( irhand )
@@ -1901,15 +1901,15 @@ CONTAINS
   !----------------------------------------------
   !
   !>   @brief
-  !>   Gathers a local my_c array to master c_global(-1:nx+2,-1:ny+2,-1:nz+2) array
+  !>   Gathers a local my_c array to Master c_global(-1:nx+2,-1:ny+2,-1:nz+2) array
   !
   subroutine domain_gather_mass_points_2halo(c_global,nx,ny,nz,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global mass points along x. Not used by other processors (use c_global(1,1,1))
-    !>   @param ny         For master, number of global mass points along y. Not used by other processors (use c_global(1,1,1))
-    !>   @param nz         For master, number of global mass points along z. Not used by other processors (use c_global(1,1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global mass points along x. Not used by other processors (use c_global(1,1,1))
+    !>   @param ny         For Master, number of global mass points along y. Not used by other processors (use c_global(1,1,1))
+    !>   @param nz         For Master, number of global mass points along z. Not used by other processors (use c_global(1,1,1))
     !>   @param my_c       my scalar variable (at mass points) to be gathered
     !
     integer(ip), intent(IN)    :: nx
@@ -1929,13 +1929,13 @@ CONTAINS
     !
     !*** Master recieves data from all processors
     !
-    if(master) then
+    if(master_model) then
        !
        !*** Initialize
        !
        c_global(:,:,:) = 0.0_rp
        !
-       do iproc = 1,nproc-1  ! exclude master (0) from gather
+       do iproc = 1,npes_model-1  ! exclude Master (0) from gather
           !
           if(gl_ips(iproc).eq.1) then
              ips = gl_ips_2h(iproc)
@@ -1976,7 +1976,7 @@ CONTAINS
           dim  = dimx*dimy*dimz
           allocate(work_reciv (dimx,dimy,dimz))
           !
-          call parallel_irecv( work_reciv(1,1,1), dim, iproc, 1_ip, irhand, COMM_WORLD )
+          call parallel_irecv( work_reciv(1,1,1), dim, iproc, 1_ip, irhand, COMM_MODEL )
           call parallel_wait( irhand )
           c_global(ips:ipe,jps:jpe,kps:kpe) = work_reciv(1:dimx,1:dimy,1:dimz)
           deallocate(work_reciv)
@@ -2023,7 +2023,7 @@ CONTAINS
        allocate(work_send(dimx,dimy,dimz))
        !
        work_send(1:dimx,1:dimy,1:dimz) = my_c(ips:ipe,jps:jpe,kps:kpe)
-       call parallel_isend( work_send(1,1,1), dim, 0_ip, 1_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, 0_ip, 1_ip, ishand, COMM_MODEL )
        call parallel_wait(ishand)
        deallocate(work_send)
     end if
@@ -2032,7 +2032,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        !
        if(my_ips.eq.1) then
           ips = my_ips_2h
@@ -2078,14 +2078,14 @@ CONTAINS
   !-------------------------------------------------
   !
   !>   @brief
-  !>   Gathers a local my_c array to master c_global(-1:nx+2,-1:ny+2) array
+  !>   Gathers a local my_c array to Master c_global(-1:nx+2,-1:ny+2) array
   !
   subroutine domain_gather_mass_points_2halo_2D(c_global,nx,ny,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global mass points along x. Not used by other processors (use c_global(1,1))
-    !>   @param ny         For master, number of global mass points along y. Not used by other processors (use c_global(1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global mass points along x. Not used by other processors (use c_global(1,1))
+    !>   @param ny         For Master, number of global mass points along y. Not used by other processors (use c_global(1,1))
     !>   @param my_c       my scalar variable (at mass points) to be gathered
     !
     integer(ip), intent(IN)    :: nx
@@ -2104,13 +2104,13 @@ CONTAINS
     !
     !*** Master recieves data from all processors
     !
-    if(master) then
+    if(master_model) then
        !
        !*** Initialize
        !
        c_global(:,:) = 0.0_rp
        !
-       do iproc = 1,nproc-1  ! exclude master (0) from gather
+       do iproc = 1,npes_model-1  ! exclude Master (0) from gather
           !
           if(gl_ips(iproc).eq.1) then
              ips = gl_ips_2h(iproc)
@@ -2139,7 +2139,7 @@ CONTAINS
           dim  = dimx*dimy
           allocate(work_reciv (dimx,dimy))
           !
-          call parallel_irecv( work_reciv(1,1), dim, iproc, 1_ip, irhand, COMM_WORLD )
+          call parallel_irecv( work_reciv(1,1), dim, iproc, 1_ip, irhand, COMM_MODEL )
           call parallel_wait( irhand )
           c_global(ips:ipe,jps:jpe) = work_reciv(1:dimx,1:dimy)
           deallocate(work_reciv)
@@ -2174,7 +2174,7 @@ CONTAINS
        allocate(work_send(dimx,dimy))
        !
        work_send(1:dimx,1:dimy) = my_c(ips:ipe,jps:jpe)
-       call parallel_isend( work_send(1,1), dim, 0_ip, 1_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1), dim, 0_ip, 1_ip, ishand, COMM_MODEL )
        call parallel_wait(ishand)
        deallocate(work_send)
     end if
@@ -2183,7 +2183,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        !
        if(my_ips.eq.1) then
           ips = my_ips_2h
@@ -2218,15 +2218,15 @@ CONTAINS
   !-----------------------------------------------
   !
   !>   @brief
-  !>   Distributes a master global array c_global(-1:nx+2,-1:ny+2,-1:nz+2) to local array my_c
+  !>   Distributes a Master global array c_global(-1:nx+2,-1:ny+2,-1:nz+2) to local array my_c
   !
   subroutine domain_scatter_mass_points_2halo(c_global,nx,ny,nz,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global mass points along x. Not used by other processors (use c_global(1,1,1))
-    !>   @param ny         For master, number of global mass points along y. Not used by other processors (use c_global(1,1,1))
-    !>   @param nz         For master, number of global mass points along z. Not used by other processors (use c_global(1,1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global mass points along x. Not used by other processors (use c_global(1,1,1))
+    !>   @param ny         For Master, number of global mass points along y. Not used by other processors (use c_global(1,1,1))
+    !>   @param nz         For Master, number of global mass points along z. Not used by other processors (use c_global(1,1,1))
     !>   @param my_c       my scattererd scalar variable (at mass points)
     !
     integer(ip), intent(IN)    :: nx
@@ -2245,8 +2245,8 @@ CONTAINS
     !
     !*** Master send data to all processors
     !
-    if(master) then
-       do iproc = 1,nproc-1  ! exclude master (0) from scatter
+    if(master_model) then
+       do iproc = 1,npes_model-1  ! exclude Master (0) from scatter
           !
           dimx = gl_ipe_2h(iproc)-gl_ips_2h(iproc) + 1
           dimy = gl_jpe_2h(iproc)-gl_jps_2h(iproc) + 1
@@ -2257,7 +2257,7 @@ CONTAINS
           work_send(1:dimx,1:dimy,1:dimz) = c_global(gl_ips_2h(iproc):gl_ipe_2h(iproc), &
                gl_jps_2h(iproc):gl_jpe_2h(iproc), &
                gl_kps_2h(iproc):gl_kpe_2h(iproc))
-          call parallel_isend( work_send(1,1,1), dim, iproc, 1_ip, ishand, COMM_WORLD )
+          call parallel_isend( work_send(1,1,1), dim, iproc, 1_ip, ishand, COMM_MODEL )
           call parallel_wait(ishand)
           deallocate(work_send)
        end do
@@ -2268,7 +2268,7 @@ CONTAINS
        dim  = dimx*dimy*dimz
        allocate(work_reciv(dimx,dimy,dimz))
        !
-       call parallel_irecv( work_reciv(1,1,1), dim, 0_ip, 1_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, 0_ip, 1_ip, irhand, COMM_MODEL )
        call parallel_wait( irhand )
        my_c(my_ips_2h:my_ipe_2h, my_jps_2h:my_jpe_2h, my_kps_2h:my_kpe_2h) = work_reciv(1:dimx,1:dimy,1:dimz)
        deallocate(work_reciv)
@@ -2278,7 +2278,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        my_c    (my_ips_2h:my_ipe_2h, my_jps_2h:my_jpe_2h, my_kps_2h:my_kpe_2h) = &
             c_global(my_ips_2h:my_ipe_2h, my_jps_2h:my_jpe_2h, my_kps_2h:my_kpe_2h)
     end if
@@ -2291,14 +2291,14 @@ CONTAINS
   !--------------------------------------------------
   !
   !>   @brief
-  !>   Distributes a master global array c_global(-1:nx+2,-1:ny+2) to local array my_c
+  !>   Distributes a Master global array c_global(-1:nx+2,-1:ny+2) to local array my_c
   !
   subroutine domain_scatter_mass_points_2halo_2D(c_global,nx,ny,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global mass points along x. Not used by other processors (use c_global(1,1,1))
-    !>   @param ny         For master, number of global mass points along y. Not used by other processors (use c_global(1,1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global mass points along x. Not used by other processors (use c_global(1,1,1))
+    !>   @param ny         For Master, number of global mass points along y. Not used by other processors (use c_global(1,1,1))
     !>   @param my_c       my scattererd scalar variable (at mass points)
     !
     integer(ip), intent(IN)    :: nx
@@ -2316,8 +2316,8 @@ CONTAINS
     !
     !*** Master send data to all processors
     !
-    if(master) then
-       do iproc = 1,nproc-1  ! exclude master (0) from scatter
+    if(master_model) then
+       do iproc = 1,npes_model-1  ! exclude Master (0) from scatter
           !
           dimx = gl_ipe_2h(iproc)-gl_ips_2h(iproc) + 1
           dimy = gl_jpe_2h(iproc)-gl_jps_2h(iproc) + 1
@@ -2326,7 +2326,7 @@ CONTAINS
           !
           work_send(1:dimx,1:dimy) = c_global(gl_ips_2h(iproc):gl_ipe_2h(iproc), &
                gl_jps_2h(iproc):gl_jpe_2h(iproc))
-          call parallel_isend( work_send(1,1), dim, iproc, 1_ip, ishand, COMM_WORLD )
+          call parallel_isend( work_send(1,1), dim, iproc, 1_ip, ishand, COMM_MODEL )
           call parallel_wait(ishand)
           deallocate(work_send)
        end do
@@ -2336,7 +2336,7 @@ CONTAINS
        dim  = dimx*dimy
        allocate(work_reciv(dimx,dimy))
        !
-       call parallel_irecv( work_reciv(1,1), dim, 0_ip, 1_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1), dim, 0_ip, 1_ip, irhand, COMM_MODEL )
        call parallel_wait( irhand )
        my_c(my_ips_2h:my_ipe_2h, my_jps_2h:my_jpe_2h) = work_reciv(1:dimx,1:dimy)
        deallocate(work_reciv)
@@ -2346,7 +2346,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        my_c    (my_ips_2h:my_ipe_2h, my_jps_2h:my_jpe_2h) = &
             c_global(my_ips_2h:my_ipe_2h, my_jps_2h:my_jpe_2h)
     end if
@@ -2359,15 +2359,15 @@ CONTAINS
   !------------------------------------------------
   !
   !>   @brief
-  !>   Gathers a local my_c array to master c_global(1:nx,1:ny,1:nz) array
+  !>   Gathers a local my_c array to Master c_global(1:nx,1:ny,1:nz) array
   !
   subroutine domain_gather_corner_points_0halo(c_global,nx,ny,nz,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1,1))
-    !>   @param ny         For master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1,1))
-    !>   @param nz         For master, number of global corner points (boundaries) along z. Not used by other processors (use c_global(1,1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1,1))
+    !>   @param ny         For Master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1,1))
+    !>   @param nz         For Master, number of global corner points (boundaries) along z. Not used by other processors (use c_global(1,1,1))
     !>   @param my_c       my scalar variable (at corner points) to be gathered
     !
     integer(ip), intent(IN)    :: nx
@@ -2387,13 +2387,13 @@ CONTAINS
     !
     !*** Master recieves data from all processors
     !
-    if(master) then
+    if(master_model) then
        !
        !*** Initialize
        !
        c_global(:,:,:) = 0.0_rp
        !
-       do iproc = 1,nproc-1  ! exclude master (0) from gather
+       do iproc = 1,npes_model-1  ! exclude Master (0) from gather
           !
           ibs = gl_ibs(iproc)
           ibe = gl_ibe(iproc)
@@ -2408,7 +2408,7 @@ CONTAINS
           dim  = dimx*dimy*dimz
           allocate(work_reciv (dimx,dimy,dimz))
           !
-          call parallel_irecv( work_reciv(1,1,1), dim, iproc, 1_ip, irhand, COMM_WORLD )
+          call parallel_irecv( work_reciv(1,1,1), dim, iproc, 1_ip, irhand, COMM_MODEL )
           call parallel_wait( irhand )
           c_global(ibs:ibe,jbs:jbe,kbs:kbe) = work_reciv(1:dimx,1:dimy,1:dimz)
           deallocate(work_reciv)
@@ -2429,7 +2429,7 @@ CONTAINS
        allocate(work_send(dimx,dimy,dimz))
        !
        work_send(1:dimx,1:dimy,1:dimz) = my_c(ibs:ibe,jbs:jbe,kbs:kbe)
-       call parallel_isend( work_send(1,1,1), dim, 0_ip, 1_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1,1), dim, 0_ip, 1_ip, ishand, COMM_MODEL )
        call parallel_wait(ishand)
        deallocate(work_send)
     end if
@@ -2438,7 +2438,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        !
        ibs = my_ibs
        ibe = my_ibe
@@ -2458,14 +2458,14 @@ CONTAINS
   !---------------------------------------------------
   !
   !>   @brief
-  !>   Gathers a local my_c array to master c_global(1:nx,1:ny) array
+  !>   Gathers a local my_c array to Master c_global(1:nx,1:ny) array
   !
   subroutine domain_gather_corner_points_0halo_2D(c_global,nx,ny,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1))
-    !>   @param ny         For master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1))
+    !>   @param ny         For Master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1))
     !>   @param my_c       my scalar variable (at corner points) to be gathered
     !
     integer(ip), intent(IN)    :: nx
@@ -2484,13 +2484,13 @@ CONTAINS
     !
     !*** Master recieves data from all processors
     !
-    if(master) then
+    if(master_model) then
        !
        !*** Initialize
        !
        c_global(:,:) = 0.0_rp
        !
-       do iproc = 1,nproc-1  ! exclude master (0) from gather
+       do iproc = 1,npes_model-1  ! exclude Master (0) from gather
           !
           ibs = gl_ibs(iproc)
           ibe = gl_ibe(iproc)
@@ -2502,7 +2502,7 @@ CONTAINS
           dim  = dimx*dimy
           allocate(work_reciv (dimx,dimy))
           !
-          call parallel_irecv( work_reciv(1,1), dim, iproc, 1_ip, irhand, COMM_WORLD )
+          call parallel_irecv( work_reciv(1,1), dim, iproc, 1_ip, irhand, COMM_MODEL )
           call parallel_wait( irhand )
           c_global(ibs:ibe,jbs:jbe) = work_reciv(1:dimx,1:dimy)
           deallocate(work_reciv)
@@ -2520,7 +2520,7 @@ CONTAINS
        allocate(work_send(dimx,dimy))
        !
        work_send(1:dimx,1:dimy) = my_c(ibs:ibe,jbs:jbe)
-       call parallel_isend( work_send(1,1), dim, 0_ip, 1_ip, ishand, COMM_WORLD )
+       call parallel_isend( work_send(1,1), dim, 0_ip, 1_ip, ishand, COMM_MODEL )
        call parallel_wait(ishand)
        deallocate(work_send)
     end if
@@ -2529,7 +2529,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        !
        ibs = my_ibs
        ibe = my_ibe
@@ -2547,15 +2547,15 @@ CONTAINS
   !-------------------------------------------------
   !
   !>   @brief
-  !>   Distributes a master global array c_global(1:nx,1:ny,1:nz) to local array my_c
+  !>   Distributes a Master global array c_global(1:nx,1:ny,1:nz) to local array my_c
   !
   subroutine domain_scatter_corner_points_0halo(c_global,nx,ny,nz,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1,1))
-    !>   @param ny         For master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1,1))
-    !>   @param nz         For master, number of global corner points (boundaries) along z. Not used by other processors (use c_global(1,1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1,1))
+    !>   @param ny         For Master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1,1))
+    !>   @param nz         For Master, number of global corner points (boundaries) along z. Not used by other processors (use c_global(1,1,1))
     !>   @param my_c       my scalar variable (at corner points) to be gathered
     !
     integer(ip), intent(IN)    :: nx
@@ -2574,8 +2574,8 @@ CONTAINS
     !
     !*** Master send data to all processors
     !
-    if(master) then
-       do iproc = 1,nproc-1  ! exclude master (0) from scatter
+    if(master_model) then
+       do iproc = 1,npes_model-1  ! exclude Master (0) from scatter
           !
           dimx = gl_ibe(iproc)-gl_ibs(iproc) + 1
           dimy = gl_jbe(iproc)-gl_jbs(iproc) + 1
@@ -2586,7 +2586,7 @@ CONTAINS
           work_send(1:dimx,1:dimy,1:dimz) = c_global(gl_ibs(iproc):gl_ibe(iproc), &
                gl_jbs(iproc):gl_jbe(iproc), &
                gl_kbs(iproc):gl_kbe(iproc))
-          call parallel_isend( work_send(1,1,1), dim, iproc, 1_ip, ishand, COMM_WORLD )
+          call parallel_isend( work_send(1,1,1), dim, iproc, 1_ip, ishand, COMM_MODEL )
           call parallel_wait(ishand)
           deallocate(work_send)
        end do
@@ -2597,7 +2597,7 @@ CONTAINS
        dim  = dimx*dimy*dimz
        allocate(work_reciv(dimx,dimy,dimz))
        !
-       call parallel_irecv( work_reciv(1,1,1), dim, 0_ip, 1_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1,1), dim, 0_ip, 1_ip, irhand, COMM_MODEL )
        call parallel_wait( irhand )
        my_c(my_ibs:my_ibe, my_jbs:my_jbe, my_kbs:my_kbe) = work_reciv(1:dimx,1:dimy,1:dimz)
        deallocate(work_reciv)
@@ -2607,7 +2607,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        my_c    (my_ibs:my_ibe, my_jbs:my_jbe, my_kbs:my_kbe) = &
             c_global(my_ibs:my_ibe, my_jbs:my_jbe, my_kbs:my_kbe)
     end if
@@ -2620,14 +2620,14 @@ CONTAINS
   !----------------------------------------------------
   !
   !>   @brief
-  !>   Distributes a master global array c_global(1:nx,1:ny) to local array my_c
+  !>   Distributes a Master global array c_global(1:nx,1:ny) to local array my_c
   !
   subroutine domain_scatter_corner_points_0halo_2d(c_global,nx,ny,my_c)
     implicit none
     !
-    !>   @param c_global   Global array (in master processor only)
-    !>   @param nx         For master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1,1))
-    !>   @param ny         For master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1,1))
+    !>   @param c_global   Global array (in Master processor only)
+    !>   @param nx         For Master, number of global corner points (boundaries) along x. Not used by other processors (use c_global(1,1,1))
+    !>   @param ny         For Master, number of global corner points (boundaries) along y. Not used by other processors (use c_global(1,1,1))
     !>   @param my_c       my scalar variable (at corner points) to be gathered
     !
     integer(ip), intent(IN)    :: nx
@@ -2645,8 +2645,8 @@ CONTAINS
     !
     !*** Master send data to all processors
     !
-    if(master) then
-       do iproc = 1,nproc-1  ! exclude master (0) from scatter
+    if(master_model) then
+       do iproc = 1,npes_model-1  ! exclude Master (0) from scatter
           !
           dimx = gl_ibe(iproc)-gl_ibs(iproc) + 1
           dimy = gl_jbe(iproc)-gl_jbs(iproc) + 1
@@ -2655,7 +2655,7 @@ CONTAINS
           !
           work_send(1:dimx,1:dimy) = c_global(gl_ibs(iproc):gl_ibe(iproc), &
                gl_jbs(iproc):gl_jbe(iproc))
-          call parallel_isend( work_send(1,1), dim, iproc, 1_ip, ishand, COMM_WORLD )
+          call parallel_isend( work_send(1,1), dim, iproc, 1_ip, ishand, COMM_MODEL )
           call parallel_wait(ishand)
           deallocate(work_send)
        end do
@@ -2665,7 +2665,7 @@ CONTAINS
        dim  = dimx*dimy
        allocate(work_reciv(dimx,dimy))
        !
-       call parallel_irecv( work_reciv(1,1), dim, 0_ip, 1_ip, irhand, COMM_WORLD )
+       call parallel_irecv( work_reciv(1,1), dim, 0_ip, 1_ip, irhand, COMM_MODEL )
        call parallel_wait( irhand )
        my_c(my_ibs:my_ibe, my_jbs:my_jbe) = work_reciv(1:dimx,1:dimy)
        deallocate(work_reciv)
@@ -2675,7 +2675,7 @@ CONTAINS
     !
     !*** Master assigns to himself
     !
-    if(master) then
+    if(master_model) then
        my_c    (my_ibs:my_ibe, my_jbs:my_jbe) = &
             c_global(my_ibs:my_ibe, my_jbs:my_jbe)
     end if

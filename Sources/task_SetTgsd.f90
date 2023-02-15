@@ -29,13 +29,13 @@
   !
   !*** Master opens log file
   !
-  if(master) call inpout_open_log_file(TASK_SET_TGSD, MY_FILES, MY_ERR)
+  if(master_model) call inpout_open_log_file(TASK_SET_TGSD, MY_FILES, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1_ip,0_ip)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_TGSD, MY_FILES, MY_ERR)
   !
   !*** Master reads and broadcasts SPECIES block from input file
   !
-  if(master) call grn_read_inp_species(MY_FILES, MY_SPE, MY_ERR)
+  if(master_model) call grn_read_inp_species(MY_FILES, MY_SPE, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1_ip,0_ip)
   if(MY_ERR%flag.eq.0) then
      call grn_bcast_species(MY_SPE,MY_ERR)
@@ -51,7 +51,7 @@
      !
      !*** Master reads and broadcasts specie_TGSD block from input file (stored in MY_TGSD)
      !
-     if(master) call tgsd_read_inp_granulometry(MY_FILES, MY_TGSD, MY_SPE%code(ispe),MY_ERR)
+     if(master_model) call tgsd_read_inp_granulometry(MY_FILES, MY_TGSD, MY_SPE%code(ispe),MY_ERR)
      call parallel_bcast(MY_ERR%flag,1,0)
      if(MY_ERR%flag.eq.0) then
         call tgsd_bcast_inp_granulometry(MY_TGSD,MY_ERR)
@@ -73,7 +73,7 @@
         !
         !*** Master writes output file
         !
-        if(master) call tgsd_write_tgsd_granulometry(MY_FILES,MY_TGSD, MY_SPE%name(ispe),MY_ERR)
+        if(master_model) call tgsd_write_tgsd_granulometry(MY_FILES,MY_TGSD, MY_SPE%name(ispe),MY_ERR)
         call parallel_bcast(MY_ERR%flag,1_ip,0_ip)
         if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_TGSD, MY_FILES, MY_ERR)
         !
@@ -87,7 +87,7 @@
   !
   !*** Normal end
   !
-  if(master) call inpout_close_log_file(TASK_SET_TGSD, MY_FILES, MY_ERR)
+  if(master_model) call inpout_close_log_file(TASK_SET_TGSD, MY_FILES, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1_ip,0_ip)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_TGSD, MY_FILES, MY_ERR)
   !

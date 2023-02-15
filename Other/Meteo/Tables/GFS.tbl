@@ -9,11 +9,10 @@
 |    2     |  DIM_LAT    |  lat                 |
 |    3     |  DIM_ZLEV   |  lev                 |
 |    4     |  DIM_TIME   |  time                |
-|    5     |  DIM_STRLEN |                      |
-|    6     |  DIM_XSTAGE |                      |
-|    7     |  DIM_YSTAGE |                      |
-|    8     |  DIM_ZSTAGE |                      |
-|    9     |  DIM_SOILAY |                      |
+|    5     |  DIM_XSTAGE |                      |
+|    6     |  DIM_YSTAGE |                      |
+|    7     |  DIM_ZSTAGE |                      |
+|    8     |  DIM_SOILAY |                      |
 |-----------------------------------------------|
 |  VAR_ID  |  VAR_TYPE   |  VAR_NAME            |
 |-----------------------------------------------|

@@ -360,12 +360,12 @@ CONTAINS
     type(TRACERS),       intent(INOUT) :: MY_TRA
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    logical               :: found
     character(len=24)     :: time1_str,time2_str
     integer(ip)           :: lulog,nbins
     integer(ip)           :: iyr,imo,idy,ihr,imi,ise
     integer(ip)           :: ix,iy,iz,is,i,j,k,ibin
     real(rp)              :: time,lonmin,lonmax,latmin,latmax
+    real(rp)              :: dlon,dlat,inv_dlon,inv_dlat
     real(rp)              :: xs,ys,zs,s,t,st,myshape(4),shapez,Hm1,Hm2,Hm3
     real(rp), allocatable :: my_zc(:)        ! my_z at corners
     !
@@ -386,7 +386,7 @@ CONTAINS
     !
     !*** Master gets and broadcasts the source at current time instant
     !
-    if(master) call src_read_source(MY_FILES,MY_TIME,time,GL_SRC,MY_ERR)
+    if(master_model) call src_read_source(MY_FILES,MY_TIME,time,GL_SRC,MY_ERR)
     call parallel_bcast(MY_ERR%flag,1,0)
     if(MY_ERR%flag.ne.0) call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
     !
@@ -412,7 +412,7 @@ CONTAINS
     !
     !*** Writes to the log files
     !
-    if((MY_OUT%log_level.ge.LOG_LEVEL_NORMAL).and.master) then
+    if((MY_OUT%log_level.ge.LOG_LEVEL_NORMAL).and.master_model) then
        call time_addtime(MY_TIME%start_year,MY_TIME%start_month, MY_TIME%start_day, 0,  &
             iyr,imo,idy,ihr,imi,ise,1.0_rp*GL_SRC%start_time,MY_ERR)
        call time_dateformat(iyr,imo,idy,ihr,imi,ise,3_ip, time1_str, MY_ERR)
@@ -439,80 +439,81 @@ CONTAINS
     !
     allocate(my_zc(my_kbs:my_kbe))
     !
-    my_zc(:)       = 0.0_rp
+    my_zc(:) = 0.0_rp
     !
     lonmin = MY_GRID%lon_c(my_ibs)
     lonmax = MY_GRID%lon_c(my_ibe)
     latmin = MY_GRID%lat_c(my_jbs)
     latmax = MY_GRID%lat_c(my_jbe)
     !
-    do is = 1,GL_SRC%np  ! loop over source points
+    inv_dlon = 1.0_rp / MY_GRID%dlon
+    inv_dlat = 1.0_rp / MY_GRID%dlat
+    !
+    !*** Loop over source points
+    !
+    compute_source: do is = 1,GL_SRC%np
        !
        xs = GL_SRC%x(is)
        ys = GL_SRC%y(is)
        zs = GL_SRC%z(is)
        !
+       ! Note that longitudes are in the range [-180,180) and so is xs
+       if(xs.ge.180.0_rp) xs = xs - 360.0_rp
+       !
        s = 0.0_rp
        t = 0.0_rp
        !
-       if((xs.ge.lonmin).and.(xs.lt.lonmax).and. &
-            (ys.ge.latmin).and.(ys.lt.latmax)) then
-          !
-          ! I am a candidate point. Compute interpolation factors and values
-          ! of z at point coordinates
-          !
-          found = .false.
-          ix    = my_ibs
-          do while(.not.found)
-             if((xs.ge.MY_GRID%lon_c(ix)).and.(xs.lt.MY_GRID%lon_c(ix+1))) then
-                found = .true.
-                s     = -1.0_rp + 2.0_rp*(xs-MY_GRID%lon_c(ix))/(MY_GRID%lon_c(ix+1)-MY_GRID%lon_c(ix)) ! (-1,1)
-             else
-                ix = ix + 1
-                if(ix.eq.my_ibe) found=.true.
-             end if
-          end do
-          !
-          found = .false.
-          iy    = my_jbs
-          do while(.not.found)
-             if((ys.ge.MY_GRID%lat_c(iy)).and.(ys.lt.MY_GRID%lat_c(iy+1))) then
-                found = .true.
-                t     = -1.0_rp + 2.0_rp*(ys-MY_GRID%lat_c(iy))/(MY_GRID%lat_c(iy+1)-MY_GRID%lat_c(iy)) ! (-1,1)
-             else
-                iy = iy + 1
-                if(iy.eq.my_jbe) found=.true.
-             end if
-          end do
-          !
-          st=s*t
-          myshape(1)=(1.0_rp-t-s+st)*0.25_rp                           !  4         3
-          myshape(2)=(1.0_rp-t+s-st)*0.25_rp                           !
-          myshape(3)=(1.0_rp+t+s+st)*0.25_rp                           !
-          myshape(4)=(1.0_rp+t-s-st)*0.25_rp                           !  1         2
-          !
-          ! compute zc(kbs:kbe)
-          !
-          do iz = my_kbs,my_kbe
-             my_zc(iz) = myshape(1)*MY_GRID%z_c(ix  ,iy  ,iz) + &
-                  myshape(2)*MY_GRID%z_c(ix+1,iy  ,iz) + &
-                  myshape(3)*MY_GRID%z_c(ix+1,iy+1,iz) + &
-                  myshape(4)*MY_GRID%z_c(ix  ,iy+1,iz)
-          end do
-          !
-          found = .false.
-          if( (zs.ge.my_zc(my_kbs)).and.(zs.lt.my_zc(my_kbe)) ) found = .true.
-          !
-          if(found) then
-             !
-             !*** Source at mass points
-             !
-             call grid_get_shapez(my_kbs,my_kbe,my_zc,zs,iz,shapez)
-             MY_TRA%my_s(ix,iy,iz,1:nbins) = MY_TRA%my_s(ix,iy,iz,1:nbins) + GL_SRC%M(1:nbins,is)
-             !
-          end if
+       ! Check latitudes
+       if(ys.lt.latmin .or. ys.ge.latmax) cycle compute_source
+       !
+       ! Check longitudes (all in [-180,180))
+       if(lonmin.lt.lonmax) then
+           if(xs.lt.lonmin .or. xs.ge.lonmax) cycle compute_source
+       else
+           if(xs.lt.lonmin .and. xs.ge.lonmax) cycle compute_source
        end if
-    end do       ! do is = 1,ns
+       !
+       !*** I am a candidate point. 
+       !*** Compute interpolation factors and 
+       !*** values of z at point coordinates
+       !
+       ! Compute indexes
+       dlat = ys - latmin
+       dlon = xs - lonmin
+       if(dlon.lt.0) dlon = dlon + 360.0_rp  ! meridian crossing
+       ix = my_ips + int(dlon*inv_dlon)
+       iy = my_jps + int(dlat*inv_dlat) 
+       !
+       dlat = ys - MY_GRID%lat_c(iy)
+       dlon = xs - MY_GRID%lon_c(ix)
+       if(dlon.lt.0) dlon = dlon + 360.0_rp
+       s = 2.0_rp * dlon*inv_dlon - 1.0_rp
+       t = 2.0_rp * dlat*inv_dlat - 1.0_rp
+       !
+       st=s*t
+       myshape(1)=(1.0_rp-t-s+st)*0.25_rp                           !  4         3
+       myshape(2)=(1.0_rp-t+s-st)*0.25_rp                           !
+       myshape(3)=(1.0_rp+t+s+st)*0.25_rp                           !
+       myshape(4)=(1.0_rp+t-s-st)*0.25_rp                           !  1         2
+       !
+       ! compute zc(kbs:kbe)
+       !
+       do iz = my_kbs,my_kbe
+          my_zc(iz) = myshape(1)*MY_GRID%z_c(ix  ,iy  ,iz) + &
+                      myshape(2)*MY_GRID%z_c(ix+1,iy  ,iz) + &
+                      myshape(3)*MY_GRID%z_c(ix+1,iy+1,iz) + &
+                      myshape(4)*MY_GRID%z_c(ix  ,iy+1,iz)
+       end do
+       !
+       if( (zs.ge.my_zc(my_kbs)).and.(zs.lt.my_zc(my_kbe)) ) then 
+         !
+         !*** Source at mass points
+         !
+         call grid_get_shapez(my_kbs,my_kbe,my_zc,zs,iz,shapez)
+         MY_TRA%my_s(ix,iy,iz,1:nbins) = MY_TRA%my_s(ix,iy,iz,1:nbins) + GL_SRC%M(1:nbins,is)
+         !
+       end if
+    end do compute_source
     !
     !*** Scales the source term at mass points
     !
@@ -788,7 +789,7 @@ CONTAINS
     !
     !*** Writes meteo information to the log file
     !
-    if((MY_OUT%log_level.ge.LOG_LEVEL_NORMAL).and.master) then
+    if((MY_OUT%log_level.ge.LOG_LEVEL_NORMAL).and.master_model) then
        time1 = MY_TIME%time
        call time_addtime(MY_TIME%start_year,MY_TIME%start_month, MY_TIME%start_day, 0,  &
             iyr,imo,idy,ihr,imi,ise,time1,MY_ERR)
@@ -809,35 +810,35 @@ CONTAINS
     !
     if(MY_OUT%log_level.eq.LOG_LEVEL_FULL) then
        my_max = maxval(my_uc)
-       call parallel_max(my_max,gl_max_u,COMM_WORLD)
+       call parallel_max(my_max,gl_max_u,COMM_MODEL)
        my_min = minval(my_uc)
-       call parallel_min(my_min,gl_min_u,COMM_WORLD)
+       call parallel_min(my_min,gl_min_u,COMM_MODEL)
        my_max = maxval(my_vc)
-       call parallel_max(my_max,gl_max_v,COMM_WORLD)
+       call parallel_max(my_max,gl_max_v,COMM_MODEL)
        my_min = minval(my_vc)
-       call parallel_min(my_min,gl_min_v,COMM_WORLD)
+       call parallel_min(my_min,gl_min_v,COMM_MODEL)
        my_max = maxval(my_wc)
-       call parallel_max(my_max,gl_max_w,COMM_WORLD)
+       call parallel_max(my_max,gl_max_w,COMM_MODEL)
        my_min = minval(my_wc)
-       call parallel_min(my_min,gl_min_w,COMM_WORLD)
+       call parallel_min(my_min,gl_min_w,COMM_MODEL)
        my_max = maxval(my_tc)
-       call parallel_max(my_max,gl_max_t,COMM_WORLD)
+       call parallel_max(my_max,gl_max_t,COMM_MODEL)
        my_min = minval(my_tc)
-       call parallel_min(my_min,gl_min_t,COMM_WORLD)
+       call parallel_min(my_min,gl_min_t,COMM_MODEL)
        my_max = maxval(my_rhoc)
-       call parallel_max(my_max,gl_max_r,COMM_WORLD)
+       call parallel_max(my_max,gl_max_r,COMM_MODEL)
        my_min = minval(my_rhoc)
-       call parallel_min(my_min,gl_min_r,COMM_WORLD)
+       call parallel_min(my_min,gl_min_r,COMM_MODEL)
        my_max = maxval(MY_MET%my_k1)
-       call parallel_max(my_max,gl_max_k1,COMM_WORLD)
+       call parallel_max(my_max,gl_max_k1,COMM_MODEL)
        my_min = minval(MY_MET%my_k1)
-       call parallel_min(my_min,gl_min_k1,COMM_WORLD)
+       call parallel_min(my_min,gl_min_k1,COMM_MODEL)
        my_max = maxval(my_met_k3)
-       call parallel_max(my_max,gl_max_k3,COMM_WORLD)
+       call parallel_max(my_max,gl_max_k3,COMM_MODEL)
        my_min = minval(my_met_k3)
-       call parallel_min(my_min,gl_min_k3,COMM_WORLD)
+       call parallel_min(my_min,gl_min_k3,COMM_MODEL)
        !
-       if(master) write(lulog,20) gl_max_u ,gl_min_u,  &
+       if(master_model) write(lulog,20) gl_max_u ,gl_min_u,  &
             gl_max_v ,gl_min_v,  &
             gl_max_w ,gl_min_w,  &
             gl_max_t ,gl_min_t,  &
@@ -874,7 +875,7 @@ CONTAINS
        my_max_vs(:,:) = -1e9_rp
        my_min_vs(:,:) =  1e9_rp
        !
-       if(master) write(lulog,30) (ibin,ibin=1,MY_TRA%MY_BIN%nbins)
+       if(master_model) write(lulog,30) (ibin,ibin=1,MY_TRA%MY_BIN%nbins)
        do k = my_kbs,my_kbe
           do ibin = 1,MY_TRA%MY_BIN%nbins
              my_max_vs(k,ibin) = maxval(MY_TRA%my_vs(:,:,k,ibin))
@@ -884,11 +885,11 @@ CONTAINS
 
        do k = 1,gl_nbz
           do ibin = 1,MY_TRA%MY_BIN%nbins
-             call parallel_max(my_max_vs(k,ibin),gl_max(ibin),COMM_WORLD)
-             call parallel_min(my_min_vs(k,ibin),gl_min(ibin),COMM_WORLD)
+             call parallel_max(my_max_vs(k,ibin),gl_max(ibin),COMM_MODEL)
+             call parallel_min(my_min_vs(k,ibin),gl_min(ibin),COMM_MODEL)
           end do
-          if(master) write(lulog,31) k,(gl_max(ibin),ibin = 1,MY_TRA%MY_BIN%nbins)
-          if(master) write(lulog,32)   (gl_min(ibin),ibin = 1,MY_TRA%MY_BIN%nbins)
+          if(master_model) write(lulog,31) k,(gl_max(ibin),ibin = 1,MY_TRA%MY_BIN%nbins)
+          if(master_model) write(lulog,32)   (gl_min(ibin),ibin = 1,MY_TRA%MY_BIN%nbins)
        end do
 30     format(/, &
             'TERMINAL VELOCITIES (m/s)',/,  &
@@ -1034,7 +1035,7 @@ CONTAINS
     radius = 1.5_rp*sqrt(deltax*deltax + deltay*deltay)         ! a cetain cell distance, proportional to diagonal of the cell
     !
     min_radius = 0.0_rp
-    call parallel_min(radius, min_radius, COMM_WORLD )
+    call parallel_min(radius, min_radius, COMM_MODEL )
     !
     !*** Evaluate parameters for gravity current model
     !
@@ -1096,7 +1097,6 @@ CONTAINS
        !
        foundz = .false.
        do k   = my_kbs,my_kbe-1
-          !LAM: aca puede haber problemas de check bounds en el indice k+1
           if((h_umbr.gt.MY_GRID%z_c(ix,iy,k)).and.(h_umbr.le.MY_GRID%z_c(ix,iy,k+1))) then
              foundz = .true.
              iz     = k
@@ -1111,7 +1111,7 @@ CONTAINS
     end if
     !
     v_wind = 0.0_rp
-    call parallel_max(my_wind, v_wind, COMM_WORLD )
+    call parallel_max(my_wind, v_wind, COMM_MODEL )
     !
     !*** Radius_grav(Tp) where Tp=64/27*c_gravr/v^3. Transition at Ri=025 for passive transport transition
     !
@@ -1229,7 +1229,7 @@ CONTAINS
     !
     if( (MY_TIME%iiter.eq.1).or.(mod(MY_TIME%time,600.0_rp).le.MY_TIME%gl_dt) ) then
        !
-       if((MY_OUT%log_level.ge.LOG_LEVEL_NORMAL).and.master) then
+       if((MY_OUT%log_level.ge.LOG_LEVEL_NORMAL).and.master_model) then
           !
           time = MY_TIME%time
           call time_addtime(MY_TIME%start_year,MY_TIME%start_month, MY_TIME%start_day, 0,  &
@@ -1261,7 +1261,7 @@ CONTAINS
           !
           gl_mass = gl_mass_ground + gl_mass_lateral + gl_mass_sink + gl_mass_volume
           !
-          if(master) write(lulog,20) gl_mass_volume ,100.0_rp*gl_mass_volume /gl_mass, &
+          if(master_model) write(lulog,20) gl_mass_volume ,100.0_rp*gl_mass_volume /gl_mass, &
                gl_mass_lateral,100.0_rp*gl_mass_lateral/gl_mass, &
                gl_mass_sink,   100.0_rp*gl_mass_sink   /gl_mass, &
                gl_mass_ground, 100.0_rp*gl_mass_ground /gl_mass, &
@@ -1299,7 +1299,7 @@ CONTAINS
        if((MY_TIME%time.ge.MY_MOD%MY_GC%start_time).and.(MY_TIME%time.le.MY_MOD%MY_GC%end_time).and. &
             (mod(MY_TIME%time,600.0_rp).le.MY_TIME%gl_dt) ) then
           !
-          if(master.and.igc.eq.0) then
+          if(master_model.and.igc.eq.0) then
              igc = 1
              open(lugc,FILE=TRIM(MY_FILES%file_gc),status='unknown')
              write(Lugc,200)
@@ -1309,7 +1309,7 @@ CONTAINS
                   '                              (kg/s)      (m3/s)       (km)         (km)        (km)    ',/, &
                   '----------------------------------------------------------------------------------------')
           end if
-          if(master) then
+          if(master_model) then
              !
              time = MY_TIME%time
              call time_addtime(MY_TIME%start_year,MY_TIME%start_month, MY_TIME%start_day, 0,  &
@@ -1479,6 +1479,7 @@ CONTAINS
     integer(ip) :: npts,ipts,gl_imax,ix,iy,iz
     real(rp)    :: xp,yp,zp,s,t,st,myshape(4),shapez
     real(rp)    :: my_lonmin,my_lonmax,my_latmin,my_latmax
+    real(rp)    :: dlon,dlat,inv_dlon,inv_dlat
     !
     real(rp), allocatable :: my_zc(:)        ! my_z at corners
     !
@@ -1512,52 +1513,58 @@ CONTAINS
     my_latmin = MY_GRID%lat_c(my_jbs)
     my_latmax = MY_GRID%lat_c(my_jbe)
     !
+    inv_dlon = 1.0_rp / MY_GRID%dlon
+    inv_dlat = 1.0_rp / MY_GRID%dlat
+    !
     MY_OUT%MY_PTS%mproc(:) = -1
     !
-    !*** Loop over points
+    !*** Loop over tracking points
     !
-    do ipts = 1,npts
+    compute_points: do ipts = 1,npts
        !
        xp = MY_OUT%MY_PTS%xpts(ipts)
        yp = MY_OUT%MY_PTS%ypts(ipts)
        zp = MY_OUT%MY_PTS%zpts(ipts)
        !
+       ! Note that longitudes are in the range [-180,180) and so is xp
+       if(xp.ge.180.0_rp) xp = xp - 360.0_rp
+       !
        s = 0.0_rp
        t = 0.0_rp
        !
-       if((xp.ge.my_lonmin).and.(xp.le.my_lonmax).and.(yp.ge.my_latmin).and.(yp.le.my_latmax)) then
-          !
-          !  Interpolation factor along x
-          !
-          found = .false.
-          ix    = my_ibs
-          do while(.not.found)
-             if((xp.ge.MY_GRID%lon_c(ix)).and.(xp.le.MY_GRID%lon_c(ix+1))) then
-                found = .true.
-                s = -1.0_rp + 2.0_rp*(xp-MY_GRID%lon_c(ix))/(MY_GRID%lon_c(ix+1)-MY_GRID%lon_c(ix)) ! (-1,1)
-             else
-                ix = ix + 1
-                if(ix.eq.my_ibe) found=.true.
-             end if
-          end do
-          MY_OUT%MY_PTS%ipts(ipts) = ix
-          MY_OUT%MY_PTS%spts(ipts) = s
-          !
-          !  Interpolation factor along y
-          !
-          found = .false.
-          iy    = my_jbs
-          do while(.not.found)
-             if((yp.ge.MY_GRID%lat_c(iy)).and.(yp.le.MY_GRID%lat_c(iy+1))) then
-                found = .true.
-                t = -1.0_rp + 2.0_rp*(yp-MY_GRID%lat_c(iy))/(MY_GRID%lat_c(iy+1)-MY_GRID%lat_c(iy)) ! (-1,1)
-             else
-                iy = iy + 1
-                if(iy.eq.my_jbe) found=.true.
-             end if
-          end do
-          MY_OUT%MY_PTS%jpts(ipts) = iy
-          MY_OUT%MY_PTS%tpts(ipts) = t
+       ! Check latitudes
+       if(yp.lt.my_latmin .or. yp.ge.my_latmax) cycle compute_points
+       !
+       ! Check longitudes (all in [-180,180))
+       if(my_lonmin.lt.my_lonmax) then
+           if(xp.lt.my_lonmin .or. xp.ge.my_lonmax) cycle compute_points
+       else
+           if(xp.lt.my_lonmin .and. xp.ge.my_lonmax) cycle compute_points
+       end if
+       !
+       !  compute indexes and interpolation factors
+       !
+       dlat = yp - my_latmin
+       dlon = xp - my_lonmin
+       if(dlon.lt.0) dlon = dlon + 360.0_rp  ! meridian crossing
+       ix = my_ibs + int(dlon*inv_dlon)      ! refer to cell boundaries
+       iy = my_jbs + int(dlat*inv_dlat) 
+       !
+       dlat = yp - MY_GRID%lat_c(iy)
+       dlon = xp - MY_GRID%lon_c(ix)
+       if(dlon.lt.0) dlon = dlon + 360.0_rp
+       s = 2.0_rp * dlon*inv_dlon - 1.0_rp
+       t = 2.0_rp * dlat*inv_dlat - 1.0_rp
+       !
+       !  Interpolation factor along x
+       !
+       MY_OUT%MY_PTS%ipts(ipts) = ix
+       MY_OUT%MY_PTS%spts(ipts) = s
+       !
+       !  Interpolation factor along y
+       !
+       MY_OUT%MY_PTS%jpts(ipts) = iy
+       MY_OUT%MY_PTS%tpts(ipts) = t
           !
           !  interpolation factor along z
           !
@@ -1568,7 +1575,7 @@ CONTAINS
              if(my_kbs.eq.1) then
                 MY_OUT%MY_PTS%kpts (ipts) = my_kbs
                 MY_OUT%MY_PTS%wpts (ipts) = 0.0_rp  ! (0,1) in z
-                MY_OUT%MY_PTS%mproc(ipts) = mpime
+                MY_OUT%MY_PTS%mproc(ipts) = mype_model
              end if
              !
           else
@@ -1598,19 +1605,17 @@ CONTAINS
                 call grid_get_shapez(my_kbs,my_kbe,my_zc,zp,iz,shapez)
                 MY_OUT%MY_PTS%kpts (ipts) = iz
                 MY_OUT%MY_PTS%wpts (ipts) = shapez
-                MY_OUT%MY_PTS%mproc(ipts) = mpime
+                MY_OUT%MY_PTS%mproc(ipts) = mype_model
              end if
              !
           end if
-          !
-       end if
        !
        !  broadcast the processor hosting the point
        !
-       call parallel_max(MY_OUT%MY_PTS%mproc(ipts),gl_imax,COMM_WORLD)
+       call parallel_max(MY_OUT%MY_PTS%mproc(ipts),gl_imax,COMM_MODEL)
        MY_OUT%MY_PTS%mproc(ipts) = gl_imax
        !
-    end do
+    end do compute_points
     !
     return
   end subroutine F3D_set_pts
@@ -1679,7 +1684,7 @@ CONTAINS
        !
        if(MY_OUT%MY_PTS%zpts(ipts).lt.0.0_rp) then
           !
-          if(mpime.eq.MY_OUT%MY_PTS%mproc(ipts)) then
+          if(mype_model.eq.MY_OUT%MY_PTS%mproc(ipts)) then
              i = MY_OUT%MY_PTS%ipts(ipts)
              j = MY_OUT%MY_PTS%jpts(ipts)
              s = MY_OUT%MY_PTS%spts(ipts)
@@ -1707,11 +1712,11 @@ CONTAINS
              !
           end if
           !
-          call parallel_sum(my_ap, COMM_WORLD)
+          call parallel_sum(my_ap, COMM_MODEL)
           !
           !*** Master prints the file
           !
-          if(master) then
+          if(master_model) then
              open(90,file=TRIM(fname),status='unknown')
              write(90,10) TRIM(MY_OUT%MY_PTS%name_pts(ipts)), &
                   MY_OUT%MY_PTS%xpts    (ipts),  &

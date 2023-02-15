@@ -33,14 +33,14 @@ subroutine task_SetDbs
   !
   !*** Master opens log file
   !
-  if(master) call inpout_open_log_file(TASK_SET_DBS, MY_FILES, MY_ERR)
+  if(master_model) call inpout_open_log_file(TASK_SET_DBS, MY_FILES, MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
   !
   !*** Master reads and broadcasts TIME_UTC block from input file
   !
-  if(master) call time_read_inp_time(MY_FILES, MY_TIME, MY_ERR)
+  if(master_model) call time_read_inp_time(MY_FILES, MY_TIME, MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
@@ -49,7 +49,7 @@ subroutine task_SetDbs
   !
   !*** Master reads and broadcasts GRID block from input file
   !
-  if(master) call grid_read_inp_grid(MY_FILES, MY_GRID, MY_ERR)
+  if(master_model) call grid_read_inp_grid(MY_FILES, MY_GRID, MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
@@ -58,7 +58,7 @@ subroutine task_SetDbs
   !
   !*** Master reads and broadcasts METEO_DATA block from input file
   !
-  if(master) call dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METPROFILES, MY_ERR)
+  if(master_model) call dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METPROFILES, MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
@@ -67,7 +67,7 @@ subroutine task_SetDbs
   !
   !*** Master reads and broadcasts MODEL_OUTPUT block from input file
   !
-  if(master) call nc_IO_read_inp_output(MY_FILES, MY_OUT, MY_ERR)
+  if(master_model) call nc_IO_read_inp_output(MY_FILES, MY_OUT, MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
@@ -87,7 +87,7 @@ subroutine task_SetDbs
   !
   !*** Master reads and broadcasts meteo model grid and terrain data nedded to generate MY_GRID (i.e. topography)
   !
-  if(master) call dbs_read_metmodel_grid(MY_FILES,MY_GRID,MY_MET,GL_METMODEL,MY_ERR)
+  if(master_model) call dbs_read_metmodel_grid(MY_FILES,MY_GRID,MY_MET,GL_METMODEL,MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
@@ -96,7 +96,7 @@ subroutine task_SetDbs
   !
   !*** Master reads and broadcasts meteo model time coverage
   !
-  if(master) call dbs_read_metmodel_times(MY_FILES,MY_MET,GL_METMODEL,MY_TIME,MY_ERR)
+  if(master_model) call dbs_read_metmodel_times(MY_FILES,MY_MET,GL_METMODEL,MY_TIME,MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
@@ -111,7 +111,7 @@ subroutine task_SetDbs
   !*** Interpolates topography (my_hc)
   !
   call dbs_interpola2d(GL_METMODEL%nx, GL_METMODEL%ny, GL_METMODEL%topg, &
-       MY_MET%npoin, MY_MET%el_po, MY_MET%s_po, MY_MET%t_po, my_hc, MY_ERR)
+       MY_MET%npoin, MY_MET%el_indexes, MY_MET%interp_factor, my_hc, MY_ERR)
   !
   !*** Builds the rest of Arakawa grid structure
   !
@@ -138,13 +138,13 @@ subroutine task_SetDbs
   !
   !*** If necessary, writes the profiles
   !
-  if(master) call dbs_out_profile(MY_FILES,GL_METPROFILES,MY_ERR)
+  if(master_model) call dbs_out_profile(MY_FILES,GL_METPROFILES,MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
   !
   !*** Normal end
   !
-  if(master) call inpout_close_log_file(TASK_SET_DBS, MY_FILES, MY_ERR)
+  if(master_model) call inpout_close_log_file(TASK_SET_DBS, MY_FILES, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
   !

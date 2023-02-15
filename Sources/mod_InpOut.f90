@@ -7,7 +7,7 @@
 !***************************************************************
 MODULE InpOut
   use KindType
-  use Shared, only : mproc
+  use Shared, only : mproc, nens
   implicit none
   save
   !
@@ -21,9 +21,12 @@ MODULE InpOut
   PUBLIC :: inpout_get_filenames
   PUBLIC :: inpout_open_log_file
   PUBLIC :: inpout_close_log_file
+  PUBLIC :: inpout_check_file
   PUBLIC :: inpout_open_file
   PUBLIC :: inpout_close_file
+  PUBLIC :: inpout_print_greeting
   PUBLIC :: inpout_print_args
+  PUBLIC :: inpout_print_message
   PUBLIC :: inpout_get_file_nrows
   PUBLIC :: inpout_get_file_col
   PUBLIC :: inpout_get_file_pts
@@ -111,11 +114,15 @@ CONTAINS
     write(str(19:20),'(i2.2)') imi
     write(str(22:23),'(i2.2)') ise
     !
+    MY_ERR%cpu_start_date = 'Run start date '//TRIM(str)
+    !
     !*** Opens and writes the log file
     !
     lulog = MY_FILES%lulog
     !
     select case(task)
+    case(TASK_SET_ENS)
+       stask = 'SetEns'
     case(TASK_SET_TGSD)
        stask = 'SetTgsd'
     case(TASK_SET_DBS)
@@ -147,11 +154,23 @@ CONTAINS
          '       npz           : ',i8)
     !
     select case(task)
-    case(TASK_SET_TGSD)
+    case(TASK_SET_ENS)
        !
        write(lulog,2) TRIM(MY_FILES%file_inp), &
-            TRIM(MY_FILES%file_log)
+            TRIM(MY_FILES%file_log), TRIM(MY_FILES%file_ens)
 2      format(/,&
+            '  INPUT FILES            '  ,/, &
+            '  Input          file  : ',a,/, &
+            '                         '  ,/, &
+            '  OUTPUT FILES           '  ,/, &
+            '  Log            file  : ',a,/, &
+            '  Random numbers file  : ',a)
+       !
+    case(TASK_SET_TGSD)
+       !
+       write(lulog,3) TRIM(MY_FILES%file_inp), &
+            TRIM(MY_FILES%file_log)
+3      format(/,&
             '  INPUT FILES          '  ,/, &
             '  Input        file  : ',a,/, &
             '                       '  ,/, &
@@ -160,11 +179,11 @@ CONTAINS
        !
     case(TASK_SET_DBS)
        !
-       write(lulog,3) TRIM(MY_FILES%file_inp), &
+       write(lulog,4) TRIM(MY_FILES%file_inp), &
             TRIM(MY_FILES%file_log), &
             TRIM(MY_FILES%file_dbs), &
             TRIM(MY_FILES%file_pro)
-3      format(/,&
+4      format(/,&
             '  INPUT FILES          '  ,/, &
             '  Input        file  : ',a,/, &
             '                       '  ,/, &
@@ -175,13 +194,13 @@ CONTAINS
        !
     case(TASK_SET_SRC)
        !
-       write(lulog,4) TRIM(MY_FILES%file_inp), &
+       write(lulog,5) TRIM(MY_FILES%file_inp), &
             TRIM(MY_FILES%file_dbs), &
             TRIM(MY_FILES%file_pro), &
             TRIM(MY_FILES%file_log), &
             TRIM(MY_FILES%file_grn), &
             TRIM(MY_FILES%file_src)
-4      format(/,&
+5      format(/,&
             '  INPUT FILES          '  ,/, &
             '  Input        file  : ',a,/, &
             '  Meteo (dbs)  file  : ',a,/, &
@@ -194,7 +213,7 @@ CONTAINS
        !
     case(TASK_RUN_FALL3D)
        !
-       write(lulog,5) TRIM(MY_FILES%file_inp), &
+       write(lulog,6) TRIM(MY_FILES%file_inp), &
             TRIM(MY_FILES%file_src), &
             TRIM(MY_FILES%file_grn), &
             TRIM(MY_FILES%file_dbs), &
@@ -202,7 +221,7 @@ CONTAINS
             TRIM(MY_FILES%file_log), &
             TRIM(MY_FILES%file_res), &
             TRIM(MY_FILES%file_rst)
-5      format(/,&
+6      format(/,&
             '  INPUT FILES          '  ,/, &
             '  Input        file  : ',a,/, &
             '  Source       file  : ',a,/, &
@@ -252,6 +271,8 @@ CONTAINS
     lulog = MY_FILES%lulog
     !
     select case(task)
+    case(TASK_SET_ENS)
+       stask = 'SetEns'
     case(TASK_SET_TGSD)
        stask = 'SetTgsd'
     case(TASK_SET_DBS)
@@ -317,6 +338,38 @@ CONTAINS
     !
     return
   end subroutine inpout_close_log_file
+  !
+  !-----------------------------------
+  !    subroutine inpout_check_file
+  !-----------------------------------
+  !
+  !>   @brief
+  !>   Check file existence
+  !
+  subroutine inpout_check_file(fname,MY_ERR)
+    implicit none
+    !
+    !>   @param fname     file name
+    !>   @param MY_ERR    error handler
+    !
+    character(len=s_file), intent(IN   ) :: fname
+    type(ERROR_STATUS),    intent(INOUT) :: MY_ERR
+    !
+    logical :: exist_file
+    !
+    inquire(file=TRIM(fname),exist=exist_file)
+    !
+    if(exist_file) then
+        MY_ERR%flag    = 0
+        MY_ERR%message = ' '
+    else
+        MY_ERR%flag    = -1
+        MY_ERR%source  = 'inpout_open_file'
+        MY_ERR%message = 'Error opening file '//TRIM(fname)
+    end if
+    !
+    return
+  end subroutine inpout_check_file
   !
   !-----------------------------------
   !    subroutine inpout_open_file
@@ -458,6 +511,8 @@ CONTAINS
        end if
     end if
     !
+    MY_FILES%commonpath = MY_FILES%problempath
+    !
     return
   end subroutine inpout_get_problemname
   !
@@ -486,6 +541,11 @@ CONTAINS
     MY_ERR%message = ' '
     !
     select case(task)
+    case(TASK_SET_ENS)
+       !
+       MY_FILES%file_log  = TRIM(MY_FILES%commonpath)//'/'//TRIM(MY_FILES%problemname)//'.SetEns.log'
+       MY_FILES%file_ens  = TRIM(MY_FILES%problempath)//'/'//TRIM(MY_FILES%problemname)//'.ens'
+       !
     case(TASK_SET_TGSD)
        !
        MY_FILES%file_log  = TRIM(MY_FILES%problempath)//'/'//TRIM(MY_FILES%problemname)//'.SetTgsd.log'
@@ -526,6 +586,50 @@ CONTAINS
   end subroutine inpout_get_filenames
   !
   !-----------------------------------
+  !    subroutine inpout_print_greeting
+  !-----------------------------------
+  !
+  !>   @brief
+  !>   Prints a greeting on screen
+  !
+  subroutine inpout_print_greeting(npes_world, fname)
+      implicit none
+      !
+      !>   @param npes_world    total number of PEs
+      !>   @param fname         name of the input file
+      !
+      integer(ip), intent(IN) :: npes_world
+      character(len=*), intent(IN) :: fname
+      !
+      write(*,1) VERSION,TRIM(fname),npes_world,mproc,nens
+1 format('-----------------------------------------------------------',/, &
+         '                                                           ',/, &
+         '           ______      _      _      ____  _____           ',/, &
+         '          |  ____/\   | |    | |    |___ \|  __ \          ',/, &
+         '          | |__ /  \  | |    | |      __) | |  | |         ',/, &
+         '          |  __/ /\ \ | |    | |     |__ <| |  | |         ',/, &
+         '          | | / ____ \| |____| |____ ___) | |__| |         ',/, &
+         '          |_|/_/    \_\______|______|____/|_____/          ',/, &
+         '                                                           ',/, &
+         '                                                           ',/, &
+         '                 Initializing FALL3D suite                 ',/, &
+         '                                                           ',/, &
+         '   Copyright: 2018 GNU General Public License version 3    ',/, &
+         '                 (see licence for details)                 ',/, &
+         '                                                           ',/, &
+         '  Version      : ',a,'                                     ',/, &
+         '  Input File   : ',a                                        ,/, &
+         '  Number of PEs: ',i4.4,'                                  ',/, &
+         '  Number of PEs in domain decomposition: ',i3.3,1x,'x',1x,i3.3,1x,'x',1x,i3.3,/, &
+         '  Number of FALL3D instances: ',i4.4,'                     ',/, &
+         '                                                           ',/, &
+         '-----------------------------------------------------------'    &
+        )
+      !
+      return
+  end subroutine inpout_print_greeting 
+  !
+  !-----------------------------------
   !    subroutine inpout_print_args
   !-----------------------------------
   !
@@ -537,42 +641,69 @@ CONTAINS
     !
     write(*,1) VERSION
     !
-1   format('---------------------------------------------------------',/, &
-         '                      FALL3D suite                       ',/, &
-         '                                                         ',/, &
-         '  Copyright    : 2018 GNU General Public License version 3 ',/, &
-         '                 (see licence for details)               ',/, &
-         '  Version      : ',a,'                                   ',/, &
-         '  Usage        : Fall3d.x Task problemname.inp [args]    ',/, &
-         '  Task options :                                         ',/, &
-         '                                                         ',/, &
-         '  (1) Fall3d.x SetTgsd problemname.inp                   ',/, &
-         '                                                         ',/, &
-         '     -->  Runs SetTgsd utility                           ',/, &
-         '                                                         ',/, &
-         '  (2) Fall3d.x SetDbs  problemname.inp  [npx npy npz]    ',/, &
-         '                                                         ',/, &
-         '     -->  Runs SetDbs utility                            ',/, &
-         '                                                         ',/, &
-         '  (3) Fall3d.x SetSrc  problemname.inp  [npx npy npz]    ',/, &
-         '                                                         ',/, &
-         '     -->  Runs SetSrc utility                            ',/, &
-         '                                                         ',/, &
-         '  (4) Fall3d.x Fall3d problemname.inp [npx npy npz]      ',/, &
-         '                                                         ',/, &
-         '     -->  Runs FALL3D                                    ',/, &
-         '                                                         ',/, &
-         '  (5) Fall3d.x All problemname.inp [npx npy npz]         ',/, &
-         '                                                         ',/, &
-         '     -->  Runs tasks (1) to (4) consecutively            ',/, &
-         '                                                         ',/, &
-         '  NOTE: For parallel runs, npx * npy * npz must be equal ',/, &
-         '        to the total number of processors                ',/, &
-         '                                                         ',/, &
-         '---------------------------------------------------------')
+1   format('------------------------------------------------------------------',/, &
+           '                           FALL3D suite                           ',/, &
+           '                                                                  ',/, &
+           '       Copyright: 2018 GNU General Public License version 3       ',/, &
+           '                    (see licence for details)                     ',/, &
+           '                                                                  ',/, &
+           '  version: ',a,'                                                  ',/, &
+           '                                                                  ',/, &
+           '  usage:                                                          ',/, &
+           '   Fall3d.x Task InputFile [NPX] [NPY] [NPZ]                      ',/, &
+           '                                                                  ',/, &
+           '  positional arguments:                                           ',/, &
+           '   Task: FALL3D task (SetTGSD, SetDBS, SetSRC, FALL3D, ALL)       ',/, &
+           '   InputFile: Parameter input file                                ',/, &
+           '                                                                  ',/, &
+           '  optional arguments:                                             ',/, &
+           '   NPX: length of decomposition along dimension x (default NPX=1) ',/, &
+           '   NPY: length of decomposition along dimension y (default NPY=1) ',/, &
+           '   NPZ: length of decomposition along dimension z (default NPZ=1) ',/, &
+           '                                                                  ',/, &
+           '  examples:                                                       ',/, &
+           '   1. Run SetTGSD utility                                         ',/, &
+           '   > Fall3d.x SetTGSD problemname.inp                             ',/, &
+           '                                                                  ',/, &
+           '   2. Run SetDBS utility                                          ',/, &
+           '   > Fall3d.x SetDBS problemname.inp [NPX NPY NPZ]                ',/, &
+           '                                                                  ',/, &
+           '   3. Run SetSRC utility                                          ',/, &
+           '   > Fall3d.x SetSRC problemname.inp [NPX NPY NPZ]                ',/, &
+           '                                                                  ',/, &
+           '   4. Run FALL3D solver                                           ',/, &
+           '   > Fall3d.x FALL3D problemname.inp [NPX NPY NPZ]                ',/, &
+           '                                                                  ',/, &
+           '   5. Run tasks 1-4 consecutively                                 ',/, &
+           '   > Fall3d.x ALL problemname.inp [NPX NPY NPZ]                   ',/, &
+           '                                                                  ',/, &
+           '  note:                                                           ',/, &
+           '   For parallel runs the total number of processors must be:      ',/, &
+           '                    NPX * NPY * NPZ                               ',/, &
+           '                                                                  ',/, &
+           '------------------------------------------------------------------')
     !
     return
   end subroutine inpout_print_args
+  !
+  !-----------------------------------
+  !    subroutine inpout_print_message
+  !-----------------------------------
+  !
+  !>   @brief
+  !>   Prints on screen Error: file not found
+  !
+  subroutine inpout_print_message(message)
+    implicit none
+    !
+    !>   @param message        message to be displayed
+    !
+    character(len=*), intent(IN) :: message
+    !
+    write(*,*) trim(message)
+    !
+    return
+  end subroutine inpout_print_message
   !
   !-----------------------------------
   !    subroutine inpout_get_npar

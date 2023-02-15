@@ -37,13 +37,13 @@ subroutine task_SetSrc
   !
   !*** Master opens log file
   !
-  if(master) call inpout_open_log_file(TASK_SET_SRC, MY_FILES, MY_ERR)
+  if(master_model) call inpout_open_log_file(TASK_SET_SRC, MY_FILES, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
   !*** Master opens src file
   !
-  if(master) call inpout_open_file(MY_FILES%lusrc, MY_FILES%file_src, MY_ERR)
+  if(master_model) call inpout_open_file(MY_FILES%lusrc, MY_FILES%file_src, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
@@ -55,7 +55,7 @@ subroutine task_SetSrc
      !
   else
      !
-     if(master) call grn_read_inp_species(MY_FILES, MY_SPE, MY_ERR)
+     if(master_model) call grn_read_inp_species(MY_FILES, MY_SPE, MY_ERR)
      call parallel_bcast(MY_ERR%flag,1_ip,0_ip)
      if(MY_ERR%flag.eq.0) then
         call grn_bcast_species(MY_SPE,MY_ERR)
@@ -72,7 +72,7 @@ subroutine task_SetSrc
      !
   else
      !
-     if(master) call time_read_inp_time(MY_FILES, MY_TIME, MY_ERR)
+     if(master_model) call time_read_inp_time(MY_FILES, MY_TIME, MY_ERR)
      call parallel_bcast(MY_ERR%flag,1,0)
      if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
      !
@@ -81,7 +81,7 @@ subroutine task_SetSrc
   !
   !*** Master reads and broadcasts MODEL_PHYSICS block from input file (MY_MOD)
   !
-  if(master) call phys_read_inp_model(MY_FILES, MY_MOD, MY_ERR)
+  if(master_model) call phys_read_inp_model(MY_FILES, MY_MOD, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
   !
@@ -89,7 +89,7 @@ subroutine task_SetSrc
   !
   !*** Master reads and broadcasts SOURCE block from input file (MY_ESP)
   !
-  if(master) call src_read_inp_source_params(MY_FILES, MY_TIME, MY_SPE, MY_ESP, MY_PLUME, MY_ERR)
+  if(master_model) call src_read_inp_source_params(MY_FILES, MY_TIME, MY_SPE, MY_ESP, MY_PLUME, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
@@ -97,7 +97,7 @@ subroutine task_SetSrc
   !
   !*** Master reads and broadcasts PARTICLE_AGGREGATION block from input file (MY_AGR)
   !
-  if(master) call grn_read_inp_aggregation(MY_FILES, MY_AGR, MY_ERR)
+  if(master_model) call grn_read_inp_aggregation(MY_FILES, MY_AGR, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
@@ -105,7 +105,7 @@ subroutine task_SetSrc
   !
   !*** Master computes and broadcasts granulometry for each specie (MY_GRN)
   !
-  if(master) call grn_get_granulometry(MY_FILES, MY_SPE, MY_MOD, MY_GRN, MY_AGR, MY_ESP, MY_ERR)
+  if(master_model) call grn_get_granulometry(MY_FILES, MY_SPE, MY_MOD, MY_GRN, MY_AGR, MY_ESP, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
@@ -113,15 +113,15 @@ subroutine task_SetSrc
   !
   !*** Master writes the (effective) granulometry file
   !
-  if(master) call grn_write_granulometry(MY_FILES, MY_GRN, MY_ERR)
+  if(master_model) call grn_write_granulometry(MY_FILES, MY_GRN, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
-  !*** If necessary, master reads and forecasts meteo profiles
+  !*** If necessary, Master reads and forecasts meteo profiles
   !
   if( (MY_ESP%meteo_coupling).and.(.not.GL_METPROFILES%exists) ) then
      !
-     if(master) call src_read_profiles(MY_FILES, GL_METPROFILES, MY_ERR)
+     if(master_model) call src_read_profiles(MY_FILES, GL_METPROFILES, MY_ERR)
      call parallel_bcast(MY_ERR%flag,1,0)
      if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
      !
@@ -185,7 +185,7 @@ subroutine task_SetSrc
   !
   !*** Writes log file header
   !
-  if(master) then
+  if(master_model) then
      select case(MY_ESP%source_type)
      case('POINT','SUZUKI','TOP-HAT')
         write(MY_FILES%lulog,20)
@@ -236,11 +236,11 @@ subroutine task_SetSrc
            !*** Write log file
            !
            erumass = erumass + (iend-ibeg)*M0
-           if(master) write(MY_FILES%lulog,1) ibeg,iend,M0,H,GL_SRC%z(GL_SRC%np),erumass
+           if(master_model) write(MY_FILES%lulog,1) ibeg,iend,M0,H,GL_SRC%z(GL_SRC%np),erumass
            !
            !*** Write the source file for this interval
            !
-           if(master) call src_write_source(ibeg,iend,MY_GRN,GL_SRC,MY_FILES,MY_ERR)
+           if(master_model) call src_write_source(ibeg,iend,MY_GRN,GL_SRC,MY_FILES,MY_ERR)
            !
         else if(MY_ESP%meteo_coupling) then
            !
@@ -255,7 +255,7 @@ subroutine task_SetSrc
               !
               !*** Gets the wind profile at the current time by interpolating in time
               !
-              call src_interpolate_profile(time1+MY_ESP%profile_time_lag,GL_PLUMEPROF,GL_METPROFILES,MY_ERR)
+              call src_interpolate_profile(1.0_rp*time1,GL_PLUMEPROF,GL_METPROFILES,MY_ERR)
               !
               !*** Obtain M0 depending on plume height, wind profile and vent conditions
               !
@@ -280,11 +280,11 @@ subroutine task_SetSrc
               !*** Write log file
               !
               erumass = erumass + (time2-time1)*M0
-              if(master) write(MY_FILES%lulog,1) time1,time2,M0,H,GL_SRC%z(GL_SRC%np),erumass
+              if(master_model) write(MY_FILES%lulog,1) time1,time2,M0,H,GL_SRC%z(GL_SRC%np),erumass
               !
               !*** Write the source file for this interval
               !
-              if(master) call src_write_source(time1,time2,MY_GRN,GL_SRC,MY_FILES,MY_ERR)
+              if(master_model) call src_write_source(time1,time2,MY_GRN,GL_SRC,MY_FILES,MY_ERR)
               !
               !*** Update
               !
@@ -310,7 +310,7 @@ subroutine task_SetSrc
            !
            !*** Gets the wind profile at the current time by interpolating in time
            !
-           call src_interpolate_profile(time1+MY_ESP%profile_time_lag,GL_PLUMEPROF,GL_METPROFILES,MY_ERR)
+           call src_interpolate_profile(1.0_rp*time1,GL_PLUMEPROF,GL_METPROFILES,MY_ERR)
            !
            !*** Assign values
            !
@@ -324,11 +324,11 @@ subroutine task_SetSrc
            !*** Write log file
            !
            erumass = erumass + (time2-time1)*M0
-           if(master) write(MY_FILES%lulog,1) time1,time2,M0,GL_SRC%z(MY_PLUME%np),GL_SRC%z(MY_PLUME%ns),erumass
+           if(master_model) write(MY_FILES%lulog,1) time1,time2,M0,GL_SRC%z(MY_PLUME%np),GL_SRC%z(MY_PLUME%ns),erumass
            !
            !*** Write the source file for this interval
            !
-           if(master) call src_write_source(time1,time2,MY_GRN,GL_SRC,MY_FILES,MY_ERR)
+           if(master_model) call src_write_source(time1,time2,MY_GRN,GL_SRC,MY_FILES,MY_ERR)
            !
            !*** Update
            !
@@ -350,7 +350,7 @@ subroutine task_SetSrc
   !
   !*** Close src file
   !
-  if(master) call inpout_close_file(MY_FILES%lusrc, MY_ERR)
+  if(master_model) call inpout_close_file(MY_FILES%lusrc, MY_ERR)
   !
   !*** If necessary, saves the effective (not total) granulometry to tracers
   !
@@ -358,7 +358,7 @@ subroutine task_SetSrc
   !
   !*** Normal end
   !
-  if(master) call inpout_close_log_file(TASK_SET_SRC, MY_FILES, MY_ERR)
+  if(master_model) call inpout_close_log_file(TASK_SET_SRC, MY_FILES, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !

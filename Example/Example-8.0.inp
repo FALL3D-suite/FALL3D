@@ -125,7 +125,7 @@
    !     SO2                  options : ON / OFF
    !     MASS_FRACTION_(%)            : value
    !
-   H2O    = On    MASS_FRACTION_(%) = 2.
+   H2O    = Off   MASS_FRACTION_(%) = 2.
    SO2    = On    MASS_FRACTION_(%) = 1.
    !
    !     Species of category RADIONUCLIDES

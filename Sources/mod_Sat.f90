@@ -89,8 +89,8 @@ MODULE Sat
      real(rp)    :: d_cut_off                !< cut-off size
      real(rp), allocatable :: lon    (:,:)   !< x-coordinates
      real(rp), allocatable :: lat    (:,:)   !< y-coordinates of source point
-     real(rp), allocatable :: time   (:)     !< time   (nt_file) slabs in format YYYYMMDDHHMMSS
-     real(rp), allocatable :: timesec(:)     !< timesec(nt_file) slabs in sec after T0
+     type(DATETIME), allocatable :: time(:)  !< time   (nt_file) slabs in datetime format
+     real(rp), allocatable :: timesec(:)     !< timesec(nt_file) slabs in sec after YYYY-MM-DD 00:00:00 UTC 
      real(rp), allocatable :: mass   (:,:,:) !< total column mass loading
      real(rp), allocatable :: htop   (:,:,:) !< cloud-top height
      real(rp), allocatable :: thick  (:,:,:) !< cloud thickness
@@ -102,7 +102,7 @@ MODULE Sat
   type SAT_DATA_POINTS
      !
      integer(ip) :: np                     !< number of points
-     real(rp)    :: time                   !< time in format YYYYMMDDHHMMS
+     type(DATETIME) :: time                !< time in datetime format
      real(rp)    :: timesec                !< time in sec after 0000UTC
      !
      real(rp), allocatable :: lon  (:)   !< cloud points x-coordinates
@@ -143,14 +143,15 @@ CONTAINS
     type(SAT_DATA)        :: GL_SAT
     type(SAT_DATA_POINTS) :: GL_SAT_PTS
     !
-    logical     :: found,foundx,foundy,foundz
     integer(ip) :: is,ix,iy,iz,ibin
-    real(rp)    :: xs,ys,zmin,zmax,z1,z2,mass,vol,cmean,fmass
+    real(rp)    :: xs,ys
+    real(rp)    :: ztop,zbottom,z1,z2
+    real(rp)    :: mass,vol,fmass
     real(rp)    :: lonmin,lonmax,latmin,latmax
+    real(rp)    :: dlon,dlat,inv_dlon,inv_dlat
+    real(rp)    :: colmass,mass_fraction
     !
-    logical,  allocatable :: my_cell_count(:,:,:)
-    real(rp), allocatable :: my_2dmass    (:,:)
-    real(rp), allocatable :: my_2dthik    (:,:)
+    real(rp), allocatable :: my_mass3d(:,:,:)
     real(rp), allocatable :: mass_local   (:)
     real(rp), allocatable :: fc           (:)
     !
@@ -162,7 +163,7 @@ CONTAINS
     !
     !*** Master reads and broadcasts input file block
     !
-    if(master) call sat_read_inp_sat(MY_FILES,GL_SAT,MY_ERR)
+    if(master_model) call sat_read_inp_sat(MY_FILES,GL_SAT,MY_ERR)
     call parallel_bcast(MY_ERR%flag,1,0)
     if(MY_ERR%flag.ne.0) call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
     !
@@ -170,14 +171,14 @@ CONTAINS
     !
     !*** Master reads satelite data (one time slab only)
     !
-    if(master) call sat_read_data(MY_FILES,GL_SAT,MY_ERR,GL_SAT%islab)
+    if(master_model) call sat_read_data(MY_FILES,GL_SAT,MY_ERR,GL_SAT%islab)
     call parallel_bcast(MY_ERR%flag,1,0)
     if(MY_ERR%flag.ne.0) call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
     !
     !*** Master filters and broadcasts data (filter points with non-zero column mass) and checks
     !*** consistency between satelite and input data in time
     !
-    if(master) call sat_filter_data(MY_FILES,MY_TIME,GL_SAT,GL_SAT_PTS,MY_ERR)
+    if(master_model) call sat_filter_data(MY_FILES,MY_TIME,GL_SAT,GL_SAT_PTS,MY_ERR)
     call parallel_bcast(MY_ERR%flag,1,0)
     if(MY_ERR%flag.ne.0) call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
     !
@@ -185,95 +186,76 @@ CONTAINS
     !
     !*** Interpolates data. Concentration is imposed conserving the total mass
     !
-    allocate(my_cell_count(my_ibs:my_ibe,my_jbs:my_jbe,my_kbs:my_kbe))
-    allocate(my_2dmass    (my_ips:my_ipe,my_jps:my_jpe))
-    allocate(my_2dthik    (my_ips:my_ipe,my_jps:my_jpe))
-    my_cell_count(:,:,:) = .false.
-    my_2dmass    (:,:)   = 0.0_rp
-    my_2dthik    (:,:)   = 0.0_rp
+    allocate(my_mass3d(my_ips:my_ipe,my_jps:my_jpe,my_kps:my_kpe))
+    my_mass3d(:,:,:) = 0.0_rp
     !
     lonmin = MY_GRID%lon_c(my_ibs)
     lonmax = MY_GRID%lon_c(my_ibe)
     latmin = MY_GRID%lat_c(my_jbs)
     latmax = MY_GRID%lat_c(my_jbe)
     !
-    do is = 1,GL_SAT_PTS%np  ! loop over potential source points
+    inv_dlon = 1.0_rp/MY_GRID%dlon
+    inv_dlat = 1.0_rp/MY_GRID%dlat
+    !
+    !*** Loop over potential source points
+    !
+    compute_mass: do is = 1,GL_SAT_PTS%np  
        !
        xs = GL_SAT_PTS%lon(is)
        ys = GL_SAT_PTS%lat(is)
        !
-       if((xs.ge.lonmin).and.(xs.le.lonmax).and. &
-            (ys.ge.latmin).and.(ys.le.latmax)) then
-          !
-          ! I am a candidate point
-          !
-          found  = .false.
-          foundx = .false.
-          ix     = my_ibs
-          do while(.not.found)
-             if((xs.ge.MY_GRID%lon_c(ix)).and.(xs.lt.MY_GRID%lon_c(ix+1))) then
-                found  = .true.
-                foundx = .true.
-             else
-                ix = ix + 1
-                if(ix.eq.my_ibe) found=.true.
-             end if
-          end do
-          !
-          found  = .false.
-          foundy = .false.
-          iy     = my_jbs
-          do while(.not.found)
-             if((ys.ge.MY_GRID%lat_c(iy)).and.(ys.lt.MY_GRID%lat_c(iy+1))) then
-                found  = .true.
-                foundy = .true.
-             else
-                iy = iy + 1
-                if(iy.eq.my_jbe) found=.true.
-             end if
-          end do
-          !
-          if(foundx.and.foundy) then
-             !
-             foundz = .false.
-             zmax   = GL_SAT_PTS%htop(is)
-             zmin   = GL_SAT_PTS%htop(is)-GL_SAT_PTS%thick(is)
-             !
-             do iz = my_kbs,my_kbe-1
-                z1 = MY_GRID%z_c(ix,iy,iz  )
-                z2 = MY_GRID%z_c(ix,iy,iz+1)
-                if( ((zmin.ge.z1).and.(zmin.le.z2)).or. &
-                     ((zmax.ge.z1).and.(zmax.le.z2)) ) then
-                   foundz = .true.
-                   if(.not.my_cell_count(ix,iy,iz)) then
-                      my_cell_count(ix,iy,iz) = .true.      ! one cell can host many points
-                      my_2dthik(ix,iy) = my_2dthik(ix,iy) + (z2-z1)
-                   end if
-                end if
-             end do
-             !
-             if(foundz) my_2dmass(ix,iy) = my_2dmass(ix,iy) + GL_SAT_PTS%mass(is)*GL_SAT_PTS%area(is)  ! mass in my column
-          end if
-          !
+       ! Note that longitudes are in the range [-180,180) and so is xs
+       if(xs.ge.180.0_rp) xs = xs - 360.0_rp
+       !
+       !Check latitudes
+       if(ys.lt.latmin .or. ys.ge.latmax) cycle compute_mass
+       !
+       !Check longitudes (all in [-180,180))
+       if(lonmin.lt.lonmax) then
+           if(xs.lt.lonmin .or. xs.ge.lonmax) cycle compute_mass
+       else
+           if(xs.lt.lonmin .and. xs.ge.lonmax) cycle compute_mass
        end if
-    end do  ! is = 1,GL_SAT_PTS%np
+       !
+       dlat = ys - latmin
+       dlon = xs - lonmin
+       if(dlon.lt.0) dlon = dlon + 360.0_rp
+       ix = my_ips + int(dlon*inv_dlon)
+       iy = my_jps + int(dlat*inv_dlat)
+       !
+       !*** Total Mass in column
+       !
+       colmass = GL_SAT_PTS%mass(is)*GL_SAT_PTS%area(is)
+       !
+       ztop    = GL_SAT_PTS%htop(is)
+       zbottom = GL_SAT_PTS%htop(is)-GL_SAT_PTS%thick(is)
+       !
+       do iz = my_kbs,my_kbe-1
+         z1 = MY_GRID%z_c(ix,iy,iz  )
+         z2 = MY_GRID%z_c(ix,iy,iz+1)
+         !
+         z1 = max(z1,zbottom)
+         z2 = min(z2,ztop)
+         if(z2.gt.z1) then
+            mass_fraction = (z2-z1)/GL_SAT_PTS%thick(is)
+            my_mass3d(ix,iy,iz) = my_mass3d(ix,iy,iz) + colmass * mass_fraction
+         end if
+       end do
+       !
+    end do compute_mass 
     !
     !*** Check spatial consistency of points (i.e. mass exists in the domain)
     !
-    allocate(mass_local(0:nproc-1))
-    mass_local(:)     = 0.0_rp
-    mass_local(mpime) = sum(my_2dmass)
-    call parallel_sum(mass_local, COMM_WORLD)
+    allocate(mass_local(0:npes_model-1))
+    mass_local(:)          = 0.0_rp
+    mass_local(mype_model) = sum(my_mass3d)
+    call parallel_sum(mass_local, COMM_MODEL)
     mass = sum(mass_local)
     if(mass.le.0.0_rp) then
        MY_ERR%flag    = 1
        MY_ERR%message = 'No mass found in the domain for insertion. Check domain limits'
        call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
     end if
-    !
-    !*** Get thickness across z-processors
-    !
-    call parallel_sum(my_2dthik,COMM_GRIDZ)  ! only along z
     !
     !*** Determine the affected bins and relative mass fraction
     !
@@ -285,7 +267,7 @@ CONTAINS
        fmass = 0.0_rp
        do ibin = 1,MY_TRA%nbins
           if(MY_TRA%MY_BIN%bin_type(ibin).eq.'tephra'.and. &
-               MY_TRA%MY_BIN%bin_diam(ibin).le.GL_SAT%d_cut_off) then
+             MY_TRA%MY_BIN%bin_diam(ibin).le.GL_SAT%d_cut_off) then
              fc(ibin) = MY_TRA%MY_BIN%bin_fc(ibin)
              fmass = fmass + fc(ibin)
           end if
@@ -312,23 +294,17 @@ CONTAINS
     !*** Set the (averaged) concentration. Note that concentration is already scaled (i.e. no
     !*** need to first divide and then multiply by map factors)
     !
-    MY_TRA%my_c   (:,:,:,:) = 0.0_rp
+    MY_TRA%my_c(:,:,:,:) = 0.0_rp
     !
+    do iz = my_kps,my_kpe
     do iy = my_jps,my_jpe
-       do ix = my_ips,my_ipe
-          if(my_2dmass(ix,iy).gt.0.0_rp) then
-             vol   = MY_GRID%dX1_p(ix)*MY_GRID%dX2_p(iy)*my_2dthik(ix,iy)
-             cmean = my_2dmass(ix,iy)/vol   ! already scaled
-             !
-             do iz = my_kps,my_kpe
-                if(my_cell_count(ix,iy,iz)) then
-                   do ibin = 1,MY_TRA%nbins
-                      MY_TRA%my_c(ix,iy,iz,ibin) = fc(ibin)*cmean
-                   end do
-                end if
-             end do
-          end if
-       end do
+    do ix = my_ips,my_ipe
+      vol = MY_GRID%dX1_p(ix)*MY_GRID%dX2_p(iy)*MY_GRID%dX3_p(iz)
+      do ibin = 1,MY_TRA%nbins
+        MY_TRA%my_c(ix,iy,iz,ibin) = fc(ibin)*my_mass3d(ix,iy,iz)/vol
+      end do
+    end do
+    end do
     end do
     !
     !*** Exchange halos
@@ -386,6 +362,7 @@ CONTAINS
        return 
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'sat_read_inp_sat'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version'
        return
     end if
@@ -562,7 +539,7 @@ CONTAINS
     allocate(GL_SAT%htop   (GL_SAT%nx,GL_SAT%ny,GL_SAT%nt))
     allocate(GL_SAT%thick  (GL_SAT%nx,GL_SAT%ny,GL_SAT%nt))
     !
-    !*** Get timesec for all slabs in the file (referred to T0)
+    !*** Get timesec for all slabs in the file (referred to 00:00UTC of T0)
     !
     istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
     istat = nf90_get_var  (ncID,varID,GL_SAT%timesec,start=(/1/),count=(/GL_SAT%nt_file/))
@@ -592,18 +569,29 @@ CONTAINS
     GL_SAT%start_min   = stoi1(str(15:15))*10 + &
          stoi1(str(16:16))
     !
-    !*** Compute time in format YYYYMMDDHHMMSS
+    !*** Compute time in datetime format
     !
-    GL_SAT%time(1) = 1e10_rp*GL_SAT%start_year    + &
-         1e8_rp *GL_SAT%start_month   + &
-         1e6_rp *GL_SAT%start_day     + &
-         1e4_rp *GL_SAT%start_hour    + &
-         1e2_rp *GL_SAT%start_min
-
+    GL_SAT%time(1) = DATETIME( GL_SAT%start_year,   &
+                               GL_SAT%start_month,  &
+                               GL_SAT%start_day,    &
+                               GL_SAT%start_hour,   &
+                               GL_SAT%start_min,    &
+                               0_ip )
+    !
+    !*** Correct timesec to refer it to 00:00 UTC
+    !
+    GL_SAT%timesec = GL_SAT%timesec + &
+                     GL_SAT%start_hour * 3600.0_rp + &
+                     GL_SAT%start_min * 60.0_rp
     do it = 2,GL_SAT%nt_file
-       call time_addtime(GL_SAT%start_year,GL_SAT%start_month, GL_SAT%start_day,GL_SAT%start_hour,  &
-            iyr,imo,idy,ihr,imi,ise,GL_SAT%timesec(it),MY_ERR)
-       GL_SAT%time(it) = 1e10_rp*iyr + 1e8_rp*imo + 1e6_rp*idy + 1e4_rp*ihr + 1e2_rp*imi + ise
+       call time_addtime(GL_SAT%start_year,       &
+                         GL_SAT%start_month,      &
+                         GL_SAT%start_day,        &
+                         0_ip,                    &
+                         iyr,imo,idy,ihr,imi,ise, &
+                         GL_SAT%timesec(it),      &
+                         MY_ERR )
+       GL_SAT%time(it) = DATETIME(iyr,imo,idy,ihr,imi,ise)
     end do
     !
     !*** Read other variables
@@ -700,6 +688,10 @@ CONTAINS
     istat = nf90_get_att(ncID, NF90_GLOBAL, DICTIONARY(ATR_RESOL), GL_SAT%resolution)
     if(istat.ne.0) GL_SAT%resolution ='N/A'
     !
+    !*** Close the file
+    !
+    istat = nf90_close(ncID)
+    !
     !*** Print to log file
     !
     lulog = MY_FILES%lulog
@@ -712,16 +704,26 @@ CONTAINS
          '                                                    ',/,   &
          '----------------------------------------------------')
     !
-    call time_addtime(GL_SAT%start_year,GL_SAT%start_month, GL_SAT%start_day, GL_SAT%start_hour,  &
-         iyr,imo,idy,ihr,imi,ise,GL_SAT%timesec(1),MY_ERR)
+    call time_addtime(GL_SAT%start_year,       &
+                      GL_SAT%start_month,      &
+                      GL_SAT%start_day,        &
+                      0_ip,                    &
+                      iyr,imo,idy,ihr,imi,ise, &
+                      GL_SAT%timesec(1),       &
+                      MY_ERR)
     call time_dateformat(iyr,imo,idy,ihr,imi,ise,3_ip, time_str, MY_ERR)
     write(lulog,20) TRIM(time_str)
 20  format(/,&
          'TIME RANGE OF SATELITE DATA',/, &
          '  Initial time       : ',a)
     !
-    call time_addtime(GL_SAT%start_year,GL_SAT%start_month, GL_SAT%start_day, GL_SAT%start_hour,  &
-         iyr,imo,idy,ihr,imi,ise,GL_SAT%timesec(GL_SAT%nt_file),MY_ERR)
+    call time_addtime(GL_SAT%start_year,              &
+                      GL_SAT%start_month,             &
+                      GL_SAT%start_day,               &
+                      0_ip,                           &
+                      iyr,imo,idy,ihr,imi,ise,        &
+                      GL_SAT%timesec(GL_SAT%nt_file), &
+                      MY_ERR)
     call time_dateformat(iyr,imo,idy,ihr,imi,ise,3_ip, time_str, MY_ERR)
     write(lulog,21) TRIM(time_str)
 21  format('  Final   time       : ',a)
@@ -854,8 +856,13 @@ CONTAINS
     !
     lulog = MY_FILES%lulog
     !
-    call time_addtime(GL_SAT%start_year,GL_SAT%start_month, GL_SAT%start_day, GL_SAT%start_hour,  &
-         iyr,imo,idy,ihr,imi,ise,GL_SAT%timesec(GL_SAT%islab),MY_ERR)
+    call time_addtime(GL_SAT%start_year,            &
+                      GL_SAT%start_month,           &
+                      GL_SAT%start_day,             &
+                      0_ip,                         &
+                      iyr,imo,idy,ihr,imi,ise,      &
+                      GL_SAT%timesec(GL_SAT%islab), &
+                      MY_ERR)
     call time_dateformat(iyr,imo,idy,ihr,imi,ise,3_ip, time_str, MY_ERR)
     write(lulog,20) GL_SAT%islab, TRIM(time_str), GL_SAT_PTS%np
 20  format(/,&
@@ -869,12 +876,12 @@ CONTAINS
     call time_julian_date(GL_SAT%start_year, GL_SAT%start_month,  GL_SAT%start_day, julday1, MY_ERR)
     call time_julian_date(MY_TIME%start_year,MY_TIME%start_month, MY_TIME%start_day,julday2, MY_ERR)
     !
-    GL_SAT%time_lag = (julday2-julday1)*86400.0_rp - 3600*GL_SAT%start_hour - 60*GL_SAT%start_min
+    GL_SAT%time_lag = (julday2-julday1)*86400.0_rp
     !
-    !*** Convert timesec to seconds after 00:00 UTC (not to seconds after HH:MM UTC referred to T0)
+    !*** Convert timesec to seconds after 00:00 UTC of FALL3D reference time (instead of T0)
     !
     do it = 1,GL_SAT%nt_file
-       GL_SAT%timesec(it) = GL_SAT%timesec(it) - GL_SAT%time_lag + GL_SAT%start_hour
+       GL_SAT%timesec(it) = GL_SAT%timesec(it) - GL_SAT%time_lag 
     end do
     !
     GL_SAT_PTS%time    = GL_SAT%time   (GL_SAT%islab)
@@ -921,15 +928,20 @@ CONTAINS
     MY_ERR%source  = 'sat_bcast_sat_pts_data'
     MY_ERR%message = ' '
     !
-    call parallel_bcast(GL_SAT_PTS%np     ,1,0)
-    call parallel_bcast(GL_SAT_PTS%time   ,1,0)
-    call parallel_bcast(GL_SAT_PTS%timesec,1,0)
+    call parallel_bcast(GL_SAT_PTS%np,         1,0)
+    call parallel_bcast(GL_SAT_PTS%time%year,  1,0)
+    call parallel_bcast(GL_SAT_PTS%time%month, 1,0)
+    call parallel_bcast(GL_SAT_PTS%time%day,   1,0)
+    call parallel_bcast(GL_SAT_PTS%time%hour,  1,0)
+    call parallel_bcast(GL_SAT_PTS%time%minute,1,0)
+    call parallel_bcast(GL_SAT_PTS%time%second,1,0)
+    call parallel_bcast(GL_SAT_PTS%timesec,    1,0)
     !
     !*** Memory allocation
     !
     npoin = GL_SAT_PTS%np
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(GL_SAT_PTS%lon  (npoin))
        allocate(GL_SAT_PTS%lat  (npoin))
        allocate(GL_SAT_PTS%mass (npoin))

@@ -43,6 +43,8 @@ MODULE Dbs
   PRIVATE :: dbs_get_geopotential_hyb
   PRIVATE :: dbs_get_map_projection_info
   PRIVATE :: dbs_get_zo_from_24ldu
+  PRIVATE :: dbs_replace
+  PRIVATE :: dbs_get_unit_time
   !
   !    LIST OF PRIVATE VARIABLES
   !
@@ -56,11 +58,10 @@ MODULE Dbs
   integer(ip), PRIVATE, parameter :: DIM_LAT    = 2
   integer(ip), PRIVATE, parameter :: DIM_ZLEV   = 3
   integer(ip), PRIVATE, parameter :: DIM_TIME   = 4
-  integer(ip), PRIVATE, parameter :: DIM_STRLEN = 5
-  integer(ip), PRIVATE, parameter :: DIM_XSTAGE = 6
-  integer(ip), PRIVATE, parameter :: DIM_YSTAGE = 7
-  integer(ip), PRIVATE, parameter :: DIM_ZSTAGE = 8
-  integer(ip), PRIVATE, parameter :: DIM_SOILAY = 9
+  integer(ip), PRIVATE, parameter :: DIM_XSTAGE = 5
+  integer(ip), PRIVATE, parameter :: DIM_YSTAGE = 6
+  integer(ip), PRIVATE, parameter :: DIM_ZSTAGE = 7
+  integer(ip), PRIVATE, parameter :: DIM_SOILAY = 8
   !
   integer(ip), PRIVATE, parameter :: VAR_LON   = 10
   integer(ip), PRIVATE, parameter :: VAR_LAT   = 11
@@ -120,9 +121,9 @@ CONTAINS
     !>   @param GL_METMODEL variables related to driving meteorological model
     !>   @param MY_ERR      error handler
     !
-    type(FILE_LIST),     intent(INOUT) :: MY_FILES
-    type(ARAKAWA_C_GRID),intent(INOUT) :: MY_GRID
-    type(METEOROLOGY),   intent(INOUT) :: MY_MET
+    type(FILE_LIST),     intent(IN   ) :: MY_FILES
+    type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
+    type(METEOROLOGY),   intent(IN   ) :: MY_MET
     type(METEO_MODEL),   intent(INOUT) :: GL_METMODEL
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
@@ -222,7 +223,7 @@ CONTAINS
           return
        end if
        !
-    case('GFS','ERA5','GRIB2NC','ERA5ML')
+    case('GFS','GDAS','ERA5','GRIB2NC','ERA5ML')
        !
        allocate(work1d(GL_METMODEL%nx))
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_LON),varID)
@@ -269,7 +270,7 @@ CONTAINS
     ! Reads pressure 1D when applicable
     select case(MY_MET%meteo_data_type)
        !
-    case('GFS','ERA5','GRIB2NC')
+    case('GFS','GDAS','ERA5','GRIB2NC')
        !   pres
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_ZLEV),varID)
        istat = nf90_get_var  (ncID,varID,GL_METMODEL%pres)
@@ -278,7 +279,6 @@ CONTAINS
           MY_ERR%message = nf90_strerror(istat)
           return
        end if
-       GL_METMODEL%pres = GL_METMODEL%pres*100.0_rp  ! (converted from mb to Pa)
        !
        !   NOTE: GFS/ERA5 pressure levels given from top to bottom (surface); i.e. need to be inverted
        if (GL_METMODEL%pres(1).lt.GL_METMODEL%pres(2)) then
@@ -294,6 +294,13 @@ CONTAINS
        end if
     case('ERA5ML')
        GL_METMODEL%zreversed = .true.
+    end select
+    !
+    !*** Convert pressure units
+    select case(MY_MET%meteo_data_type)
+       !
+    case('GFS','ERA5','GRIB2NC')
+        GL_METMODEL%pres = GL_METMODEL%pres*100.0_rp  ! (converted from mb to Pa)
     end select
     !
     !*** Reads topography
@@ -373,7 +380,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(GL_METMODEL%lon  ( GL_METMODEL%nx, GL_METMODEL%ny))
        allocate(GL_METMODEL%lat  ( GL_METMODEL%nx, GL_METMODEL%ny))
        allocate(GL_METMODEL%pres ( GL_METMODEL%nz                ))
@@ -412,21 +419,30 @@ CONTAINS
     type(RUN_TIME),      intent(INOUT) :: MY_TIME
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    logical     :: found
-    integer(ip) :: istat,it,i,julday1,julday2
-    integer(ip) :: iyr,imo,idy,ihr,imi,ise,iyr2,imo2,idy2,ihr2,imi2
-    real(rp)    :: time_dbs_start,time_dbs_end,time_dbs_start_sec,time_dbs_end_sec
+    logical        :: found
+    integer(ip)    :: istat,it,i,julday1,julday2
+    integer(ip)    :: iyr,imo,idy,ihr,imi,ise
+    real(rp)       :: time_dbs_start_sec,time_dbs_end_sec
+    type(DATETIME) :: time_dbs_start,time_dbs_end,time_driver_ref
     !
+    real(rp)                       :: time_factor
+    character(len=80)              :: unit_time_string
+    real(dp),          allocatable :: driver_times(:)
     character(len=19), allocatable :: WRF_string(:)
-    real(rp),          allocatable :: GFS_times(:),ERA_times(:)
-    !
-    character(len=80) :: time_units_in
     !
     !*** Initializations
     !
-    MY_ERR%flag    = 0
-    MY_ERR%source  = 'dbs_read_metmodel_times'
-    MY_ERR%message = ' '
+    select case(MY_MET%meteo_data_type)
+    case('WRF','GFS','GRIB2NC','GDAS','ERA5','ERA5ML')
+        MY_ERR%flag    = 0
+        MY_ERR%source  = 'dbs_read_metmodel_times'
+        MY_ERR%message = ' '
+    case default
+        MY_ERR%flag    = 1
+        MY_ERR%source  = 'dbs_read_metmodel_times'
+        MY_ERR%message = 'Meteo model not implemented '
+        return
+    end select
     !
     !*** Read dimensions
     !
@@ -442,247 +458,143 @@ CONTAINS
     !
     allocate(GL_METMODEL%time   ( GL_METMODEL%nt ))
     allocate(GL_METMODEL%timesec( GL_METMODEL%nt ))
+    allocate(driver_times(GL_METMODEL%nt)) 
     !
-    !*** Determine GL_METMODEL%time and GL_METMODEL%timesec ( model dependent choice )
-    !
+    !*** Read times from driver
+    ! 
     select case(MY_MET%meteo_data_type)
     case('WRF')
-       !
-       !  WRF model
-       !
-       allocate(WRF_string(GL_METMODEL%nt))  ! time instants in format YYYY-MM-DD_HH:MM:SS
-       !
-       istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
-       istat = nf90_get_var  (ncID,varID,WRF_string)
-       if(istat.ne.0) then
-          MY_ERR%flag    = istat
-          MY_ERR%message = nf90_strerror(istat)
-          return
-       end if
-       !
-       GL_METMODEL%start_year   = stoi1(WRF_string(1)(1 :1 ))*1000 + &
-            stoi1(WRF_string(1)(2 :2 ))*100  + &
-            stoi1(WRF_string(1)(3 :3 ))*10   + &
-            stoi1(WRF_string(1)(4 :4 ))
-       GL_METMODEL%start_month  = stoi1(WRF_string(1)(6 :6 ))*10   + &
-            stoi1(WRF_string(1)(7 :7 ))
-       GL_METMODEL%start_day    = stoi1(WRF_string(1)(9 :9 ))*10   + &
-            stoi1(WRF_string(1)(10:10))
-       GL_METMODEL%start_hour   = stoi1(WRF_string(1)(12:12))*10   + &
-            stoi1(WRF_string(1)(13:13))
-       GL_METMODEL%start_minute = stoi1(WRF_string(1)(15:15))*10   + &
-            stoi1(WRF_string(1)(16:16))
-       GL_METMODEL%start_second = stoi1(WRF_string(1)(18:18))*10   + &
-            stoi1(WRF_string(1)(19:19))
-       !
-       !  GL_METMODEL%time in format YYYYMMDDHHMMSS
-       !
-       do it = 1,GL_METMODEL%nt
-          GL_METMODEL%time(it) = stoi1(WRF_string(it)(1 :1 ))*(1e13_rp) + &
-               stoi1(WRF_string(it)(2 :2 ))*(1e12_rp) + &
-               stoi1(WRF_string(it)(3 :3 ))*(1e11_rp) + &
-               stoi1(WRF_string(it)(4 :4 ))*(1e10_rp) + &
-               stoi1(WRF_string(it)(6 :6 ))*(1e9_rp ) + &
-               stoi1(WRF_string(it)(7 :7 ))*(1e8_rp ) + &
-               stoi1(WRF_string(it)(9 :9 ))*(1e7_rp ) + &
-               stoi1(WRF_string(it)(10:10))*(1e6_rp ) + &
-               stoi1(WRF_string(it)(12:12))*(1e5_rp ) + &
-               stoi1(WRF_string(it)(13:13))*(1e4_rp ) + &
-               stoi1(WRF_string(it)(15:15))*(1e3_rp ) + &
-               stoi1(WRF_string(it)(16:16))*(1e2_rp ) + &
-               stoi1(WRF_string(it)(18:18))*(1e1_rp ) + &
-               stoi1(WRF_string(it)(19:19))*(1e0_rp )
-       end do
-       !
-       ! Finds the WRF time step by guess (10min increment iteration) and
-       ! comparing with the second value
-       !
-       GL_METMODEL%dt = 0.0_rp
-       if(GL_METMODEL%nt.gt.1) then
-          iyr2 = stoi1(WRF_string(2)(1 :1 ))*1000 + &
-               stoi1(WRF_string(2)(2 :2 ))*100  + &
-               stoi1(WRF_string(2)(3 :3 ))*10   + &
-               stoi1(WRF_string(2)(4 :4 ))
-          imo2 = stoi1(WRF_string(2)(6 :6 ))*10   + &
-               stoi1(WRF_string(2)(7 :7 ))
-          idy2 = stoi1(WRF_string(2)(9 :9 ))*10   + &
-               stoi1(WRF_string(2)(10:10))
-          ihr2 = stoi1(WRF_string(2)(12:12))*10   + &
-               stoi1(WRF_string(2)(13:13))
-          imi2 = stoi1(WRF_string(2)(15:15))*10   + &
-               stoi1(WRF_string(2)(16:16))
-          !
-          found = .false.
-          do while(.not.found)
-             GL_METMODEL%dt = GL_METMODEL%dt + 60.   ! 1 min
-             call time_addtime(GL_METMODEL%start_year,GL_METMODEL%start_month, &
-                  GL_METMODEL%start_day, GL_METMODEL%start_hour,  &
-                  iyr,imo,idy,ihr,imi,ise,GL_METMODEL%dt,MY_ERR)
-             if( (iyr.eq.iyr2).and.(imo.eq.imo2).and.(idy.eq.idy2).and. &
-                  (ihr.eq.ihr2).and.(imi.eq.imi2) ) found = .true.
-             if( GL_METMODEL%dt.gt.(24.*3600.) ) then  ! 24h maximum
-                MY_ERR%flag    = 1
-                MY_ERR%message = ' unable to find GL_METMODEL%dt for WRF '
-                return
-             end if
-          end do
-       end if
-       !
-       ! GL_METMODEL%timesec (after 0000UTC)
-       !
-       GL_METMODEL%timesec(1) = 3600.0_rp*GL_METMODEL%start_hour   + &
-            60.0_rp*GL_METMODEL%start_minute + &
-            GL_METMODEL%start_second
-       do it = 2,GL_METMODEL%nt
-          GL_METMODEL%timesec(it) = GL_METMODEL%timesec(1) + (it-1)*GL_METMODEL%dt
-       end do
-       !
-    case('GFS','GRIB2NC')
-       !
-       !  GRIB2NC
-       !  NOTE: converversion with wgrib2 assumed
-       !
-       allocate(GFS_times(GL_METMODEL%nt))  ! time instants in seconds since 1970-01-01 00:00
-       !                                    ! or days since 1-1-1 00:00:0.0
-       !
-       istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
-       istat = nf90_get_var  (ncID,varID,GFS_times)
-       if(istat.ne.0) then
-          MY_ERR%flag    = istat
-          MY_ERR%message = nf90_strerror(istat)
-          return
-       end if
-       !
-       istat = nf90_inquire_attribute(ncID, varID, 'units')
-       if (istat .eq. nf90_noerr) then
-          istat = nf90_get_att(ncID, varID, 'units', time_units_in)
-       else
-          time_units_in = 'seconds since 1970-1-1 00:00:00'
-       end if
-
-       if(trim(time_units_in) .eq. 'days since 1-1-1 00:00:0.0') then
-          !
-          !Convert days to seconds.
-          !Moreover, we take account of a
-          !2 days difference in dates between
-          !Julian and proleptic Gregorian calendars.
-          !Only valid for years>1582
-          GFS_times = (GFS_times-2)*24*3600_rp
-          call time_addtime(1,1,1,0,                 &
-               GL_METMODEL%start_year,  &
-               GL_METMODEL%start_month, &
-               GL_METMODEL%start_day,   &
-               GL_METMODEL%start_hour,  &
-               imi,ise,                 &
-               GFS_times(1),            &
-               MY_ERR)
-       else
-          call time_addtime(1970,1,1,0,              &
-               GL_METMODEL%start_year,  &
-               GL_METMODEL%start_month, &
-               GL_METMODEL%start_day,   &
-               GL_METMODEL%start_hour,  &
-               imi,ise,                 &
-               GFS_times(1),            &
-               MY_ERR)
-       end if
-       !
-       GL_METMODEL%start_minute = 0
-       GL_METMODEL%start_second = 0
-       !
-       if(GL_METMODEL%nt.gt.1) then
-          GL_METMODEL%dt = GFS_times(2) - GFS_times(1)
-       else
-          GL_METMODEL%dt = 0.0_rp
-       end if
-       !
-       !  GL_METMODEL%time in format YYYYMMDDHHMMSS and GL_METMODEL%timesec (after 0000UTC)
-       !
-       GL_METMODEL%timesec(1) = 3600.0_rp*GL_METMODEL%start_hour   + &
-            60.0_rp*GL_METMODEL%start_minute + &
-            GL_METMODEL%start_second
-       GL_METMODEL%time(1)    = 1e10_rp*GL_METMODEL%start_year   + &
-            1e8_rp *GL_METMODEL%start_month + &
-            1e6_rp *GL_METMODEL%start_day   + &
-            1e4_rp *GL_METMODEL%start_hour  + &
-            1e2_rp *GL_METMODEL%start_minute  + &
-            GL_METMODEL%start_second
-       do it = 2,GL_METMODEL%nt
-          GL_METMODEL%timesec(it) = GL_METMODEL%timesec(1) + (it-1)*GL_METMODEL%dt
-          call time_addtime(GL_METMODEL%start_year,  &
-               GL_METMODEL%start_month, &
-               GL_METMODEL%start_day,   &
-               0,                       &
-               iyr,imo,idy,ihr,imi,ise, &
-               GL_METMODEL%timesec(it), &
-               MY_ERR)
-          GL_METMODEL%time(it) = 1e10_rp*iyr + 1e8_rp*imo + 1e6_rp*idy + 1e4_rp*ihr + 1e2_rp*imi + ise
-       end do
-       !
-    case('ERA5','ERA5ML')
-       !
-       !  ERA5
-       !
-       allocate(ERA_times(GL_METMODEL%nt))  ! time instants in hours since 1900-01-01 00:00:00.0
-       !
-       istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
-       istat = nf90_get_var  (ncID,varID,ERA_times)
-       if(istat.ne.0) then
-          MY_ERR%flag    = istat
-          MY_ERR%message = nf90_strerror(istat)
-          return
-       end if
-       !
-       ERA_times = ERA_times * 3600_rp
-       !
-       call time_addtime(1900,1,1,0,              &
-            GL_METMODEL%start_year,  &
-            GL_METMODEL%start_month, &
-            GL_METMODEL%start_day,   &
-            GL_METMODEL%start_hour,  &
-            imi,                     &
-            ise,                     &
-            ERA_times(1),MY_ERR)
-       GL_METMODEL%start_minute = 0
-       GL_METMODEL%start_second = 0
-       !
-       if(GL_METMODEL%nt.gt.1) then
-          GL_METMODEL%dt = ERA_times(2) - ERA_times(1)
-       else
-          GL_METMODEL%dt = 0.0_rp
-       end if
-       !
-       !  GL_METMODEL%time in format YYYYMMDDHHMMSS and GL_METMODEL%timesec (after 0000UTC)
-       !
-       GL_METMODEL%timesec(1) = 3600.0_rp*GL_METMODEL%start_hour   + &
-            60.0_rp*GL_METMODEL%start_minute + &
-            GL_METMODEL%start_second
-       GL_METMODEL%time(1)    = 1e10_rp*GL_METMODEL%start_year   + &
-            1e8_rp *GL_METMODEL%start_month + &
-            1e6_rp *GL_METMODEL%start_day   + &
-            1e4_rp *GL_METMODEL%start_hour  + &
-            1e2_rp *GL_METMODEL%start_minute  + &
-            GL_METMODEL%start_second
-       do it = 2,GL_METMODEL%nt
-          GL_METMODEL%timesec(it) = GL_METMODEL%timesec(1) + (it-1)*GL_METMODEL%dt
-          call time_addtime(GL_METMODEL%start_year,  &
-               GL_METMODEL%start_month, &
-               GL_METMODEL%start_day,   &
-               0,                       &
-               iyr,imo,idy,ihr,imi,ise, &
-               GL_METMODEL%timesec(it), &
-               MY_ERR)
-          GL_METMODEL%time(it) = 1e10_rp*iyr + 1e8_rp*imo + 1e6_rp*idy + 1e4_rp*ihr + 1e2_rp*imi + ise
-       end do
-       !
+        !
+        !*** WRF model
+        !
+        allocate(WRF_string(GL_METMODEL%nt))  ! time instants in format YYYY-MM-DD_HH:MM:SS
+        !
+        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
+        istat = nf90_get_var(ncID,varID,WRF_string)
+        if(istat.ne.nf90_noerr) then
+            MY_ERR%flag    = istat
+            MY_ERR%message = nf90_strerror(istat)
+            return
+        end if
+        !
+        !*** Define for the driver:
+        !    time(nt)         in format YYYY-MM-DD HH:MM:SS
+        !    reference time   in format YYYY-MM-DD 00:00:00
+        !    driver_times(nt) in format seconds after the reference time
+        !
+        do it = 1,GL_METMODEL%nt
+            iyr = stoi1(WRF_string(it)(1 :1 ))*1000 + &
+                  stoi1(WRF_string(it)(2 :2 ))*100  + &
+                  stoi1(WRF_string(it)(3 :3 ))*10   + &
+                  stoi1(WRF_string(it)(4 :4 ))
+            imo = stoi1(WRF_string(it)(6 :6 ))*10   + &
+                  stoi1(WRF_string(it)(7 :7 ))
+            idy = stoi1(WRF_string(it)(9 :9 ))*10   + &
+                  stoi1(WRF_string(it)(10:10))
+            ihr = stoi1(WRF_string(it)(12:12))*10   + &
+                  stoi1(WRF_string(it)(13:13))
+            imi = stoi1(WRF_string(it)(15:15))*10   + &
+                  stoi1(WRF_string(it)(16:16))
+            ise = stoi1(WRF_string(it)(18:18))*10   + &
+                  stoi1(WRF_string(it)(19:19))
+            GL_METMODEL%time(it) = DATETIME(iyr,imo,idy,ihr,imi,ise)
+            if(it.eq.1) then
+                time_driver_ref = DATETIME(iyr,imo,idy,0,0,0)
+                call time_julian_date(iyr,imo,idy,julday1,MY_ERR)
+            end if
+            call time_julian_date(iyr,imo,idy,julday2,MY_ERR)
+            driver_times(it) = (julday2-julday1)*86400.0_dp + &
+                                ihr*3600.0_dp + imi*60.0_dp + &
+                                ise*1.0_dp
+        end do
     case default
-       !
-       !  DEFAULT
-       !
-       MY_ERR%flag    = 1
-       MY_ERR%message = 'Meteo model not implemented '
-       return
+        !
+        !*** Assuming CF Conventions for input file
+        !
+        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
+        istat = nf90_get_var  (ncID,varID,driver_times)
+        if(istat.ne.nf90_noerr) then
+          MY_ERR%flag    = istat
+          MY_ERR%source  = 'dbs_read_metmodel_times'
+          MY_ERR%message = nf90_strerror(istat)
+          return
+        end if
+        !
+        call dbs_get_unit_time(ncID,varID,'units',time_factor,unit_time_string,MY_ERR)
+        if(MY_ERR%flag.ne.0) return
+        !
+        !*** Convert to seconds
+        !
+        driver_times = time_factor*driver_times
+        !
+        !*** Read the reference datetime from time units attribute
+        !    We use list-directed I/O
+        !
+        call dbs_replace(unit_time_string,'-:.TZ')
+        READ(unit_time_string,fmt=*) time_driver_ref
+        !
+        !*** Compute driver time seconds after YYYY-MM-DD 00:00:00
+        !
+        driver_times = driver_times                     + &
+                       time_driver_ref%hour   * 3600_dp + &
+                       time_driver_ref%minute * 60.0_dp + &
+                       time_driver_ref%second * 1.0_dp
+        !
+        !time_addtime assumes a proleptic 
+        !Gregorian calendar.
+        !If year<=1582 a difference of 2 days
+        !exists between the Julian and
+        !the proleptic Gregorian calendars.
+        if(time_driver_ref%year.le.1582_ip) then
+            driver_times = driver_times-48*3600_dp
+            call task_wriwarn(MY_ERR, "Assuming a Julian calendar for the driver met model")
+        end if
+        !
+        !*** Define for the driver:
+        !    time(nt)         in format YYYY-MM-DD HH:MM:SS
+        !    reference time   in format YYYY-MM-DD 00:00:00
+        !    driver_times(nt) in format seconds after the reference time
+        !
+        do it = 1,GL_METMODEL%nt
+            call time_addtime(time_driver_ref%year,    &
+                              time_driver_ref%month,   &
+                              time_driver_ref%day,     &
+                              0,                       &
+                              iyr,imo,idy,ihr,imi,ise, &
+                              driver_times(it),        &
+                              MY_ERR)
+            GL_METMODEL%time(it) = DATETIME(iyr,imo,idy,ihr,imi,ise)
+       end do
     end select
+    !
+    !*** Compute delta time
+    !
+    if(GL_METMODEL%nt.gt.1) then
+        GL_METMODEL%dt = driver_times(2) - driver_times(1)
+    else
+        MY_ERR%flag    = 1
+        MY_ERR%source  = 'dbs_read_metmodel_times'
+        MY_ERR%message = 'Unable to interpolate: only one time step was found'
+        return
+    end if
+    !
+    !*** Store driver model start time
+    !
+    GL_METMODEL%start_year   = GL_METMODEL%time(1)%year
+    GL_METMODEL%start_month  = GL_METMODEL%time(1)%month
+    GL_METMODEL%start_day    = GL_METMODEL%time(1)%day 
+    GL_METMODEL%start_hour   = GL_METMODEL%time(1)%hour 
+    GL_METMODEL%start_minute = GL_METMODEL%time(1)%minute
+    GL_METMODEL%start_second = GL_METMODEL%time(1)%second
+    !
+    !*** driver_times in seconds after YYYY-MM-DD 00:00:00 of start time
+    !
+    call time_julian_date(time_driver_ref%year,time_driver_ref%month,time_driver_ref%day,julday1,MY_ERR)
+    call time_julian_date(GL_METMODEL%start_year,GL_METMODEL%start_month,GL_METMODEL%start_day,julday2,MY_ERR)
+    !
+    ! Compute this in double precision
+    driver_times(:) = driver_times(:) - (julday2-julday1)*86400.0_dp 
+    GL_METMODEL%timesec(:) = driver_times(:)
     !
     !*** Calculates time lag (that is, the time in seconds between the met model origin
     !*** and the DBS origin). Both origins are referred to 0000UTC, but may belong to different days
@@ -694,36 +606,53 @@ CONTAINS
     !
     !*** Prints log file
     !
-    call time_addtime(MY_TIME%start_year,MY_TIME%start_month, MY_TIME%start_day, 0,  &
-         iyr,imo,idy,ihr,imi,ise,MY_TIME%dbs_start,MY_ERR)
-    time_dbs_start     = iyr*1e10_rp + imo*1e8_rp + idy*1e6_rp + ihr*1e4_rp
+    call time_addtime(MY_TIME%start_year,      &
+                      MY_TIME%start_month,     &
+                      MY_TIME%start_day,       &
+                      0,                       &
+                      iyr,imo,idy,ihr,imi,ise, &
+                      MY_TIME%dbs_start,       &
+                      MY_ERR)
+
+    time_dbs_start     = DATETIME(iyr,imo,idy,ihr,0,0)
     time_dbs_start_sec = MY_TIME%dbs_start
-    call time_addtime(MY_TIME%start_year,MY_TIME%start_month, MY_TIME%start_day, 0,  &
-         iyr,imo,idy,ihr,imi,ise,MY_TIME%dbs_end,MY_ERR)
-    time_dbs_end       = iyr*1e10_rp + imo*1e8_rp + idy*1e6_rp + ihr*1e4_rp
+    call time_addtime(MY_TIME%start_year,      &
+                      MY_TIME%start_month,     & 
+                      MY_TIME%start_day,       &
+                      0,                       &
+                      iyr,imo,idy,ihr,imi,ise, &
+                      MY_TIME%dbs_end,         &
+                      MY_ERR)
+    time_dbs_end       = DATETIME(iyr,imo,idy,ihr,0,0)
     time_dbs_end_sec   = MY_TIME%dbs_end
-    write(MY_FILES%lulog,10) TRIM(MY_MET%meteo_data_type), &
-         GL_METMODEL%time(1),GL_METMODEL%time(GL_METMODEL%nt), &
-         time_dbs_start,time_dbs_end,MY_MET%time_lag/3600.0_rp
+    !
+    write(MY_FILES%lulog,10) TRIM(MY_MET%meteo_data_type),     &
+                             GL_METMODEL%time(1),              &
+                             GL_METMODEL%time(GL_METMODEL%nt), &
+                             time_dbs_start,                   &
+                             time_dbs_end,                     &
+                             MY_MET%time_lag/3600.0_rp
 10  format(/,2x,a,&
          ' meteo model time coverage : ',/, &
-         '  From               : ',f15.0,/, &
-         '  To                 : ',f15.0,/, &
+         '  From               : ',I4,2('-',I2.2),1x,I2.2,2(':',I2.2),/, &
+         '  To                 : ',I4,2('-',I2.2),1x,I2.2,2(':',I2.2),/, &
          '                       ',/,&
          '  FALL3D dbs time coverage : ',/, &
-         '  From               : ',f15.0,/, &
-         '  To                 : ',f15.0,/, &
+         '  From               : ',I4,2('-',I2.2),1x,I2.2,2(':',I2.2),/, &
+         '  To                 : ',I4,2('-',I2.2),1x,I2.2,2(':',I2.2),/, &
          '  Time lag (h)       : ',f15.0)
     !
     !*** Checks time coverage and interpolation indexes
     !
     if((MY_MET%time_lag+time_dbs_start_sec).lt.GL_METMODEL%timesec(1)) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'dbs_read_metmodel_times'
        MY_ERR%message = 'Meteo model starting time larger than dbs starting time '
        return
     end if
     if((MY_MET%time_lag+time_dbs_end_sec).gt.GL_METMODEL%timesec(GL_METMODEL%nt)) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'dbs_read_metmodel_times'
        MY_ERR%message = 'Meteo model ending time smaller than dbs ending time '
        return
     end if
@@ -734,11 +663,12 @@ CONTAINS
        it = it + 1
        if(it.eq.GL_METMODEL%nt) then
           MY_ERR%flag    = 1
+          MY_ERR%source  = 'dbs_read_metmodel_times'
           MY_ERR%message = 'Unable to find interpolation interval for time_dbs_start_sec'
           return
        end if
        if( ((MY_MET%time_lag+time_dbs_start_sec).ge.GL_METMODEL%timesec(it  )).and. &
-            ((MY_MET%time_lag+time_dbs_start_sec).le.GL_METMODEL%timesec(it+1)) ) then
+           ((MY_MET%time_lag+time_dbs_start_sec).le.GL_METMODEL%timesec(it+1)) ) then
           found = .true.
           if((MY_MET%time_lag+time_dbs_start_sec).eq.GL_METMODEL%timesec(it+1)) then
              MY_MET%its = it+1
@@ -754,11 +684,12 @@ CONTAINS
        it = it + 1
        if(it.eq.GL_METMODEL%nt) then
           MY_ERR%flag    = 1
+          MY_ERR%source  = 'dbs_read_metmodel_times'
           MY_ERR%message = 'Unable to find interpolation interval for time_dbs_end_sec'
           return
        end if
        if( ((MY_MET%time_lag+time_dbs_end_sec).ge.GL_METMODEL%timesec(it  )).and. &
-            ((MY_MET%time_lag+time_dbs_end_sec).le.GL_METMODEL%timesec(it+1)) ) then
+           ((MY_MET%time_lag+time_dbs_end_sec).le.GL_METMODEL%timesec(it+1)) ) then
           found = .true.
           if((MY_MET%time_lag+time_dbs_end_sec).eq.GL_METMODEL%timesec(it)) then
              MY_MET%ite = it
@@ -781,8 +712,9 @@ CONTAINS
     !*** Writes to log file
     !
     write(MY_FILES%lulog,20) (MY_MET%time(it), MY_MET%its+it-1, it = 1,MY_MET%nt)
-20  format(/,2x,'Data will be interpolated at times (YYYYMMDDHHMMSS): ',/, &
-         100(2x,f15.0,' (step ',i3,' of the meteorological model)',/))
+20  format( /,2x,'Data will be interpolated at times (YYYY-MM-DD HH:MM:SS): ',/, &
+            *(2x,I4,2('-',I2.2),1x,I2.2,2(':',I2.2), &
+            ' (step ',i3,' of the meteorological model)',/) )
     !
     return
   end subroutine dbs_read_metmodel_times
@@ -827,17 +759,29 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
-       allocate(GL_METMODEL%time   (GL_METMODEL%nt))
-       allocate(GL_METMODEL%timesec(GL_METMODEL%nt))
-       allocate(MY_MET%time        (MY_MET%nt))
-       allocate(MY_MET%timesec     (MY_MET%nt))
+    if(.not.master_model) then
+       allocate(GL_METMODEL%time    (GL_METMODEL%nt))
+       allocate(GL_METMODEL%timesec (GL_METMODEL%nt))
+     
+       allocate(MY_MET%time    (MY_MET%nt))
+       allocate(MY_MET%timesec (MY_MET%nt))
     end if
     !
-    call parallel_bcast(GL_METMODEL%time   ,GL_METMODEL%nt,0)
-    call parallel_bcast(GL_METMODEL%timesec,GL_METMODEL%nt,0)
-    call parallel_bcast(MY_MET%time        ,MY_MET%nt,0)
-    call parallel_bcast(MY_MET%timesec     ,MY_MET%nt,0)
+    call parallel_bcast(GL_METMODEL%time%year  ,GL_METMODEL%nt,0)
+    call parallel_bcast(GL_METMODEL%time%month ,GL_METMODEL%nt,0)
+    call parallel_bcast(GL_METMODEL%time%day   ,GL_METMODEL%nt,0)
+    call parallel_bcast(GL_METMODEL%time%hour  ,GL_METMODEL%nt,0)
+    call parallel_bcast(GL_METMODEL%time%minute,GL_METMODEL%nt,0)
+    call parallel_bcast(GL_METMODEL%time%second,GL_METMODEL%nt,0)
+    call parallel_bcast(GL_METMODEL%timesec    ,GL_METMODEL%nt,0)
+
+    call parallel_bcast(MY_MET%time%year       ,MY_MET%nt,0)
+    call parallel_bcast(MY_MET%time%month      ,MY_MET%nt,0)
+    call parallel_bcast(MY_MET%time%day        ,MY_MET%nt,0)
+    call parallel_bcast(MY_MET%time%hour       ,MY_MET%nt,0)
+    call parallel_bcast(MY_MET%time%minute     ,MY_MET%nt,0)
+    call parallel_bcast(MY_MET%time%second     ,MY_MET%nt,0)
+    call parallel_bcast(MY_MET%timesec         ,MY_MET%nt,0)
     !
     return
   end subroutine dbs_bcast_metmodel_times
@@ -911,7 +855,7 @@ CONTAINS
     case('ERA5ML')
        allocate(a_coeff(0:nz))
        allocate(b_coeff(0:nz))
-       if(master) call inpout_get_file_hyb(MY_FILES%file_hyb,     &
+       if(master_model) call inpout_get_file_hyb(MY_FILES%file_hyb,     &
             nz,a_coeff,b_coeff,    &
             GL_METMODEL%zreversed, &
             MY_ERR)
@@ -925,7 +869,7 @@ CONTAINS
     !
     select case(MY_MET%meteo_data_type)
     case('WRF')
-       if(master) then
+       if(master_model) then
           !Reads map projection parameters from WRF file
           !rotate_winds defines if wind rotation will be required
           !cone = cone*radians_per_degree
@@ -988,7 +932,7 @@ CONTAINS
     !
     !*** 1. Land Mask
     !
-    if(master) then
+    if(master_model) then
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_LMASK),varID)
     end if
     call parallel_bcast(istat,1,0)
@@ -999,7 +943,7 @@ CONTAINS
             ' not found in met model file')
        MY_MET%my_lmaskc(:,:) = 1.0_rp
     else
-       if(master) then
+       if(master_model) then
           call dbs_read_metmodel_var2d(varID, &
                nx,ny, &
                GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1009,7 +953,7 @@ CONTAINS
        npoin = nx*ny
        call parallel_bcast(work2d,npoin,0)
        call dbs_interpola2d(nx,ny,work2d, &
-            MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
             MY_MET%my_lmaskc,MY_ERR,.true.)
        !
        select case(MY_MET%meteo_data_type)
@@ -1029,7 +973,7 @@ CONTAINS
     !
     !*** 2. Land Use
     !
-    if(master) then
+    if(master_model) then
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_LUSE),varID)
     end if
     call parallel_bcast(istat,1,0)
@@ -1048,7 +992,7 @@ CONTAINS
           end do
        end do
     else
-       if(master) then
+       if(master_model) then
           call dbs_read_metmodel_var2d(varID, &
                nx,ny, &
                GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1058,13 +1002,13 @@ CONTAINS
        npoin = nx*ny
        call parallel_bcast(work2d,npoin,0)
        call dbs_interpola2d(nx,ny,work2d, &
-            MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
             MY_MET%my_lusec,MY_ERR,.true.)
     end if
     !
     !*** 3. Z0
     !
-    if(master) then
+    if(master_model) then
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_Z0),varID)
     end if
     call parallel_bcast(istat,1,0)
@@ -1079,7 +1023,7 @@ CONTAINS
           end do
        end do
     else
-       if(master) then
+       if(master_model) then
           call dbs_read_metmodel_var2d(varID, &
                nx,ny, &
                GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1089,7 +1033,7 @@ CONTAINS
        npoin = nx*ny
        call parallel_bcast(work2d,npoin,0)
        call dbs_interpola2d(nx,ny,work2d, &
-            MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
             MY_MET%my_z0c,MY_ERR)
     end if
     !
@@ -1142,7 +1086,7 @@ CONTAINS
        ! Reading 3D variables
        !
        ! my_pblhc (my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_PBLH),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1151,7 +1095,7 @@ CONTAINS
           COMPUTED(VAR_PBLH)  = .true.
           ! default value computed below
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1161,12 +1105,12 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_pblhc(:,:,my_it),MY_ERR)
        end if
        !
        !my_ustc(my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_UST),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1175,7 +1119,7 @@ CONTAINS
           COMPUTED(VAR_UST)  = .true.
           ! default value computed below
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1185,12 +1129,12 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_ustc(:,:,my_it),MY_ERR)
        end if
        !
        !my_smoic(my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_SMOI),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1199,7 +1143,7 @@ CONTAINS
           COMPUTED(VAR_SMOI)  = .true.
           MY_MET%my_smoic(:,:,my_it) = 0.1_rp
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1209,7 +1153,7 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_smoic(:,:,my_it),MY_ERR)
        end if
        ! assigns smoi=1 over water
@@ -1222,7 +1166,7 @@ CONTAINS
        end do
        !
        !my_prec(my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_PREC),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1231,7 +1175,7 @@ CONTAINS
           COMPUTED(VAR_PREC)  = .true.
           !computed below
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1241,7 +1185,7 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_prec(:,:,my_it),MY_ERR)
           !
           select case(MY_MET%meteo_data_type)
@@ -1253,7 +1197,7 @@ CONTAINS
        end if
        !
        !my_u10(my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_U10),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1262,7 +1206,7 @@ CONTAINS
           COMPUTED(VAR_U10)  = .true.
           MY_MET%my_u10(:,:,my_it) = 0.0_rp
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1272,12 +1216,12 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_u10(:,:,my_it),MY_ERR)
        end if
        !
        !my_v10(my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_V10),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1286,7 +1230,7 @@ CONTAINS
           COMPUTED(VAR_V10)  = .true.
           MY_MET%my_v10(:,:,my_it) = 0.0_rp
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1296,7 +1240,7 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_v10(:,:,my_it),MY_ERR)
        end if
        !
@@ -1308,7 +1252,7 @@ CONTAINS
        end if
        !
        !my_t2(my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_T2),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1317,7 +1261,7 @@ CONTAINS
           COMPUTED(VAR_T2)  = .true.
           MY_MET%my_t2(:,:,my_it) = 300.0_rp
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1327,12 +1271,12 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_t2(:,:,my_it),MY_ERR)
        end if
        !
        !my_monc(my_ibs:my_ibe, my_jbs:my_jbe, nt)
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_MON),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1341,7 +1285,7 @@ CONTAINS
           COMPUTED(VAR_MON)  = .true.
           ! default value computed below
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
@@ -1351,19 +1295,19 @@ CONTAINS
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_monc(:,:,my_it),MY_ERR)
        end if
        !
        !psfc(nx,ny): no interpolated. Required to compute mandatory variables
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_PSFC),varID)
        end if
        call parallel_bcast(istat,1,0)
        if(istat.ne.nf90_noerr) EXISTS(VAR_PSFC) = .false.
        select case(MY_MET%meteo_data_type)
        case('ERA5ML')
-          if(master) then
+          if(master_model) then
              istat = nf90_inq_varid(ncID,'lnsp',varID)
           end if
           call parallel_bcast(istat,1,0)
@@ -1371,7 +1315,7 @@ CONTAINS
        end select
        !
        if(EXISTS(VAR_PSFC).or.COMPUTED(VAR_PSFC)) then
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var3d(varID, &
                   nx,ny,it, &
                   GL_METMODEL%xreversed, &
@@ -1395,7 +1339,7 @@ CONTAINS
        !
        select case(MY_MET%meteo_data_type)
        case('WRF')
-          if(master) then
+          if(master_model) then
              istat = nf90_inq_varid(ncID,DICTIONARY(VAR_HGT),varID)
           end if
           call parallel_bcast(istat,1,0)
@@ -1405,7 +1349,7 @@ CONTAINS
              MY_ERR%message  = 'Unable to find variable '//TRIM(DICTIONARY(VAR_HGT))
              return
           else
-             if(master) then
+             if(master_model) then
                 allocate(work3d2(nx,ny,nz_stag))
                 ! base-state geopotential PBH
                 call dbs_read_metmodel_var4d(varID, &
@@ -1436,7 +1380,7 @@ CONTAINS
           ! To compute geopotential from model levels the following variables are required: ZSFC,PSFC,Q,T,a_coeff,b_coeff
           !
           ! Use work3d to save Qv
-          if(master) then
+          if(master_model) then
              istat = nf90_inq_varid(ncID,DICTIONARY(VAR_QV),varID)
           end if
           call parallel_bcast(istat,1,0)
@@ -1447,7 +1391,7 @@ CONTAINS
              MY_ERR%message    = 'Unable to find variable '//TRIM(DICTIONARY(VAR_QV))
              return
           else
-             if(master) then
+             if(master_model) then
                 call dbs_read_metmodel_var4d(varID, &
                      nx,ny,nz,it, &
                      GL_METMODEL%xreversed, &
@@ -1459,7 +1403,7 @@ CONTAINS
           end if
           !
           ! Use work3d2 to save T
-          if(master) then
+          if(master_model) then
              istat = nf90_inq_varid(ncID,DICTIONARY(VAR_T),varID)
           end if
           call parallel_bcast(istat,1,0)
@@ -1470,7 +1414,7 @@ CONTAINS
              MY_ERR%message    = 'Unable to find variable '//TRIM(DICTIONARY(VAR_T))
              return
           else
-             if(master) then
+             if(master_model) then
                 allocate(work3d2(nx,ny,nz))
                 call dbs_read_metmodel_var4d(varID, &
                      nx,ny,nz,it, &
@@ -1484,7 +1428,7 @@ CONTAINS
           !
           ! computes zmodel (geopotential at model levels)
           !
-          if(master) then
+          if(master_model) then
              call dbs_get_geopotential_hyb(nx,ny,nz,         &
                   a_coeff,          &
                   b_coeff,          &
@@ -1498,7 +1442,7 @@ CONTAINS
           end if
           !
        case default
-          if(master) then
+          if(master_model) then
              istat = nf90_inq_varid(ncID,DICTIONARY(VAR_HGT),varID)
           end if
           call parallel_bcast(istat,1,0)
@@ -1508,7 +1452,7 @@ CONTAINS
              MY_ERR%message  = 'Unable to find variable '//TRIM(DICTIONARY(VAR_HGT))
              return
           else
-             if(master) then
+             if(master_model) then
                 call dbs_read_metmodel_var4d(varID, &
                      nx,ny,nz,it, &
                      GL_METMODEL%xreversed, &
@@ -1540,24 +1484,17 @@ CONTAINS
           do i = my_ibs,my_ibe
              ipoin = ipoin + 1
              !
-             ielem = MY_MET%el_po(ipoin)  ! met model element
-             iy = (ielem-1)/(nx-1) + 1
-             ix = ielem - (iy-1)*(nx-1)
+             ix = MY_MET%el_indexes(1,ipoin)
+             iy = MY_MET%el_indexes(2,ipoin)
              !
-             s = MY_MET%s_po(ipoin)
-             t = MY_MET%t_po(ipoin)
-             st= s*t
-             !
-             myshape(1) = (1.0_rp-t-s+st)*0.25_rp                           !  4     3
-             myshape(2) = (1.0_rp-t+s-st)*0.25_rp                           !
-             myshape(3) = (1.0_rp+t+s+st)*0.25_rp                           !
-             myshape(4) = (1.0_rp+t-s-st)*0.25_rp                           !  1     2
+             myshape(1:4) = MY_MET%interp_factor(1:4,ipoin)
              !
              do k = 1,nz
                 my_zmodel(ipoin,k) = myshape(1)*zmodel(ix  ,iy  ,k) + &
-                     myshape(2)*zmodel(ix+1,iy  ,k) + &
-                     myshape(3)*zmodel(ix+1,iy+1,k) + &
-                     myshape(4)*zmodel(ix  ,iy+1,k)
+                                     myshape(2)*zmodel(ix+1,iy  ,k) + &
+                                     myshape(3)*zmodel(ix+1,iy+1,k) + &
+                                     myshape(4)*zmodel(ix  ,iy+1,k)
+                !
              end do
           end do
        end do
@@ -1603,7 +1540,7 @@ CONTAINS
        !
        select case(MY_MET%meteo_data_type)
        case('WRF')
-          if(master) then
+          if(master_model) then
              istat = nf90_inq_varid(ncID,DICTIONARY(VAR_P),varID)
           end if
           call parallel_bcast(istat,1,0)
@@ -1613,7 +1550,7 @@ CONTAINS
              MY_ERR%message  = 'Unable to find variable '//TRIM(DICTIONARY(VAR_P))
              return
           else
-             if(master) then
+             if(master_model) then
                 allocate(work3d2(nx,ny,nz))
                 call dbs_read_metmodel_var4d(varID, &
                      nx,ny,nz,it, &
@@ -1635,14 +1572,14 @@ CONTAINS
              end if
           end if
        case('ERA5ML')
-          if(master) then
+          if(master_model) then
              do iz = 1,nz
                 work3d(:,:,iz) = 0.5_rp*(a_coeff(iz)+a_coeff(iz-1)) +  &
                      0.5_rp*(b_coeff(iz)+b_coeff(iz-1)) *  psfc(:,:)
              end do
           end if
-       case('GRIB2NC','GFS','ERA5')
-          if(master) then
+       case('GRIB2NC','GFS','GDAS','ERA5')
+          if(master_model) then
              do iz = 1,nz
                 work3d(:,:,iz) = GL_METMODEL%pres(iz)
              end do
@@ -1652,8 +1589,8 @@ CONTAINS
        npoin = nx*ny*nz
        call parallel_bcast(work3d,npoin,0)
        call dbs_interpola3d(nx,ny,nz,work3d, &
-            MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-            my_sz,MY_MET%my_pc(:,:,:,my_it),MY_ERR)
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+            my_iz,my_sz,MY_MET%my_pc(:,:,:,my_it),MY_ERR)
        !
        !     profile
        do k = 1,nz
@@ -1665,7 +1602,7 @@ CONTAINS
        !
        !  3. Potential temperature
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TP),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1673,7 +1610,7 @@ CONTAINS
           EXISTS(VAR_TP)   = .false.
           COMPUTED(VAR_TP) = .true.
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var4d(varID, &
                   nx,ny,nz,it, &
                   GL_METMODEL%xreversed, &
@@ -1689,8 +1626,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_tpc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_tpc(:,:,:,my_it),MY_ERR)
 
           !    store profile
           do k = 1,nz
@@ -1703,7 +1640,7 @@ CONTAINS
        !
        !  4. Temperature
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_T),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1711,7 +1648,7 @@ CONTAINS
           EXISTS(VAR_T)   = .false.
           COMPUTED(VAR_T) = .true.
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var4d(varID, &
                   nx,ny,nz,it, &
                   GL_METMODEL%xreversed, &
@@ -1723,8 +1660,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_tc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_tc(:,:,:,my_it),MY_ERR)
           !     profile
           do k = 1,nz
              GL_METPROFILES%t (k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
@@ -1761,7 +1698,7 @@ CONTAINS
        !
        !  5. Specific humidity
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_QV),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1769,7 +1706,7 @@ CONTAINS
           EXISTS(VAR_QV)   = .false.
           COMPUTED(VAR_QV) = .true.
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var4d(varID, &
                   nx,ny,nz,it, &
                   GL_METMODEL%xreversed, &
@@ -1790,8 +1727,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_qvc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_qvc(:,:,:,my_it),MY_ERR)
           !     profile
           do k = 1,nz
              GL_METPROFILES%qv(k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
@@ -1803,7 +1740,7 @@ CONTAINS
        !
        !  6. Relative humidity
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_RH),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1813,7 +1750,7 @@ CONTAINS
        end if
        !
        if(COMPUTED(VAR_QV) .and. EXISTS(VAR_RH)) then
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var4d(varID, &
                   nx,ny,nz,it, &
                   GL_METMODEL%xreversed, &
@@ -1826,8 +1763,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_qvc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_qvc(:,:,:,my_it),MY_ERR)
           !
           !  Convert rh to qv
           !  following Bolton (1980)
@@ -1866,7 +1803,7 @@ CONTAINS
        !
        !  7. Virtual temperature   Tv = T*( 1+ 1.6077*e)/(1+e)
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TV),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1890,7 +1827,7 @@ CONTAINS
              GL_METPROFILES%tv(k,my_it) = GL_METPROFILES%t(k,my_it)*(1.0_rp + 1.6077_rp*e)/(1.0_rp+e)
           end do
        else
-          if(master) then
+          if(master_model) then
              call dbs_read_metmodel_var4d(varID, &
                   nx,ny,nz,it, &
                   GL_METMODEL%xreversed, &
@@ -1902,8 +1839,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_tvc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_tvc(:,:,:,my_it),MY_ERR)
           !     profile
           do k = 1,nz
              GL_METPROFILES%tv(k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
@@ -1926,7 +1863,7 @@ CONTAINS
        !
        !  9. u-velocity
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_U),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1936,7 +1873,7 @@ CONTAINS
           MY_ERR%message  = 'Unable to find variable '//TRIM(DICTIONARY(VAR_U))
           return
        else
-          if(master) then
+          if(master_model) then
              select case(MY_MET%meteo_data_type)
              case('WRF')
                 allocate(work3d2(nx_stag,ny,nz))
@@ -1962,8 +1899,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_uc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_uc(:,:,:,my_it),MY_ERR)
           !
           !     profile
           do k = 1,nz
@@ -1976,7 +1913,7 @@ CONTAINS
        !
        !  10. v-velocity
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_V),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -1986,7 +1923,7 @@ CONTAINS
           MY_ERR%message  = 'Unable to find variable '//TRIM(DICTIONARY(VAR_V))
           return
        else
-          if(master) then
+          if(master_model) then
              select case(MY_MET%meteo_data_type)
              case('WRF')
                 allocate(work3d2(nx,ny_stag,nz))
@@ -2012,8 +1949,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_vc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_vc(:,:,:,my_it),MY_ERR)
           !
           !     profile
           do k = 1,nz
@@ -2042,7 +1979,7 @@ CONTAINS
        !
        !  11. w-velocity
        !
-       if(master) then
+       if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_W),varID)
        end if
        call parallel_bcast(istat,1,0)
@@ -2053,7 +1990,7 @@ CONTAINS
           call task_wriwarn(MY_ERR,'Variable '//TRIM(DICTIONARY(VAR_W))// &
                ' not found in met model file')
        else
-          if(master) then
+          if(master_model) then
              select case(MY_MET%meteo_data_type)
              case('WRF')
                 allocate(work3d2(nx,ny,nz_stag))
@@ -2079,8 +2016,8 @@ CONTAINS
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_po,my_iz,MY_MET%s_po,MY_MET%t_po, &
-               my_sz,MY_MET%my_wc(:,:,:,my_it),MY_ERR)
+               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+               my_iz,my_sz,MY_MET%my_wc(:,:,:,my_it),MY_ERR)
           !
           select case(MY_MET%meteo_data_type)
           case('WRF')
@@ -2141,7 +2078,7 @@ CONTAINS
              my_acc_prec_ref = 0.0_rp
              CYCLE
           end if
-          if(master) then
+          if(master_model) then
              istat = nf90_inq_varid(ncID,DICTIONARY(VAR_ACCP),varID)
           end if
           call parallel_bcast(istat,1,0)
@@ -2149,7 +2086,7 @@ CONTAINS
              EXISTS(VAR_ACCP)    = .false.
              COMPUTED(VAR_ACCP)  = .false.
           else
-             if(master) then
+             if(master_model) then
                 call dbs_read_metmodel_var3d(varID,                 &
                      nx,ny,it,              &
                      GL_METMODEL%xreversed, &
@@ -2177,11 +2114,11 @@ CONTAINS
              if(my_it.gt.0) then
                 !save accumulated precipitation in my_prec
                 call dbs_interpola2d(nx,ny,work2d, &
-                     MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+                     MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                      MY_MET%my_prec(:,:,my_it),MY_ERR)
              else
                 call dbs_interpola2d(nx,ny,work2d, &
-                     MY_MET%npoin,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po, &
+                     MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                      my_acc_prec_ref,MY_ERR)
              end if
           end if
@@ -2252,13 +2189,13 @@ CONTAINS
     !
     !*** Close file
     !
-    if(master) then
+    if(master_model) then
        istat = nf90_close(ncID)
     end if
     !
     !*** Prints log file
     !
-    if(master) then
+    if(master_model) then
        write(MY_FILES%lulog,10) TRIM(MY_FILES%file_met),TRIM(MY_MET%meteo_data_type)
 10     format(2x,'List of meteorological variables found:',/,&
             2x,'File      : ',a,/,&
@@ -2305,34 +2242,32 @@ CONTAINS
   !>   @brief
   !>   Interpolates a variable from the 2D Q1 meto model grid to my_grid
   !
-  subroutine dbs_interpola2d(nx,ny,var,npoin,el_po,s_po,t_po,my_var,MY_ERR,closest)
+  subroutine dbs_interpola2d(nx,ny,var,npoin,el_indexes,interp_factor,my_var,MY_ERR,closest)
     implicit none
     !
-    !>   @param nx          number of meteo model grid points along x
-    !>   @param ny          number of meteo model grid points along y
-    !>   @param var         var(nx,ny) variable to interpolate
-    !>   @param npoin       number of points (my number of cell corners)
-    !>   @param el_po       el_po(npoin) meteo model point hosting element: el_po(ipoin) = ielem
-    !>   @param s_po        s_po (npoin) meteo model point interpolation factor: s_po(ipoin)  = s
-    !>   @param t_po        t_po (npoin) meteo model point interpolation factor: t_po(ipoin)  = t
-    !>   @param my_var      my_var(my_ibs:my_ibe,my_jbs:my_jbe) interpolated variable
-    !>   @param MY_ERR      error handler
-    !>   @param             if true assigns closest point rsther than interpolation (optional)
+    !>   @param nx            number of meteo model grid points along x
+    !>   @param ny            number of meteo model grid points along y
+    !>   @param var           var(nx,ny) variable to interpolate
+    !>   @param npoin         number of points (my number of cell corners)
+    !>   @param el_indexes    el_indexes(2,npoin) native meteo model element
+    !>   @param interp_factor interp_factor(4,npoin) interpolation factors to interpolate from native meteo model
+    !>   @param my_var        my_var(my_ibs:my_ibe,my_jbs:my_jbe) interpolated variable
+    !>   @param MY_ERR        error handler
+    !>   @param               if true assigns closest point rsther than interpolation (optional)
     !
     integer(ip),        intent(IN   ) :: nx
     integer(ip),        intent(IN   ) :: ny
     real(rp),           intent(IN   ) :: var(nx,ny)
     integer(ip),        intent(IN   ) :: npoin
-    integer(ip),        intent(IN   ) :: el_po (npoin)
-    real(rp),           intent(IN   ) :: s_po  (npoin)
-    real(rp),           intent(IN   ) :: t_po  (npoin)
+    integer(ip),        intent(IN   ) :: el_indexes(2,npoin)
+    real(rp),           intent(IN   ) :: interp_factor(4,npoin)
     real(rp),           intent(INOUT) :: my_var(my_ibs:my_ibe,my_jbs:my_jbe)
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     logical, optional , intent(IN   ) :: closest
     !
     logical     :: closestpoint
-    integer(ip) :: i,j,ipoin,ix,iy,ielem,k,kk
-    real(rp)    :: s,t,st,myshape(4),smax
+    integer(ip) :: i,j,ipoin,ix,iy,k,kk
+    real(rp)    :: myshape(4),smax
     !
     !*** Initializations
     !
@@ -2353,20 +2288,10 @@ CONTAINS
        do i = my_ibs,my_ibe
           ipoin = ipoin + 1
           !
-          ielem = el_po(ipoin)  ! met model element
-          iy = (ielem-1)/(nx-1) + 1
-          ix = ielem - (iy-1)*(nx-1)
+          ix = el_indexes(1,ipoin)
+          iy = el_indexes(2,ipoin)
           !
-          ! shape functions
-          !
-          s = s_po(ipoin)
-          t = t_po(ipoin)
-          st= s*t
-          !
-          myshape(1) = (1.0_rp-t-s+st)*0.25_rp                           !  4     3
-          myshape(2) = (1.0_rp-t+s-st)*0.25_rp                           !
-          myshape(3) = (1.0_rp+t+s+st)*0.25_rp                           !
-          myshape(4) = (1.0_rp+t-s-st)*0.25_rp                           !  1     2
+          myshape(1:4) = interp_factor(1:4,ipoin)
           !
           if(closestpoint) then
              !
@@ -2385,9 +2310,9 @@ CONTAINS
           end if
           !
           my_var(i,j) = myshape(1)*var(ix  ,iy  ) + &
-               myshape(2)*var(ix+1,iy  ) + &
-               myshape(3)*var(ix+1,iy+1) + &
-               myshape(4)*var(ix  ,iy+1)
+                        myshape(2)*var(ix+1,iy  ) + &
+                        myshape(3)*var(ix+1,iy+1) + &
+                        myshape(4)*var(ix  ,iy+1)
        end do
     end do
     !
@@ -2401,35 +2326,35 @@ CONTAINS
   !>   @brief
   !>   Interpolates a variable from the 2D Q1 meto model grid and profile to my_grid
   !
-  subroutine dbs_interpola3d(nx,ny,nz,var,npoin,el_po,my_iz,s_po,t_po,my_sz,my_var,MY_ERR)
+  subroutine dbs_interpola3d(nx,ny,nz,var,npoin,el_indexes,interp_factor,my_iz,my_sz,my_var,MY_ERR)
     implicit none
     !
-    !>   @param nx          number of meteo model grid points along x
-    !>   @param ny          number of meteo model grid points along y
-    !>   @param nz          number of meteo model grid points along z
-    !>   @param var         var(nx,ny,nz) variable to interpolate
-    !>   @param npoin       number of points (my number of 2D cell corners)
-    !>   @param el_po       el_po(npoin) meteo model point hosting element: el_po(ipoin) = ielem
-    !>   @param s_po        s_po (npoin) meteo model point interpolation factor: s_po(ipoin)  = s
-    !>   @param t_po        t_po (npoin) meteo model point interpolation factor: t_po(ipoin)  = t
-    !>   @param my_var      my_var(my_ibs:my_ibe,my_jbs:my_jbe) interpolated variable
-    !>   @param MY_ERR      error handler
+    !>   @param nx            number of meteo model grid points along x
+    !>   @param ny            number of meteo model grid points along y
+    !>   @param nz            number of meteo model grid points along z
+    !>   @param var           var(nx,ny,nz) variable to interpolate
+    !>   @param npoin         number of points (my number of 2D cell corners)
+    !>   @param el_indexes    el_indexes(2,npoin) native meteo model element
+    !>   @param interp_factor interp_factor(4,npoin) interpolation factors to interpolate from native meteo model
+    !>   @param my_var        my_var(my_ibs:my_ibe,my_jbs:my_jbe) interpolated variable
+    !>   @param MY_ERR        error handler
     !
     integer(ip),        intent(IN   ) :: nx
     integer(ip),        intent(IN   ) :: ny
     integer(ip),        intent(IN   ) :: nz
     real(rp),           intent(IN   ) :: var(nx,ny,nz)
     integer(ip),        intent(IN   ) :: npoin
-    integer(ip),        intent(IN   ) :: el_po (npoin)
+    integer(ip),        intent(IN   ) :: el_indexes(2,npoin)
+    real(rp),           intent(IN   ) :: interp_factor(4,npoin)
     integer(ip),        intent(IN   ) :: my_iz (npoin,my_kbs:my_kbe)
-    real(rp),           intent(IN   ) :: s_po  (npoin)
-    real(rp),           intent(IN   ) :: t_po  (npoin)
     real(rp),           intent(IN   ) :: my_sz (npoin,my_kbs:my_kbe)
     real(rp),           intent(INOUT) :: my_var(my_ibs:my_ibe,my_jbs:my_jbe,my_kbs:my_kbe)
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
-    integer(ip) :: i,j,k,ipoin,ix,iy,iz,ielem
-    real(rp)    :: s,t,st,myshape(4),sz
+    integer(ip) :: i,j,k
+    integer(ip) :: ix,iy,iz
+    integer(ip) :: ipoin
+    real(rp)    :: myshape(4),sz
     !
     !*** Initializations
     !
@@ -2444,33 +2369,24 @@ CONTAINS
        do i = my_ibs,my_ibe
           ipoin = ipoin + 1
           !
-          ielem = el_po(ipoin)  ! met model element
-          iy = (ielem-1)/(nx-1) + 1
-          ix = ielem - (iy-1)*(nx-1)
+          ix = el_indexes(1,ipoin)
+          iy = el_indexes(2,ipoin)
           !
-          ! shape functions
-          !
-          s = s_po(ipoin)
-          t = t_po(ipoin)
-          st= s*t
-          !
-          myshape(1) = (1.0_rp-t-s+st)*0.25_rp                           !  4     3
-          myshape(2) = (1.0_rp-t+s-st)*0.25_rp                           !
-          myshape(3) = (1.0_rp+t+s+st)*0.25_rp                           !
-          myshape(4) = (1.0_rp+t-s-st)*0.25_rp                           !  1     2
+          myshape(1:4) = interp_factor(1:4,ipoin)
           !
           do k = my_kbs,my_kbe
              sz = my_sz(ipoin,k)
              iz = my_iz(ipoin,k)
              !
              my_var(i,j,k) = (myshape(1)*var(ix  ,iy  ,iz  ) + &
-                  myshape(2)*var(ix+1,iy  ,iz  ) + &
-                  myshape(3)*var(ix+1,iy+1,iz  ) + &
-                  myshape(4)*var(ix  ,iy+1,iz  ))*(1.0_rp-sz) + &
-                  (myshape(1)*var(ix  ,iy  ,iz+1) + &
-                  myshape(2)*var(ix+1,iy  ,iz+1) + &
-                  myshape(3)*var(ix+1,iy+1,iz+1) + &
-                  myshape(4)*var(ix  ,iy+1,iz+1))*sz
+                              myshape(2)*var(ix+1,iy  ,iz  ) + &
+                              myshape(3)*var(ix+1,iy+1,iz  ) + &
+                              myshape(4)*var(ix  ,iy+1,iz  ))*(1.0_rp-sz) + &
+                             (myshape(1)*var(ix  ,iy  ,iz+1) + &
+                              myshape(2)*var(ix+1,iy  ,iz+1) + &
+                              myshape(3)*var(ix+1,iy+1,iz+1) + &
+                              myshape(4)*var(ix  ,iy+1,iz+1))*sz
+             !
           end do
        end do
     end do
@@ -2493,15 +2409,19 @@ CONTAINS
     !>   @param GL_METMODEL variables related to driving meteorological model
     !>   @param MY_ERR      error handler
     !
-    type(ARAKAWA_C_GRID),intent(INOUT) :: MY_GRID
+    type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     type(METEOROLOGY),   intent(INOUT) :: MY_MET
     type(METEO_MODEL),   intent(INOUT) :: GL_METMODEL
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    integer(ip)              :: i,j,ipoin
+    integer(ip)              :: i,j,ix,iy
+    integer(ip)              :: ielem,ipoin
+    integer(ip)              :: nx,ny
+    real(rp)                 :: toler, s, t, st
     integer(ip), allocatable :: my_flag(:)
-    real(rp)                 :: toler
-    real(rp),    allocatable :: lon_po(:),lat_po(:)
+    real(dp),    allocatable :: lon_po(:),lat_po(:)
+    integer(ip), allocatable :: el_po(:)
+    real(dp),    allocatable :: s_po(:),t_po(:)
     !
     !*** Initializations
     !
@@ -2511,10 +2431,12 @@ CONTAINS
     !
     !*** Build 2D meteo model grid (plane)
     !
-    GL_METMODEL%GRID2D%nx    =  GL_METMODEL%nx
-    GL_METMODEL%GRID2D%ny    =  GL_METMODEL%ny
-    GL_METMODEL%GRID2D%npoin =  GL_METMODEL%nx     *  GL_METMODEL%ny
-    GL_METMODEL%GRID2D%nelem = (GL_METMODEL%nx -1) * (GL_METMODEL%ny - 1)
+    nx = GL_METMODEL%nx
+    ny = GL_METMODEL%ny
+    GL_METMODEL%GRID2D%nx    = nx 
+    GL_METMODEL%GRID2D%ny    = ny
+    GL_METMODEL%GRID2D%npoin = nx * ny
+    GL_METMODEL%GRID2D%nelem = (nx-1) * (ny-1)
     !
     call maths_set_lnodsQ1(GL_METMODEL%GRID2D,MY_ERR)
     !
@@ -2538,9 +2460,13 @@ CONTAINS
     !*** Allocates
     !
     MY_MET%npoin = (my_ibe-my_ibs+1)*(my_jbe-my_jbs+1)
-    allocate(MY_MET%el_po(MY_MET%npoin))
-    allocate(MY_MET%s_po (MY_MET%npoin))
-    allocate(MY_MET%t_po (MY_MET%npoin))
+    !
+    allocate(MY_MET%el_indexes(2,MY_MET%npoin))
+    allocate(MY_MET%interp_factor(4,MY_MET%npoin))
+    !
+    allocate(el_po(MY_MET%npoin))
+    allocate(s_po (MY_MET%npoin))
+    allocate(t_po (MY_MET%npoin))
     !
     !*** List of cell corner points in my_domain
     !
@@ -2548,8 +2474,8 @@ CONTAINS
     allocate(lat_po(MY_MET%npoin))
     !
     toler = 0.01_rp  ! tolerance to prevent elsest failure at boundaries
+    !
     ipoin = 0
-
     do j = my_jbs,my_jbe
        do i = my_ibs,my_ibe
           ipoin = ipoin + 1
@@ -2566,20 +2492,52 @@ CONTAINS
     !
     !*** Get interpolation factors (parallel interpolation)
     !
-    call maths_get_host_elemQ1(GL_METMODEL%GRID2D,MY_MET%npoin,lon_po,lat_po,MY_MET%el_po,MY_MET%s_po,MY_MET%t_po,MY_ERR)
+    call maths_get_host_elemQ1(GL_METMODEL%GRID2D, &
+                               MY_MET%npoin,       &
+                               lon_po,lat_po,      &
+                               el_po,s_po,t_po,    &
+                               MY_ERR)
     !
-    !*** Error check accoss processors
+    !*** Error check across processors
     !
-    allocate(my_flag(0:nproc-1))
-    my_flag(:)     = 0
-    my_flag(mpime) = MY_ERR%flag
-    call parallel_sum(my_flag, COMM_WORLD)
-    do i = 0,nproc-1
+    allocate(my_flag(0:npes_model-1))
+    my_flag(:)          = 0
+    my_flag(mype_model) = MY_ERR%flag
+    call parallel_sum(my_flag, COMM_MODEL)
+    do i = 0,npes_model-1
        if(my_flag(i).ne.0) then
           MY_ERR%flag    = 1
           MY_ERR%message = 'FALL3D grid point not found in meteorological model grid '
           return
        end if
+    end do
+    !
+    !*** Compute interpolation factors
+    !
+    ipoin = 0
+    do j = my_jbs,my_jbe
+       do i = my_ibs,my_ibe
+          ipoin = ipoin + 1
+          !
+          ielem = el_po(ipoin)  ! native met model element
+          s     = s_po(ipoin)   ! shape functions
+          t     = t_po(ipoin)
+          st    = s*t
+          !
+          ! 4--3
+          ! 1--2
+          MY_MET%interp_factor(1,ipoin) = (1.0_rp-t-s+st)*0.25_rp
+          MY_MET%interp_factor(2,ipoin) = (1.0_rp-t+s-st)*0.25_rp 
+          MY_MET%interp_factor(3,ipoin) = (1.0_rp+t+s+st)*0.25_rp
+          MY_MET%interp_factor(4,ipoin) = (1.0_rp+t-s-st)*0.25_rp
+          !
+          iy = (ielem-1)/(nx-1) + 1
+          ix = ielem - (iy-1)*(nx-1)
+          !
+          MY_MET%el_indexes(1,ipoin) = ix
+          MY_MET%el_indexes(2,ipoin) = iy
+          !
+       end do
     end do
     !
     return
@@ -2595,18 +2553,18 @@ CONTAINS
   subroutine dbs_set_profile(GL_METMODEL,MY_MET,GL_METPROFILES,MY_ERR)
     implicit none
     !
-    !>   @param GL_METMODEL variables related to driving meteorological model
-    !>   @param MY_MET      variables related to meteorology in MY_GRID
+    !>   @param GL_METMODEL     variables related to driving meteorological model
+    !>   @param MY_MET          variables related to meteorology in MY_GRID
     !>   @param GL_METPROFILES  variables related to metrorological profiles
-    !>   @param MY_ERR      error handler
+    !>   @param MY_ERR          error handler
     !
-    type(METEO_MODEL),   intent(INOUT) :: GL_METMODEL
-    type(METEOROLOGY),   intent(INOUT) :: MY_MET
+    type(METEO_MODEL),   intent(IN   ) :: GL_METMODEL
+    type(METEOROLOGY),   intent(IN   ) :: MY_MET
     type(METEO_PROFILE), intent(INOUT) :: GL_METPROFILES
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
     integer(ip) :: el_po(1),ielem,nx,ny,ix,iy
-    real(rp)    :: lon(1),lat(1),s_po(1),t_po(1),s,t,st,myshape(4)
+    real(dp)    :: lon(1),lat(1),s_po(1),t_po(1),s,t,st,myshape(4)
     !
     !*** Initializations
     !
@@ -2709,19 +2667,19 @@ CONTAINS
     do it = 1,GL_METPROFILES%nt
        write(90,2) GL_METPROFILES%time(it),GL_METPROFILES%timesec(it)
 2      format('#',/,&
-            '# time    : ',f16.0,/,&
-            '# timesec : ',f16.0,/,&
+            '# time    : ',I4,5(1x,I2.2),/,&
+            '# timesec : ',f16.0,   /,&
             '#')
        !
        do iz = 1,GL_METPROFILES%nz
           write(90,3) (GL_METPROFILES%zavl(iz,it))/1e3_rp, &   ! km above terrain
-               GL_METPROFILES%rho(iz,it),  &     ! kg/m3
-               GL_METPROFILES%p(iz,it)/1e2_rp,  &   ! hPa
-               GL_METPROFILES%t(iz,it), &        ! K
-               GL_METPROFILES%qv(iz,it)*1e3_rp,  &  ! g/kg
-               GL_METPROFILES%u(iz,it), &        ! m/s
-               GL_METPROFILES%v(iz,it)           ! m/s
-3         format(6(2x,f8.3,2x,f8.3))
+                       GL_METPROFILES%rho(iz,it),          &   ! kg/m3
+                       GL_METPROFILES%p(iz,it)/1e2_rp,     &   ! hPa
+                       GL_METPROFILES%t(iz,it),            &   ! K
+                       GL_METPROFILES%qv(iz,it)*1e3_rp,    &   ! g/kg
+                       GL_METPROFILES%u(iz,it),            &   ! m/s
+                       GL_METPROFILES%v(iz,it)                 ! m/s
+3         format(7(2x,f8.3))
        end do
     end do
     close(90)
@@ -2769,6 +2727,7 @@ CONTAINS
        return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'dbs_read_inp_meteo'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version'
        return
     end if
@@ -2811,6 +2770,8 @@ CONTAINS
     !
     call inpout_get_rea (file_inp, 'SOURCE','LON_VENT',GL_METPROFILES%lon, 1, MY_ERR)
     if(MY_ERR%flag.ne.0) return
+    ! Input longitudes should be in the range (-180,180]
+    if(GL_METPROFILES%lon.ge.180.0) GL_METPROFILES%lon = GL_METPROFILES%lon - 360.0
     !
     call inpout_get_rea (file_inp, 'SOURCE','LAT_VENT',GL_METPROFILES%lat, 1, MY_ERR)
     if(MY_ERR%flag.ne.0) return
@@ -2896,7 +2857,6 @@ CONTAINS
        DICTIONARY(DIM_LAT   )  = 'south_north'
        DICTIONARY(DIM_ZLEV  )  = 'bottom_top'
        DICTIONARY(DIM_TIME  )  = 'Time'
-       DICTIONARY(DIM_STRLEN)  = '-'
        DICTIONARY(DIM_XSTAGE)  = 'west_east_stag'
        DICTIONARY(DIM_YSTAGE)  = 'south_north_stag'
        DICTIONARY(DIM_ZSTAGE)  = 'bottom_top_stag'
@@ -2934,7 +2894,7 @@ CONTAINS
        DICTIONARY(VAR_QV   ) = 'QVAPOR'
        DICTIONARY(VAR_RHO  ) = 'RHO'
        !
-    case('GFS')
+    case('GFS','GDAS')
        !
        !  GFS format
        !
@@ -2942,7 +2902,6 @@ CONTAINS
        DICTIONARY(DIM_LAT   )  = 'lat'
        DICTIONARY(DIM_ZLEV  )  = 'lev'
        DICTIONARY(DIM_TIME  )  = 'time'
-       DICTIONARY(DIM_STRLEN)  = '-'
        DICTIONARY(DIM_XSTAGE)  = '-'
        DICTIONARY(DIM_YSTAGE)  = '-'
        DICTIONARY(DIM_ZSTAGE)  = '-'
@@ -2989,7 +2948,6 @@ CONTAINS
        DICTIONARY(DIM_LAT   )  = 'latitude'
        DICTIONARY(DIM_ZLEV  )  = 'lev'
        DICTIONARY(DIM_TIME  )  = 'time'
-       DICTIONARY(DIM_STRLEN)  = '-'
        DICTIONARY(DIM_XSTAGE)  = '-'
        DICTIONARY(DIM_YSTAGE)  = '-'
        DICTIONARY(DIM_ZSTAGE)  = '-'
@@ -3035,7 +2993,6 @@ CONTAINS
        DICTIONARY(DIM_LAT   )  = 'latitude'
        DICTIONARY(DIM_ZLEV  )  = 'level'
        DICTIONARY(DIM_TIME  )  = 'time'
-       DICTIONARY(DIM_STRLEN)  = '-'
        DICTIONARY(DIM_XSTAGE)  = '-'
        DICTIONARY(DIM_YSTAGE)  = '-'
        DICTIONARY(DIM_ZSTAGE)  = '-'
@@ -3630,6 +3587,96 @@ CONTAINS
     !
     return
   end subroutine dbs_get_zo_from_24ldu
+  !
+  !
+  !
+  !-----------------------------------------
+  !    subroutine dbs_get_unit_time
+  !-----------------------------------------
+  !
+  subroutine dbs_get_unit_time(ncID,varID,unit_id,time_factor,time_ref,MY_ERR)
+      implicit none
+      !
+      integer(ip),         intent(in)     :: ncID
+      integer(ip),         intent(in)     :: varID
+      character(len=*),    intent(in)     :: unit_id
+      real(rp),            intent(out)    :: time_factor
+      character(len=*),    intent(inout)  :: time_ref
+      type(ERROR_STATUS),  intent(INOUT)  :: MY_ERR
+      !
+      integer(ip)       :: istat
+      integer(ip)       :: istring
+      character(len=80) :: time_unit_string,string_left
+      !
+      MY_ERR%flag    = 0
+      MY_ERR%source  = 'dbs_get_unit_time'
+      MY_ERR%message = ' ' 
+      !
+      time_unit_string = ''
+      string_left= ''
+      time_ref= ''
+      !
+      istat = nf90_inquire_attribute(ncID, varID, unit_id)
+      if (istat.eq.nf90_noerr) then
+        istat = nf90_get_att(ncID, varID, unit_id, time_unit_string)
+      end if
+      !
+      if(istat.ne.nf90_noerr .or. time_unit_string.eq.'') then
+          MY_ERR%flag = 1
+          MY_ERR%message = "not found a valid unit time"
+          return
+      end if
+      !
+      istring = index(time_unit_string,'since')-1
+      string_left = adjustl(trim(time_unit_string(1:istring)))
+      !
+      if(string_left.eq.'') then
+          MY_ERR%flag    = 1
+          MY_ERR%message = "expected format for unit time: XXX since YYYY-MM-DD HH:MM:SS"
+          return
+      else
+          call upcase(string_left)
+      end if
+      !
+      select case (TRIM(string_left))
+          case('SECONDS','SECOND')
+              time_factor = 1.0_rp
+          case('MINUTES','MINUTE')
+              time_factor = 60.0_rp 
+          case('HOURS','HOUR')
+              time_factor = 3600.0_rp
+          case('DAYS','DAY')
+              time_factor = 86400.0_rp
+          case default
+              MY_ERR%flag    = 1
+              MY_ERR%message = 'not recognised time unit: ' // string_left
+              return
+      end select
+      !
+      time_ref = adjustl(trim(time_unit_string(istring+6:)))
+      !
+  end subroutine dbs_get_unit_time
+  !
+  !
+  !
+  !-----------------------------------------
+  !    subroutine dbs_replace
+  !-----------------------------------------
+  !
+  recursive subroutine dbs_replace(string,substring) 
+      implicit none
+      !
+      character(len=*), intent(inout) :: string
+      character(len=*), intent(in)    :: substring
+      integer(ip)                     :: istring
+      !
+      istring = scan(string,substring)
+      if(istring.gt.0) then
+          string(istring:istring) = ' '
+          call dbs_replace(string,substring) 
+      end if
+      return
+  end subroutine dbs_replace
   !
   !
   !

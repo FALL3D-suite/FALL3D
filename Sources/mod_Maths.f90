@@ -6,9 +6,16 @@
 !>
 !***************************************************************
 MODULE Maths
-  use KindType
+  use KindType, only: ip,Q1_GRID,ERROR_STATUS
   implicit none
   save
+  !
+  ! LAM:
+  ! maths_elq1p1 routine doesn't work with single precision
+  ! In this module, rp is redefined to double precision.
+  ! The Private attribute prevents this redefinition from 
+  ! affecting other modules.
+  integer, parameter, private :: rp = 8
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !

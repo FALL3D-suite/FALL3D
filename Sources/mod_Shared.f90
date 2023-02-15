@@ -13,6 +13,7 @@
   !    LIST OF PUBLIC TYPES AND VARIABLES
   !
   integer(ip)          :: mproc(3) = 1   !>  number of processors along each direction (for domain decomposition)
+  integer(ip)          :: nens = 1       !>  number of members in ensemble
   !
   type(FILE_LIST)      :: MY_FILES       !>  variables related to file logic units and names
   type(ERROR_STATUS)   :: MY_ERR         !>  error handler and descriptor

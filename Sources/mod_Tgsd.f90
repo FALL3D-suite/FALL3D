@@ -145,7 +145,8 @@ CONTAINS
        return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
-       MY_ERR%message ='Input file version deprecated. Please use 8.x file version'
+       MY_ERR%source  = 'tgsd_read_inp_granulometry'
+       MY_ERR%message = 'Input file version deprecated. Please use 8.x file version'
        return
     end if
     !
@@ -300,7 +301,7 @@ CONTAINS
     !
     !*** Allocates memory
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(MY_TGSD%fc   (MY_TGSD%nbins))
        allocate(MY_TGSD%rhop (MY_TGSD%nbins))
        allocate(MY_TGSD%diam (MY_TGSD%nbins))

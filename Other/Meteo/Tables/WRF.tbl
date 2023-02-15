@@ -9,11 +9,10 @@
 |    2     |  DIM_LAT    |  south_north      |
 |    3     |  DIM_ZLEV   |  bottom_top       |
 |    4     |  DIM_TIME   |  Time             |
-|    5     |  DIM_STRLEN |                   |
-|    6     |  DIM_XSTAGE |  west_east_stag   |
-|    7     |  DIM_YSTAGE |  south_north_stag |
-|    8     |  DIM_ZSTAGE |  bottom_top_stag  |
-|    9     |  DIM_SOILAY |  soil_layers_stag |
+|    5     |  DIM_XSTAGE |  west_east_stag   |
+|    6     |  DIM_YSTAGE |  south_north_stag |
+|    7     |  DIM_ZSTAGE |  bottom_top_stag  |
+|    8     |  DIM_SOILAY |  soil_layers_stag |
 |--------------------------------------------|
 |  VAR_ID  |  VAR_TYPE   |  VAR_NAME         |
 |--------------------------------------------|

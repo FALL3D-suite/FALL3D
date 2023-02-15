@@ -13,6 +13,7 @@ MODULE Src
   use Coord
   use PlumeBPT
   use Phys
+  use Ensemble
   implicit none
   save
   !
@@ -221,6 +222,13 @@ CONTAINS
        if(ndt0.lt.ndt) MY_ESP%h_dt(ndt0:ndt) = MY_ESP%h_dt(ndt0)
     else
        call inpout_get_file_col(file_ndt,3,MY_ESP%h_dt,MY_ESP%ndt,MY_ERR)  ! read third column
+    end if
+    !
+    !****NEW LAM!!
+    !*** Perturbate column height in ensemble runs
+    !
+    if(perturbate(ID_COLUMN_HEIGHT)) then
+        MY_ESP%h_dt = MY_ESP%h_dt * perturbation_factor(ID_COLUMN_HEIGHT)
     end if
     !
     !*** Reads source mass flow rate
@@ -610,7 +618,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(MY_ESP%start_time(MY_ESP%ndt))
        allocate(MY_ESP%end_time  (MY_ESP%ndt))
        allocate(MY_ESP%h_dt      (MY_ESP%ndt))
@@ -662,7 +670,7 @@ CONTAINS
        call parallel_bcast(MY_PLUME%a_s_plume      ,1,0)
        call parallel_bcast(MY_PLUME%a_v            ,1,0)
        !
-       if(.not.master) then
+       if(.not.master_model) then
           allocate(MY_PLUME%u0_dt(MY_PLUME%ndt))
           allocate(MY_PLUME%Tv_dt(MY_PLUME%ndt))
           allocate(MY_PLUME%Tl_dt(MY_PLUME%ndt))
@@ -765,7 +773,12 @@ CONTAINS
           !
           if(words(2).eq.'time') then
              it = it + 1
-             GL_METPROFILES%time(it) = param(1)
+             GL_METPROFILES%time(it) = DATETIME( nint(param(1), kind=ip), &
+                                                 nint(param(2), kind=ip), &
+                                                 nint(param(3), kind=ip), &
+                                                 nint(param(4), kind=ip), &
+                                                 nint(param(5), kind=ip), &
+                                                 nint(param(6), kind=ip)  )
           else if(words(2).eq.'timesec') then
              GL_METPROFILES%timesec(it) = param(1)
           else if(words(2).eq.'lon') then
@@ -794,11 +807,21 @@ CONTAINS
     !
     !*** Write to log file
     !
-    call time_real_to_date(iyr,imo,idy,ihr,imi,ise,GL_METPROFILES%time(1),MY_ERR)
-    call time_dateformat  (iyr,imo,idy,ihr,imi,ise,3_ip,time1_string,MY_ERR)
+    call time_dateformat(GL_METPROFILES%time(1)%year,   &
+                         GL_METPROFILES%time(1)%month,  &
+                         GL_METPROFILES%time(1)%day,    &
+                         GL_METPROFILES%time(1)%hour,   &
+                         GL_METPROFILES%time(1)%minute, &
+                         GL_METPROFILES%time(1)%second, &
+                         3_ip,time1_string,MY_ERR)
     !
-    call time_real_to_date(iyr,imo,idy,ihr,imi,ise,GL_METPROFILES%time(GL_METPROFILES%nt),MY_ERR)
-    call time_dateformat  (iyr,imo,idy,ihr,imi,ise,3_ip,time2_string,MY_ERR)
+    call time_dateformat(GL_METPROFILES%time(GL_METPROFILES%nt)%year,   &
+                         GL_METPROFILES%time(GL_METPROFILES%nt)%month,  &
+                         GL_METPROFILES%time(GL_METPROFILES%nt)%day,    &
+                         GL_METPROFILES%time(GL_METPROFILES%nt)%hour,   &
+                         GL_METPROFILES%time(GL_METPROFILES%nt)%minute, &
+                         GL_METPROFILES%time(GL_METPROFILES%nt)%second, &
+                         3_ip,time2_string,MY_ERR)
     !
     write(MY_FILES%lulog,30) time1_string,time2_string
 30  format('  METEO (PROFILES) TIME RANGE',/,&
@@ -848,7 +871,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(GL_METPROFILES%time   (GL_METPROFILES%nt              ))
        allocate(GL_METPROFILES%timesec(GL_METPROFILES%nt              ))
        allocate(GL_METPROFILES%zavl   (GL_METPROFILES%nz,GL_METPROFILES%nt))
@@ -862,8 +885,14 @@ CONTAINS
        allocate(GL_METPROFILES%rho    (GL_METPROFILES%nz,GL_METPROFILES%nt))
     end if
     !
-    call parallel_bcast(GL_METPROFILES%time,   GL_METPROFILES%nt,              0)
-    call parallel_bcast(GL_METPROFILES%timesec,GL_METPROFILES%nt,              0)
+    call parallel_bcast(GL_METPROFILES%time%year,   GL_METPROFILES%nt,0)
+    call parallel_bcast(GL_METPROFILES%time%month,  GL_METPROFILES%nt,0)
+    call parallel_bcast(GL_METPROFILES%time%day,    GL_METPROFILES%nt,0)
+    call parallel_bcast(GL_METPROFILES%time%hour,   GL_METPROFILES%nt,0)
+    call parallel_bcast(GL_METPROFILES%time%minute, GL_METPROFILES%nt,0)
+    call parallel_bcast(GL_METPROFILES%time%second, GL_METPROFILES%nt,0)
+    call parallel_bcast(GL_METPROFILES%timesec,     GL_METPROFILES%nt,0)
+
     call parallel_bcast(GL_METPROFILES%zavl,   GL_METPROFILES%nz*GL_METPROFILES%nt,0)
     call parallel_bcast(GL_METPROFILES%p,      GL_METPROFILES%nz*GL_METPROFILES%nt,0)
     call parallel_bcast(GL_METPROFILES%t,      GL_METPROFILES%nz*GL_METPROFILES%nt,0)
@@ -891,7 +920,7 @@ CONTAINS
     !>   @param GL_METPROFILES  variables related to metrorological profiles
     !>   @param MY_ERR      error handler
     !
-    type(ESP_PARAMS),    intent(INOUT) :: MY_ESP
+    type(ESP_PARAMS),    intent(IN   ) :: MY_ESP
     type(METEO_PROFILE), intent(IN   ) :: GL_METPROFILES
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
@@ -908,46 +937,12 @@ CONTAINS
     !
     !*** Check time consistency
     !
-    call time_addtime(MY_ESP%start_year,MY_ESP%start_month,MY_ESP%start_day,0_ip,  &
-         iyr,imo,idy,ihr,imi,ise,1.0_rp*MY_ESP%start_time(1),MY_ERR)
-    call time_date_to_real(iyr,imo,idy,ihr,imi,ise,time1,MY_ERR)      ! convert to YYYYMMDDHHMMSS
-    if(GL_METPROFILES%time(1).gt.time1) then
+    if(GL_METPROFILES%timesec(1).gt.MY_ESP%start_time(1) .or. &
+       GL_METPROFILES%timesec(GL_METPROFILES%nt).lt.MY_ESP%end_time(MY_ESP%ndt) ) then
        MY_ERR%flag    = 1
        MY_ERR%message = 'Inconsistency between time range and profiles'
        return
     end if
-    !
-    call time_addtime(MY_ESP%start_year,MY_ESP%start_month,MY_ESP%start_day,0_ip,  &
-         iyr,imo,idy,ihr,imi,ise,1.0_rp*MY_ESP%end_time(MY_ESP%ndt),MY_ERR)
-    call time_date_to_real(iyr,imo,idy,ihr,imi,ise,time2,MY_ERR)      ! convert to YYYYMMDDHHMMSS
-    if(GL_METPROFILES%time(GL_METPROFILES%nt).lt.time2) then
-       MY_ERR%flag    = 1
-       MY_ERR%message = 'Inconsistency between time range and profiles'
-       return
-    end if
-    !
-    !*** Calculates time lag by iteration (that is, the time in seconds between the origin of
-    !*** profiles and ESP). Both origins are referred to 0000UTC, but may belong to different days
-    !
-    found = .false.
-    MY_ESP%profile_time_lag = 0.0_rp
-    call time_real_to_date(iyr,imo,idy,ihr,imi,ise,GL_METPROFILES%time(1),MY_ERR)
-    !
-    do while(.not.found)
-       call time_addtime(iyr, imo, idy, 0, &
-            iyr2,imo2,idy2,ihr2,imi2,ise2,MY_ESP%profile_time_lag,MY_ERR)
-       !
-       if((iyr.eq.iyr2).and.(imo.eq.imo2).and.(idy.eq.idy2)) then
-          found = .true.
-       else
-          MY_ESP%profile_time_lag = MY_ESP%profile_time_lag + 86400.0_rp
-       end if
-       if(MY_ESP%profile_time_lag.gt.GL_METPROFILES%timesec(GL_METPROFILES%nt)) then
-          MY_ERR%flag    = 1
-          MY_ERR%message = 'Profile time lag not found. Check interval consistency '
-          return
-       end if
-    end do
     !
     return
   end subroutine src_check_profiles
@@ -1617,7 +1612,7 @@ CONTAINS
     !
     !*** Writes plume results for this time slab
     !
-    if(master) call plumeBPT_write_plumeprop(&
+    if(master_model) call plumeBPT_write_plumeprop(&
          MY_FILES,MY_TIME,MY_PLUME,MY_ESP,MY_GRN,MY_AGR,MY_MOD,MY_ERR)
     call parallel_bcast(MY_ERR%flag,1,0)
     if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
@@ -1859,7 +1854,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(GL_SRC%x(np))
        allocate(GL_SRC%y(np))
        allocate(GL_SRC%z(np))

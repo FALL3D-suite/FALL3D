@@ -13,6 +13,8 @@ MODULE KindType
   !    LIST OF PUBLIC VARIABLES
   !
   integer,     parameter :: ip = 4                          !< Integer precision
+  integer,     parameter :: sp = 4                          !< Real single precision
+  integer,     parameter :: dp = 8                          !< Real double precision
 #if defined WITH_R4
   integer,     parameter :: rp = 4                          !< Real    precision
 #else
@@ -22,12 +24,13 @@ MODULE KindType
   integer(ip), parameter :: s_mess  = 512                   !< Message string lenght
   integer(ip), parameter :: s_file  = 512                   !< File path string lenght
   !
-  integer(ip)            :: TASK_FLAG(0:4)  = (/0,0,0,0,0/) !< task         flags
-  integer(ip), parameter :: TASK_RUN_ALL    = 0             !< All     task flag
-  integer(ip), parameter :: TASK_SET_TGSD   = 1             !< SetTgsd task flag
-  integer(ip), parameter :: TASK_SET_DBS    = 2             !< SetDbs  task flag
-  integer(ip), parameter :: TASK_SET_SRC    = 3             !< SetSrc  task flag
-  integer(ip), parameter :: TASK_RUN_FALL3D = 4             !< Fall3d  task flag
+  integer(ip)            :: TASK_FLAG(0:5)  = (/0,0,0,0,0,0/) !< task         flags
+  integer(ip), parameter :: TASK_RUN_ALL    = 0               !< All     task flag
+  integer(ip), parameter :: TASK_SET_ENS    = 1               !< SetTgsd task flag
+  integer(ip), parameter :: TASK_SET_TGSD   = 2               !< SetTgsd task flag
+  integer(ip), parameter :: TASK_SET_DBS    = 3               !< SetDbs  task flag
+  integer(ip), parameter :: TASK_SET_SRC    = 4               !< SetSrc  task flag
+  integer(ip), parameter :: TASK_RUN_FALL3D = 5               !< Fall3d  task flag
   !
   integer(ip), parameter :: LOG_LEVEL_NONE   = 0             !< log file level flag for none
   integer(ip), parameter :: LOG_LEVEL_NORMAL = 1             !< log file level flag for normal
@@ -83,9 +86,21 @@ MODULE KindType
      !
      integer(ip)       :: nwarn = 0       !< Number of warning messages
      character(s_mess) :: warning(100)    !< Detailed warning  messages
-     real(rp)          :: cpu_start_time  !< CPU start time
-     real(rp)          :: cpu_end_time    !< CPU end   time
+     character(s_mess) :: cpu_start_date  !< CPU start date in format DD mon YYYY at 00:00:00
+     real(rp)          :: cpu_start_time  !< CPU start time in s
+     real(rp)          :: cpu_end_time    !< CPU end   time in s
   end type ERROR_STATUS
+  !
+  !>   type DATETIME: data structure for date and time
+  !
+  type DATETIME
+      integer(ip) :: year       !< Year
+      integer(ip) :: month      !< Month
+      integer(ip) :: day        !< Day
+      integer(ip) :: hour       !< Hour
+      integer(ip) :: minute     !< Minute
+      integer(ip) :: second     !< Second
+  end type DATETIME
   !
   !>   type FILE_LIST: list of file logic units and names
   !
@@ -95,10 +110,12 @@ MODULE KindType
      integer(ip)       :: luplu_res = 12         !< plume.res file logical unit
      integer(ip)       :: lugc_res  = 13         !< gc.res    file logical unit
      !
+     character(s_file) :: commonpath   = ' '      !< common problem path
      character(s_file) :: problempath  = ' '      !< problem path
      character(s_file) :: problemname  = ' '      !< problem name
      character(s_file) :: file_log     = ' '      !< Name of the log   file
      character(s_file) :: file_inp     = ' '      !< Name of the input file
+     character(s_file) :: file_ens     = '-'      !< Name of the ens   file
      character(s_file) :: file_tgsd    = '-'      !< Name of the tgsd  file
      character(s_file) :: file_dbs     = '-'      !< Name of the dbs   file
      character(s_file) :: file_met     = '-'      !< Name of the meto  file
@@ -228,7 +245,6 @@ MODULE KindType
      real(rp)  :: lon                               !< source vent longitude
      real(rp)  :: lat                               !< source vent latitude
      real(rp)  :: zo                                !< source vent altitude
-     real(rp)  :: profile_time_lag                  !< meteorological profile time lag (computed if necessary)
      real(rp)  :: alfa_plume                        !< radial entrainment coefficient
      real(rp)  :: beta_plume                        !< wind entrainment coefficient
      !
@@ -453,12 +469,11 @@ MODULE KindType
      real(rp)                 :: time_lag                 !< difference in met model and dbs time origins
      real(rp)                 :: meteo_coupling_interval  !< meteo coupling time interval (in s)
      !
-     real(rp), allocatable    :: time   (:)       !< time   (nt) met model time steps in format YYYYMMDDHHMMSS
-     real(rp), allocatable    :: timesec(:)       !< timesec(nt) met model time steps sec after 0000UTC
+     type(DATETIME), allocatable :: time(:)               !< time(nt)    met model time steps
+     real(rp), allocatable       :: timesec(:)            !< timesec(nt) met model time steps sec after 0000UTC
      !
-     integer(ip), allocatable :: el_po(:)         !< el_po(npoin) meteo model point hosting element: el_po(ipoin) = ielem
-     real(rp),    allocatable :: s_po (:)         !< s_po (npoin) meteo model point interpolation factor: s_po(ipoin)  = s
-     real(rp),    allocatable :: t_po (:)         !< t_po (npoin) meteo model point interpolation factor: t_po(ipoin)  = t
+     integer(ip), allocatable :: el_indexes(:,:)          !< el_indexes(2,npoin) native meteo model element
+     real(rp),    allocatable :: interp_factor (:,:)      !< interp_factor (4,npoin) interpolation factors to interpolate from native meteo model
      !
      real(rp), allocatable :: my_lmaskc(:,:)      !< my_lmaskc (my_ibs:my_ibe, my_jbs:my_jbe    )  land mask value  at my processor cell cell corners
      real(rp), allocatable :: my_lusec (:,:)      !< my_lusec  (my_ibs:my_ibe, my_jbs:my_jbe    )  land use index   at my processor cell cell corners
@@ -529,7 +544,7 @@ MODULE KindType
      logical :: yreversed                    !< yreversed if latitudes are reversed
      logical :: zreversed                    !< zreversed if vertical levels are reversed
      !
-     real(rp), allocatable :: time   (:)     !< time   (nt) met model time steps in format YYYYMMDDHHMMSS
+     type(DATETIME), allocatable :: time(:)  !< time(nt)    met model time steps
      real(rp), allocatable :: timesec(:)     !< timesec(nt) met model time steps sec after 0000UTC
      !
   end type METEO_MODEL
@@ -549,8 +564,8 @@ MODULE KindType
      real(rp)    :: lat                    !< profile latitude
      real(rp)    :: zo                     !< terrain elevation at profile point (lon.lat)
      !
-     real(rp), allocatable :: time(  :)    !< time(   nt)  met model time steps in format YYYYMMDDHHMMSS
-     real(rp), allocatable :: timesec(:)   !< timesec(nt)  met model time steps sec after 0000UTC
+     type(DATETIME), allocatable :: time(:) !< time(nt)     met model time steps 
+     real(rp), allocatable :: timesec(:)    !< timesec(nt)  met model time steps sec after 0000UTC
      real(rp), allocatable :: zavl(:,:)    !< zavl(nz,nt)  height level (above terrain or vent level)
      real(rp), allocatable :: zasl(:,:)    !< zasl(nz,nt)  height level (above sea level)
      real(rp), allocatable :: p   (:,:)    !< p   (nz,nt)  air pressure (Pa)

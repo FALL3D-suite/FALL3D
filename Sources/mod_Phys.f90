@@ -119,6 +119,7 @@ CONTAINS
        return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'phys_read_inp_model'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version '
        return
     end if

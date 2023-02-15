@@ -22,7 +22,11 @@ subroutine task_runend(task, MY_FILES, MY_ERR)
   type(FILE_LIST),   intent(IN   ) :: MY_FILES
   type(ERROR_STATUS),intent(INOUT) :: MY_ERR
   !
-  if(master) call inpout_close_log_file(task, MY_FILES, MY_ERR)
+  if(task.eq.TASK_SET_ENS) then
+      if(master_world) call inpout_close_log_file(task, MY_FILES, MY_ERR)
+  else
+      if(master_model) call inpout_close_log_file(task, MY_FILES, MY_ERR)
+  end if
   call parallel_hangup(MY_ERR)
   !
   return

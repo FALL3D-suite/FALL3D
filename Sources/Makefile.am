@@ -58,8 +58,9 @@ common_files = slsode.f dlsode.f mod_ADS.f90 mod_Config.f90 mod_Coord.f90 \
 	mod_InpOut.f90 mod_KindType.F90 mod_Maths.f90 mod_Odepack.f90 \
 	mod_Parallel.F90 mod_Phys.f90 mod_PlumeBPT.f90 mod_Sat.f90 \
 	mod_Shared.f90 mod_Src.f90 mod_StdAtm.f90 mod_Tgsd.f90 mod_Time.f90 \
-	mod_nc_IO.F90 task_Fall3d.f90 task_SetDbs.f90 task_SetSrc.f90 \
-	task_SetTgsd.f90 task_runend.f90 task_Manager.f90
+	mod_nc_IO.F90 mod_Ensemble.f90 \
+	task_Fall3d.f90 task_SetDbs.f90 task_SetSrc.f90 task_SetTgsd.f90 \
+	task_SetEns.f90 task_runend.f90 task_Manager.f90
 
 Fall3d_r4_x_SOURCES = $(common_files)
 Fall3d_r8_x_SOURCES = $(common_files)

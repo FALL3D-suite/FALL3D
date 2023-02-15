@@ -87,6 +87,7 @@ CONTAINS
        return 
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'grid_read_inp_grid'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version'
        return
     end if
@@ -156,7 +157,7 @@ CONTAINS
        else
           lon_span = 360.0_rp + MY_GRID%lonmax-MY_GRID%lonmin
        end if
-       np(1) = int(lon_span/resolution)
+       np(1) = nint(lon_span/resolution)
     else
        call inpout_get_int (file_inp, 'GRID','NX', np(1), 1, MY_ERR)
        if(MY_ERR%flag.ne.0) return
@@ -167,7 +168,7 @@ CONTAINS
     if(word.eq.'RESOLUTION') then
        call inpout_get_rea (file_inp, 'GRID','NY', resolution, 1, MY_ERR)
        if(MY_ERR%flag.ne.0) return
-       np(2) = int((MY_GRID%latmax-MY_GRID%latmin)/resolution)
+       np(2) = nint((MY_GRID%latmax-MY_GRID%latmin)/resolution)
     else
        call inpout_get_int (file_inp, 'GRID','NY', np(2), 1, MY_ERR)
        if(MY_ERR%flag.ne.0) return
@@ -264,7 +265,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(gl_sigma(nb(3)))
     end if
     !
@@ -1121,10 +1122,10 @@ CONTAINS
     !
     !*** Golbal time step
     !
-    allocate(dt_local(0:nproc-1))
-    dt_local(:) = 0.0_rp
-    dt_local(mpime) = my_dt
-    call parallel_sum(dt_local, COMM_WORLD)
+    allocate(dt_local(0:npes_model-1))
+    dt_local(:)          = 0.0_rp
+    dt_local(mype_model) = my_dt
+    call parallel_sum(dt_local, COMM_MODEL)
     dt = minval(dt_local(:))
     !
     return
@@ -1362,13 +1363,13 @@ CONTAINS
        end do
     end do
     !
-    allocate(mass(0:nproc-1))
-    mass(:)     = 0.0_rp
-    mass(mpime) = my_mass
-    call parallel_sum(mass, COMM_WORLD)
+    allocate(mass(0:npes_model-1))
+    mass(:)          = 0.0_rp
+    mass(mype_model) = my_mass
+    call parallel_sum(mass, COMM_MODEL)
     !
     gl_mass = 0.0_rp
-    do i = 0,nproc-1
+    do i = 0,npes_model-1
        gl_mass = gl_mass + mass(i)
     end do
     deallocate(mass)
@@ -1419,13 +1420,13 @@ CONTAINS
        end do
     end do
     !
-    allocate(mass(0:nproc-1))
-    mass(:)     = 0.0_rp
-    mass(mpime) = my_mass
-    call parallel_sum(mass, COMM_WORLD)
+    allocate(mass(0:npes_model-1))
+    mass(:)          = 0.0_rp
+    mass(mype_model) = my_mass
+    call parallel_sum(mass, COMM_MODEL)
     !
     gl_mass = 0.0_rp
-    do i = 0,nproc-1
+    do i = 0,npes_model-1
        gl_mass = gl_mass + mass(i)
     end do
     deallocate(mass)
@@ -1464,28 +1465,28 @@ CONTAINS
     MY_ERR%source  = 'grid_get_mass_boundaries'
     MY_ERR%message = ' '
     !
-    allocate(mass(0:nproc-1))
+    allocate(mass(0:npes_model-1))
     !
     !*** Mass at ground
     !
-    mass(:)     = 0.0_rp
-    mass(mpime) = abs(MY_TRA%my_D_flux)
-    call parallel_sum(mass, COMM_WORLD)
+    mass(:)          = 0.0_rp
+    mass(mype_model) = abs(MY_TRA%my_D_flux)
+    call parallel_sum(mass, COMM_MODEL)
     !
     gl_mass_ground = 0.0_rp
-    do i = 0,nproc-1
+    do i = 0,npes_model-1
        gl_mass_ground = gl_mass_ground + mass(i)
     end do
     !
     !*** Mass at lateral and top
     !
-    mass(:)     = 0.0_rp
-    mass(mpime) = abs(MY_TRA%my_W_flux) + abs(MY_TRA%my_E_flux) + abs(MY_TRA%my_S_flux) + &
+    mass(:)          = 0.0_rp
+    mass(mype_model) = abs(MY_TRA%my_W_flux) + abs(MY_TRA%my_E_flux) + abs(MY_TRA%my_S_flux) + &
          abs(MY_TRA%my_N_flux) + abs(MY_TRA%my_U_flux)
-    call parallel_sum(mass, COMM_WORLD)
+    call parallel_sum(mass, COMM_MODEL)
     !
     gl_mass_lateral = 0.0_rp
-    do i = 0,nproc-1
+    do i = 0,npes_model-1
        gl_mass_lateral = gl_mass_lateral + mass(i)
     end do
     !

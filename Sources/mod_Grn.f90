@@ -60,7 +60,7 @@ CONTAINS
     !*** Initializations
     !
     MY_ERR%flag    = 0
-    MY_ERR%source  = ' grn_read_inp_species'
+    MY_ERR%source  = 'grn_read_inp_species'
     MY_ERR%message = ' '
     !
     file_inp = MY_FILES%file_inp
@@ -72,6 +72,7 @@ CONTAINS
        return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'grn_read_inp_species'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version '
        return
     end if
@@ -378,7 +379,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(MY_SPE%code    (MY_SPE%nspe))
        allocate(MY_SPE%category(MY_SPE%nspe))
        allocate(MY_SPE%name    (MY_SPE%nspe))
@@ -438,6 +439,7 @@ CONTAINS
        return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'grn_read_inp_aggregation'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version '
        return
     end if
@@ -553,7 +555,7 @@ CONTAINS
     !
     if(MY_AGR%aggregation) then
        !
-       if(.not.master) then
+       if(.not.master_model) then
           allocate(MY_AGR%diam      (MY_AGR%nbins_aggr))
           allocate(MY_AGR%rho       (MY_AGR%nbins_aggr))
           allocate(MY_AGR%percentage(MY_AGR%nbins_aggr))
@@ -626,6 +628,7 @@ CONTAINS
        return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'grn_get_granulometry'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version '
        return
     end if
@@ -968,7 +971,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(MY_GRN%bin_effe(MY_GRN%nbins))
        allocate(MY_GRN%bin_type(MY_GRN%nbins))
        allocate(MY_GRN%bin_name(MY_GRN%nbins))
@@ -1255,7 +1258,7 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master) then
+    if(.not.master_model) then
        allocate(MY_TRA%MY_BIN%bin_type(MY_TRA%nbins))
        allocate(MY_TRA%MY_BIN%bin_name(MY_TRA%nbins))
        allocate(MY_TRA%MY_BIN%bin_cat (MY_TRA%nbins))

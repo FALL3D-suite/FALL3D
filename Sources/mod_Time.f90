@@ -18,16 +18,24 @@ MODULE Time
   PUBLIC :: time_dateformat
   PUBLIC :: time_read_inp_time
   PUBLIC :: time_bcast_inp_time
-  PUBLIC :: time_real_to_date
-  PUBLIC :: time_date_to_real
   PUBLIC :: time_julian_date
 
   !
   !    LIST OF PRIVATE ROUTINES IN THE MODULE
   !
+  PRIVATE :: time_addtime_r4
+  PRIVATE :: time_addtime_r8
   PRIVATE :: time_timeincr
   PRIVATE :: time_julday
   PRIVATE :: time_grday
+  !
+  !>   @brief
+  !>   time_addtime interface procedure. Adds time seconds to the reference datetime YYYY-MM-DD HH:00:00
+  !
+  INTERFACE time_addtime
+      MODULE PROCEDURE time_addtime_r4
+      MODULE PROCEDURE time_addtime_r8
+  END INTERFACE time_addtime
   !
 CONTAINS
   !
@@ -67,6 +75,7 @@ CONTAINS
         return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
+       MY_ERR%source  = 'time_read_inp_time'
        MY_ERR%message = 'Input file version deprecated. Please use 8.x file version'
        return
     end if
@@ -148,88 +157,6 @@ CONTAINS
     !
     return
   end subroutine time_bcast_inp_time
-  !
-  !-------------------------------
-  !    subroutine time_addtime
-  !-------------------------------
-  !
-  !>   @brief
-  !>   Adds time seconds to the initial date YYYY-MM-DD-HH
-  !
-  subroutine time_addtime(iyr0,imo0,idy0,ihr0,iyr,imo,idy,ihr,imi,ise,time,MY_ERR)
-    implicit none
-    !
-    !>   @param iyr0   Initial year
-    !>   @param imo0   Initial month (1-12)
-    !>   @param idy0   Initial day   (1-31)
-    !>   @param ihr0   Initial hour  (0-23)
-    !>   @param iyr    Output year
-    !>   @param imo    Output month  (1-12)
-    !>   @param idy    Output day    (1-31)
-    !>   @param ihr    Output hour   (0-23)
-    !>   @param imi    Output minute (0-59)
-    !>   @param ise    Output second (0-59)
-    !>   @param time   Time increment in seconds
-    !>   @param MY_ERR        error handler
-    !
-    integer(ip), intent(IN)  :: iyr0
-    integer(ip), intent(IN)  :: imo0
-    integer(ip), intent(IN)  :: idy0
-    integer(ip), intent(IN)  :: ihr0
-    integer(ip), intent(OUT) :: iyr
-    integer(ip), intent(OUT) :: imo
-    integer(ip), intent(OUT) :: idy
-    integer(ip), intent(OUT) :: ihr
-    integer(ip), intent(OUT) :: imi
-    integer(ip), intent(OUT) :: ise
-    real(rp),    intent(IN)  :: time
-    type(ERROR_STATUS),    intent(INOUT) :: MY_ERR
-    !
-    integer(ip) :: nhincr,ijl
-    real   (rp) :: work
-    !
-    !***  Initialization
-    !
-    MY_ERR%flag    = 0
-    MY_ERR%source  = 'time_addtime'
-    MY_ERR%message = ' '
-    !
-    iyr = iyr0
-    imo = imo0
-    idy = idy0
-    ihr = ihr0
-    !
-    !***  Time < 1 min
-    !
-    if(time < 60.0_rp) then
-       imi = 0
-       ise = int(time)
-       return
-       !
-       !***  Time < 1 h
-       !
-    else if(time < 3600.0_rp) then
-       imi = int(time/60.0_rp)
-       ise = int(time)-60*imi
-       return
-    else
-       !
-       !***  Time > 1 h
-       !
-       nhincr = int(time/3600.0_rp)
-       work   = time - nhincr*3600.0_rp
-       imi    = int(work/60.0_rp)
-       ise    = int(work)-60*imi
-       !
-       call time_julday  (iyr,imo,idy,ijl,MY_ERR)      ! Computes the Julian day ijl
-       if(MY_ERR%flag.ne.0) return
-       call time_timeincr(iyr,ijl,ihr,nhincr,MY_ERR)   ! Updates the  Julian day
-       if(MY_ERR%flag.ne.0) return
-       call time_grday   (iyr,ijl,imo,idy,MY_ERR)      ! Converts back to Gregorian
-       return
-    end if
-    !
-  end subroutine time_addtime
   !
   !-------------------------------
   !   subroutine time_dateformat
@@ -322,96 +249,6 @@ CONTAINS
     return
   end subroutine time_dateformat
   !
-  !-------------------------------
-  !   subroutine time_real_to_date
-  !-------------------------------
-  !
-  !>   @brief
-  !>   Converts a real in format YYYYMMDDHHMMSS to dates
-  !
-  subroutine time_real_to_date(iyr,imo,idy,ihr,imi,ise,time,MY_ERR)
-    implicit none
-    !
-    !>   @param iyr      year
-    !>   @param imo      month  (1-12)
-    !>   @param idy      day    (1-31)
-    !>   @param ihr      hour   (0-23)
-    !>   @param imi      minute (0-59)
-    !>   @param ise      second (0-59)
-    !>   @param time     time in format YYYYMMDDHHMMSS
-    !>   @param MY_ERR   error handler
-    !
-    integer(ip), intent(OUT) :: iyr
-    integer(ip), intent(OUT) :: imo
-    integer(ip), intent(OUT) :: idy
-    integer(ip), intent(OUT) :: ihr
-    integer(ip), intent(OUT) :: imi
-    integer(ip), intent(OUT) :: ise
-    real(rp),    intent(IN ) :: time
-    type(ERROR_STATUS), intent(INOUT) :: MY_ERR
-    !
-    real(rp) :: t
-    !
-    !*** Initializations
-    !
-    MY_ERR%flag    = 0
-    MY_ERR%message = ' '
-    !
-    t = time
-    !
-    iyr = int(t/1e10_rp)
-    t   = t - iyr*1e10_rp
-    imo = int(t/1e8_rp)
-    t   = t - imo*1e8_rp
-    idy = int(t/1e6_rp)
-    t   = t - idy*1e6_rp
-    ihr = int(t/1e4_rp)
-    t   = t - ihr*1e4_rp
-    imi = int(t/1e2_rp)
-    t   = t - imi*1e2_rp
-    ise = int(t)
-    !
-    return
-  end subroutine time_real_to_date
-  !
-  !-------------------------------
-  !   subroutine time_date_to_real
-  !-------------------------------
-  !
-  !>   @brief
-  !>   Converts date to a real in format YYYYMMDDHHMMSS
-  !
-  subroutine time_date_to_real(iyr,imo,idy,ihr,imi,ise,time,MY_ERR)
-    implicit none
-    !
-    !>   @param iyr      year
-    !>   @param imo      month  (1-12)
-    !>   @param idy      day    (1-31)
-    !>   @param ihr      hour   (0-23)
-    !>   @param imi      minute (0-59)
-    !>   @param ise      second (0-59)
-    !>   @param time     time in format YYYYMMDDHHMMSS
-    !>   @param MY_ERR   error handler
-    !
-    integer(ip), intent(IN ) :: iyr
-    integer(ip), intent(IN ) :: imo
-    integer(ip), intent(IN ) :: idy
-    integer(ip), intent(IN ) :: ihr
-    integer(ip), intent(IN ) :: imi
-    integer(ip), intent(IN ) :: ise
-    real(rp),    intent(OUT) :: time
-    type(ERROR_STATUS), intent(INOUT) :: MY_ERR
-    !
-    !*** Initializations
-    !
-    MY_ERR%flag    = 0
-    MY_ERR%message = ' '
-    !
-    time = 1e10_rp*iyr + 1e8_rp*imo + 1e6_rp*idy + 1e4_rp*ihr + 1e2_rp*imi + ise
-    !
-    return
-  end subroutine time_date_to_real
-  !
   !-----------------------------------------
   !    subroutine time_julian_date
   !-----------------------------------------
@@ -448,6 +285,172 @@ CONTAINS
   !
   !
   !   PRIVATE ROUTINES
+  !
+  !
+  subroutine time_addtime_r4(iyr0,imo0,idy0,ihr0,iyr,imo,idy,ihr,imi,ise,time,MY_ERR)
+    !**********************************************************************
+    !*
+    !*    Convert time in seconds after a reference time in datetime format 
+    !*
+    !*    INPUTS:
+    !*       IYR0    - integer - Reference year
+    !*       IMO0    - integer - Reference month
+    !*       IDY0    - integer - Reference day
+    !*       IHR0    - integer - Reference hour
+    !*       TIME    - real*4  - Time in seconds after the reference time
+    !*
+    !*    OUTPUTS:
+    !*       IYR    - integer - Output year
+    !*       IMO    - integer - Output month
+    !*       IDY    - integer - Output day
+    !*       IHR    - integer - Output hour (00-23)
+    !*       IMI    - integer - Output minute
+    !*       ISE    - integer - Output second
+    !*
+    !**********************************************************************
+    implicit none
+    !
+    integer(ip),        intent(IN)    :: iyr0
+    integer(ip),        intent(IN)    :: imo0
+    integer(ip),        intent(IN)    :: idy0
+    integer(ip),        intent(IN)    :: ihr0
+    integer(ip),        intent(OUT)   :: iyr
+    integer(ip),        intent(OUT)   :: imo
+    integer(ip),        intent(OUT)   :: idy
+    integer(ip),        intent(OUT)   :: ihr
+    integer(ip),        intent(OUT)   :: imi
+    integer(ip),        intent(OUT)   :: ise
+    real(sp),           intent(IN)    :: time
+    type(ERROR_STATUS), intent(INOUT) :: MY_ERR
+    !
+    integer(ip) :: nhincr,ijl
+    real   (rp) :: work
+    !
+    !***  Initialization
+    !
+    MY_ERR%flag    = 0
+    MY_ERR%source  = 'time_addtime_r4'
+    MY_ERR%message = ' '
+    !
+    iyr = iyr0
+    imo = imo0
+    idy = idy0
+    ihr = ihr0
+    !
+    !***  Time < 1 min
+    !
+    if(time < 60.0_sp) then
+       imi = 0
+       ise = int(time)
+       return
+       !
+       !***  Time < 1 h
+       !
+    else if(time < 3600.0_sp) then
+       imi = int(time/60.0_sp)
+       ise = int(time)-60*imi
+       return
+    else
+       !
+       !***  Time > 1 h
+       !
+       nhincr = int(time/3600.0_sp)
+       work   = time - nhincr*3600.0_sp
+       imi    = int(work/60.0_sp)
+       ise    = int(work)-60*imi
+       !
+       call time_julday  (iyr,imo,idy,ijl,MY_ERR)      ! Computes the Julian day ijl
+       if(MY_ERR%flag.ne.0) return
+       call time_timeincr(iyr,ijl,ihr,nhincr,MY_ERR)   ! Updates the  Julian day
+       if(MY_ERR%flag.ne.0) return
+       call time_grday   (iyr,ijl,imo,idy,MY_ERR)      ! Converts back to Gregorian
+       return
+    end if
+    !
+  end subroutine time_addtime_r4
+  !
+  !
+  subroutine time_addtime_r8(iyr0,imo0,idy0,ihr0,iyr,imo,idy,ihr,imi,ise,time,MY_ERR)
+    !**********************************************************************
+    !*
+    !*    Convert time in seconds after a reference time in datetime format 
+    !*
+    !*    INPUTS:
+    !*       IYR0    - integer - Reference year
+    !*       IMO0    - integer - Reference month
+    !*       IDY0    - integer - Reference day
+    !*       IHR0    - integer - Reference hour
+    !*       TIME    - real*8  - Time in seconds after the reference time
+    !*
+    !*    OUTPUTS:
+    !*       IYR    - integer - Output year
+    !*       IMO    - integer - Output month
+    !*       IDY    - integer - Output day
+    !*       IHR    - integer - Output hour (00-23)
+    !*       IMI    - integer - Output minute
+    !*       ISE    - integer - Output second
+    !*
+    !**********************************************************************
+    implicit none
+    !
+    integer(ip),        intent(IN)    :: iyr0
+    integer(ip),        intent(IN)    :: imo0
+    integer(ip),        intent(IN)    :: idy0
+    integer(ip),        intent(IN)    :: ihr0
+    integer(ip),        intent(OUT)   :: iyr
+    integer(ip),        intent(OUT)   :: imo
+    integer(ip),        intent(OUT)   :: idy
+    integer(ip),        intent(OUT)   :: ihr
+    integer(ip),        intent(OUT)   :: imi
+    integer(ip),        intent(OUT)   :: ise
+    real(dp),           intent(IN)    :: time
+    type(ERROR_STATUS), intent(INOUT) :: MY_ERR
+    !
+    integer(ip) :: nhincr,ijl
+    real   (rp) :: work
+    !
+    !***  Initialization
+    !
+    MY_ERR%flag    = 0
+    MY_ERR%source  = 'time_addtime_r8'
+    MY_ERR%message = ' '
+    !
+    iyr = iyr0
+    imo = imo0
+    idy = idy0
+    ihr = ihr0
+    !
+    !***  Time < 1 min
+    !
+    if(time < 60.0_dp) then
+       imi = 0
+       ise = int(time)
+       return
+       !
+       !***  Time < 1 h
+       !
+    else if(time < 3600.0_dp) then
+       imi = int(time/60.0_dp)
+       ise = int(time)-60*imi
+       return
+    else
+       !
+       !***  Time > 1 h
+       !
+       nhincr = int(time/3600.0_dp)
+       work   = time - nhincr*3600.0_dp
+       imi    = int(work/60.0_dp)
+       ise    = int(work)-60*imi
+       !
+       call time_julday  (iyr,imo,idy,ijl,MY_ERR)      ! Computes the Julian day ijl
+       if(MY_ERR%flag.ne.0) return
+       call time_timeincr(iyr,ijl,ihr,nhincr,MY_ERR)   ! Updates the  Julian day
+       if(MY_ERR%flag.ne.0) return
+       call time_grday   (iyr,ijl,imo,idy,MY_ERR)      ! Converts back to Gregorian
+       return
+    end if
+    !
+  end subroutine time_addtime_r8
   !
   !
   subroutine time_julday(iyr,imo,iday,ijuldy,MY_ERR)
