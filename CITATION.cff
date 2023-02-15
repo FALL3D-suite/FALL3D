@@ -1,0 +1,52 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: FALL3D
+message: >-
+  FALL3D is a 3D model for atmospheric passive  transport
+  and deposition of particles, aerosols, and radionuclides. 
+type: software
+authors:
+  - given-names: Arnau
+    family-names: Folch
+    email: afolch@geo3bcn.csic.es
+    affiliation: 'Geociencias Barcelona (GEO3BCN-CSIC), Barcelona, Spain'
+    orcid: 'https://orcid.org/0000-0002-0677-6366'
+  - given-names: Antonio
+    family-names: Costa
+    email: antonio.costa@ingv.it
+    orcid: 'https://orcid.org/0000-0002-4987-6471'
+    affiliation: >-
+      Istituto Nazionale di Geofisica e Vulcanologia,
+      Sezione di Bologna, Bologna, Italy
+  - given-names: Giovanni
+    family-names: Macedonio
+    email: giovanni.macedonio@ingv.it
+    affiliation: >-
+      Istituto Nazionale di Geofisica e Vulcanologia,
+      Osservatorio Vesuviano, Naples, Italy
+    orcid: 'https://orcid.org/0000-0001-6604-1479'
+  - given-names: Leonardo
+    family-names: Mingari
+    email: lmingari@geo3bcn.csic.es
+    affiliation: 'Geociencias Barcelona (GEO3BCN-CSIC), Barcelona, Spain'
+    orcid: 'https://orcid.org/0000-0002-6584-4699'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.7267808
+repository-code: 'https://github.com/lmingari/releases.git'
+abstract: >
+  FALL3D is a 3D model for atmospheric passive transport and
+  deposition of particles, aerosols, and radionuclides. The
+  model, originally developed for inert volcanic particles
+  (tephra), has a track record of 50+ publications on
+  different model applications and code validation, as well
+  as an ever-growing community of users worldwide, including
+  academia, private, research, and several institutions
+  tasked with operational forecast of volcanic ash clouds.
+keywords:
+  - DISPERSAL MODEL
+  - VOLCANIC ASH
+license: GPL-2.0-or-later
+version: 8.2.1

@@ -46,3 +46,6 @@ __pycache__/
 
 #netCDF files
 *.nc
+
+# Git repositories
+*.git
