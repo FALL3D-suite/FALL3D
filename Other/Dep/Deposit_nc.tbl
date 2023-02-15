@@ -1,0 +1,25 @@
+!------------------------------------------------|
+!                                                |
+!  FALL3D dictionary for netCDF deposit data     |
+!  NOTE: copy this template file and modify only |
+!        the last colum of the table at your own |
+!        convenience                             |
+!                                                | 
+!------------------------------------------------|
+!  DIM_ID  |  DIM_TYPE       |  DIM_NAME         | 
+!------------------------------------------------|
+|    1     |  DIM_LON        |  lon              |
+|    2     |  DIM_LAT        |  lat              |
+!------------------------------------------------|
+!  VAR_ID  |  VAR_TYPE       |  VAR_NAME         |
+!------------------------------------------------|
+|    10    |  VAR_LON        |  longitude        |
+|    11    |  VAR_LAT        |  latitude         |
+|    12    |  VAR_LOAD       |  mass_loading     |
+|    13    |  VAR_THICK      |  thickness        |
+|    14    |  VAR_MASK       |  loading_flag     |
+!------------------------------------------------|
+!  ATR_ID  |  ATR_TYPE       |  ATR_NAME         |
+!------------------------------------------------|
+|    20    |  ATR_TRACER     |  tracer_type      |
+!------------------------------------------------|

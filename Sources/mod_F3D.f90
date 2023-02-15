@@ -364,7 +364,7 @@ CONTAINS
     integer(ip)           :: lulog,nbins
     integer(ip)           :: iyr,imo,idy,ihr,imi,ise
     integer(ip)           :: ix,iy,iz,is,i,j,k,ibin
-    real(rp)              :: time,lonmin,lonmax,latmin,latmax
+    real(rp)              :: time,lonmin,lonmax,latmin,latmax,glonmin,glatmin
     real(rp)              :: dlon,dlat,inv_dlon,inv_dlat
     real(rp)              :: xs,ys,zs,s,t,st,myshape(4),shapez,Hm1,Hm2,Hm3
     real(rp), allocatable :: my_zc(:)        ! my_z at corners
@@ -445,6 +445,9 @@ CONTAINS
     lonmax = MY_GRID%lon_c(my_ibe)
     latmin = MY_GRID%lat_c(my_jbs)
     latmax = MY_GRID%lat_c(my_jbe)
+    glonmin = MY_GRID%lonmin
+    if(glonmin.ge.180.0_rp) glonmin = glonmin - 360.0_rp
+    glatmin = MY_GRID%latmin
     !
     inv_dlon = 1.0_rp / MY_GRID%dlon
     inv_dlat = 1.0_rp / MY_GRID%dlat
@@ -473,16 +476,16 @@ CONTAINS
            if(xs.lt.lonmin .and. xs.ge.lonmax) cycle compute_source
        end if
        !
-       !*** I am a candidate point. 
-       !*** Compute interpolation factors and 
+       !*** I am a candidate point.
+       !*** Compute interpolation factors and
        !*** values of z at point coordinates
        !
        ! Compute indexes
-       dlat = ys - latmin
-       dlon = xs - lonmin
+       dlat = ys - glatmin
+       dlon = xs - glonmin
        if(dlon.lt.0) dlon = dlon + 360.0_rp  ! meridian crossing
-       ix = my_ips + int(dlon*inv_dlon)
-       iy = my_jps + int(dlat*inv_dlat) 
+       ix = 1 + int(dlon*inv_dlon)
+       iy = 1 + int(dlat*inv_dlat)
        !
        dlat = ys - MY_GRID%lat_c(iy)
        dlon = xs - MY_GRID%lon_c(ix)
@@ -505,12 +508,15 @@ CONTAINS
                       myshape(4)*MY_GRID%z_c(ix  ,iy+1,iz)
        end do
        !
-       if( (zs.ge.my_zc(my_kbs)).and.(zs.lt.my_zc(my_kbe)) ) then 
+       if( (zs.ge.my_zc(my_kbs)).and.(zs.lt.my_zc(my_kbe)) ) then
          !
          !*** Source at mass points
          !
          call grid_get_shapez(my_kbs,my_kbe,my_zc,zs,iz,shapez)
          MY_TRA%my_s(ix,iy,iz,1:nbins) = MY_TRA%my_s(ix,iy,iz,1:nbins) + GL_SRC%M(1:nbins,is)
+       elseif(my_kbs.eq.1 .and. zs.lt.my_zc(my_kbs)) then
+         ! source point is assigned to first layer if it is found below terrain
+         MY_TRA%my_s(ix,iy,1,1:nbins) = MY_TRA%my_s(ix,iy,1,1:nbins) + GL_SRC%M(1:nbins,is)
          !
        end if
     end do compute_source
@@ -1262,10 +1268,10 @@ CONTAINS
           gl_mass = gl_mass_ground + gl_mass_lateral + gl_mass_sink + gl_mass_volume
           !
           if(master_model) write(lulog,20) gl_mass_volume ,100.0_rp*gl_mass_volume /gl_mass, &
-               gl_mass_lateral,100.0_rp*gl_mass_lateral/gl_mass, &
-               gl_mass_sink,   100.0_rp*gl_mass_sink   /gl_mass, &
-               gl_mass_ground, 100.0_rp*gl_mass_ground /gl_mass, &
-               gl_mass,        MY_TRA%gl_mass_in
+                                           gl_mass_lateral,100.0_rp*gl_mass_lateral/gl_mass, &
+                                           gl_mass_sink,   100.0_rp*gl_mass_sink   /gl_mass, &
+                                           gl_mass_ground, 100.0_rp*gl_mass_ground /gl_mass, &
+                                           gl_mass,        MY_TRA%gl_mass_in
 20        format(&
                '   -------                     '                      ,/,  &
                '   (1) Mass inside  the domain     : ',e13.6,' (',f7.2,'%)' ,/,  &
@@ -1365,7 +1371,7 @@ CONTAINS
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
     integer(ip) :: nbins
-    integer(ip) :: i,j,k,ibin
+    integer(ip) :: i,j,k,ibin,bin_cat
     real(rp)    :: s_time
     real(rp)    :: dX,dY,dZ,vol,Hm1,Hm2,Hm3
     real(rp),pointer :: my_u(:,:,:)
@@ -1435,16 +1441,26 @@ CONTAINS
          MY_TRA%my_acum(:,:,:), MY_MET%my_k3,MY_MET%my_w(:,:,:,1),MY_MET%my_w(:,:,:,2), &
          s_time, MY_TRA%my_vs(:,:,:,:), MY_GRID,MY_TRA%nbins)
     !
-    !*** Wet deposition. It is computed for particles only, not for gas species. Note
+    !*** Wet deposition. It is computed for particles and radionuclides only, not for gas species. Note
     !*** also that a critical cut-off size is assumed (i.e. mechanism operates only for
     !*** particle sizes below a threshold)
     !
     if(MY_MOD%wet_deposition) then
        do ibin = 1,nbins
-          if(MY_TRA%MY_BIN%bin_diam(ibin).le.1d-4) then   !  100 micron cut-off
-             call phys_wet_deposition(MY_MOD,MY_TIME%gl_dt,MY_MET%my_pre,MY_MET%my_pblh, &
-                  MY_GRID%z_c,MY_GRID%dX3_p,MY_TRA%my_awet,MY_TRA%my_c(:,:,:,ibin),MY_ERR)
-          end if
+          bin_cat = MY_TRA%MY_BIN%bin_cat(ibin)
+          select case(bin_cat)
+          case(CAT_PARTICLE,CAT_RADIONUCLIDE)
+             !
+             if(MY_TRA%MY_BIN%bin_diam(ibin).le.1d-4) then   !  100 micron cut-off
+                call phys_wet_deposition(MY_MOD,MY_TIME%gl_dt,MY_MET%my_pre,MY_MET%my_pblh, MY_GRID%h_c, &
+                                         MY_GRID%z_c,MY_GRID%dX3_p,MY_TRA%my_awet(:,:,ibin),&
+                                         MY_TRA%my_c(:,:,:,ibin),MY_ERR)
+             end if
+             !
+          case(CAT_AEROSOL)
+             !
+             continue
+          end select
        end do
     end if
     !
@@ -1475,10 +1491,9 @@ CONTAINS
     type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    logical     :: found
     integer(ip) :: npts,ipts,gl_imax,ix,iy,iz
     real(rp)    :: xp,yp,zp,s,t,st,myshape(4),shapez
-    real(rp)    :: my_lonmin,my_lonmax,my_latmin,my_latmax
+    real(rp)    :: my_lonmin,my_lonmax,my_latmin,my_latmax,glonmin,glatmin
     real(rp)    :: dlon,dlat,inv_dlon,inv_dlat
     !
     real(rp), allocatable :: my_zc(:)        ! my_z at corners
@@ -1512,6 +1527,9 @@ CONTAINS
     my_lonmax = MY_GRID%lon_c(my_ibe)
     my_latmin = MY_GRID%lat_c(my_jbs)
     my_latmax = MY_GRID%lat_c(my_jbe)
+    glonmin = MY_GRID%lonmin
+    if(glonmin.ge.180.0_rp) glonmin = glonmin - 360.0_rp
+    glatmin = MY_GRID%latmin
     !
     inv_dlon = 1.0_rp / MY_GRID%dlon
     inv_dlat = 1.0_rp / MY_GRID%dlat
@@ -1544,11 +1562,11 @@ CONTAINS
        !
        !  compute indexes and interpolation factors
        !
-       dlat = yp - my_latmin
-       dlon = xp - my_lonmin
+       dlat = yp - glatmin
+       dlon = xp - glonmin
        if(dlon.lt.0) dlon = dlon + 360.0_rp  ! meridian crossing
-       ix = my_ibs + int(dlon*inv_dlon)      ! refer to cell boundaries
-       iy = my_jbs + int(dlat*inv_dlat) 
+       ix = 1 + int(dlon*inv_dlon)      ! refer to cell boundaries
+       iy = 1 + int(dlat*inv_dlat)
        !
        dlat = yp - MY_GRID%lat_c(iy)
        dlon = xp - MY_GRID%lon_c(ix)
@@ -1565,57 +1583,59 @@ CONTAINS
        !
        MY_OUT%MY_PTS%jpts(ipts) = iy
        MY_OUT%MY_PTS%tpts(ipts) = t
-          !
-          !  interpolation factor along z
-          !
-          if(zp.lt.0.0_rp) then
-             !
-             !  2D points (I am done)
-             !
-             if(my_kbs.eq.1) then
-                MY_OUT%MY_PTS%kpts (ipts) = my_kbs
-                MY_OUT%MY_PTS%wpts (ipts) = 0.0_rp  ! (0,1) in z
-                MY_OUT%MY_PTS%mproc(ipts) = mype_model
-             end if
-             !
-          else
-             !
-             !  3D points
-             !
-             st=s*t
-             myshape(1)=(1.0_rp-t-s+st)*0.25_rp                           !  4         3
-             myshape(2)=(1.0_rp-t+s-st)*0.25_rp                           !
-             myshape(3)=(1.0_rp+t+s+st)*0.25_rp                           !
-             myshape(4)=(1.0_rp+t-s-st)*0.25_rp                           !  1         2
-             !
-             ! compute zc(kbs:kbe)
-             !
-             do iz = my_kbs,my_kbe
-                my_zc(iz) = myshape(1)*MY_GRID%z_c(ix  ,iy  ,iz) + &
-                     myshape(2)*MY_GRID%z_c(ix+1,iy  ,iz) + &
-                     myshape(3)*MY_GRID%z_c(ix+1,iy+1,iz) + &
-                     myshape(4)*MY_GRID%z_c(ix  ,iy+1,iz)
-             end do
-             !
-             found = .false.
-             if( (zp.ge.my_zc(my_kbs)).and.(zp.le.my_zc(my_kbe)) ) found = .true.
-             !
-             if(found) then
-                !
-                call grid_get_shapez(my_kbs,my_kbe,my_zc,zp,iz,shapez)
-                MY_OUT%MY_PTS%kpts (ipts) = iz
-                MY_OUT%MY_PTS%wpts (ipts) = shapez
-                MY_OUT%MY_PTS%mproc(ipts) = mype_model
-             end if
-             !
-          end if
+       !
+       !  interpolation factor along z
+       !
+       st=s*t
+       myshape(1)=(1.0_rp-t-s+st)*0.25_rp                           !  4         3
+       myshape(2)=(1.0_rp-t+s-st)*0.25_rp                           !
+       myshape(3)=(1.0_rp+t+s+st)*0.25_rp                           !
+       myshape(4)=(1.0_rp+t-s-st)*0.25_rp                           !  1         2
+       !
+       ! compute zc(kbs:kbe)
+       !
+       do iz = my_kbs,my_kbe
+          my_zc(iz) = myshape(1)*MY_GRID%z_c(ix  ,iy  ,iz) + &
+                      myshape(2)*MY_GRID%z_c(ix+1,iy  ,iz) + &
+                      myshape(3)*MY_GRID%z_c(ix+1,iy+1,iz) + &
+                      myshape(4)*MY_GRID%z_c(ix  ,iy+1,iz)
+       end do
+       !
+       if(zp.lt.my_zc(my_kbs)) then
+         !
+         if(my_kbs.eq.1) then
+            MY_OUT%MY_PTS%kpts (ipts) = my_kbs
+            MY_OUT%MY_PTS%wpts (ipts) = 0.0_rp  ! (0,1) in z
+            MY_OUT%MY_PTS%mproc(ipts) = mype_model
+         end if
+         !
+       elseif(zp.lt.my_zc(my_kbe)) then
+         !
+         !  3D points
+         !
+         call grid_get_shapez(my_kbs,my_kbe,my_zc,zp,iz,shapez)
+         MY_OUT%MY_PTS%kpts (ipts) = iz
+         MY_OUT%MY_PTS%wpts (ipts) = shapez
+         MY_OUT%MY_PTS%mproc(ipts) = mype_model
+       else
+         !
+         if(my_kbe.eq.gl_nbz) then
+            MY_OUT%MY_PTS%kpts (ipts) = my_kbe-1
+            MY_OUT%MY_PTS%wpts (ipts) = 1.0_rp  ! (0,1) in z
+            MY_OUT%MY_PTS%mproc(ipts) = mype_model
+         end if
+         !
+       end if
+       !
+    end do compute_points
+    !
+    do ipts = 1,npts
        !
        !  broadcast the processor hosting the point
        !
        call parallel_max(MY_OUT%MY_PTS%mproc(ipts),gl_imax,COMM_MODEL)
        MY_OUT%MY_PTS%mproc(ipts) = gl_imax
-       !
-    end do compute_points
+    end do
     !
     return
   end subroutine F3D_set_pts
@@ -1642,10 +1662,11 @@ CONTAINS
     character(len=s_name) :: spe_name
     integer(ip)           :: npts,ipts,nbins,ibin,i,j
     integer(ip)           :: ispe, spe_code, jb
-    real(rp)              :: s,t,st,val(4),total,diam
+    real(rp)              :: s,t,st,val(4),total,diam,fraction
     !
-    real(rp), allocatable :: my_ac(:,:,:)   ! accumulation at corner points
-    real(rp), allocatable :: my_ap(:)       ! accumulation at point
+    real(rp), allocatable :: my_ac   (:,:,:)   ! accumulation   at corner points
+    real(rp), allocatable :: my_awetc(:,:,:)   ! wet deposition at corner points
+    real(rp), allocatable :: my_ap   (:)       ! accumulation   at point
     !
     !*** Initializations
     !
@@ -1658,14 +1679,29 @@ CONTAINS
     !
     !*** Allocates
     !
-    allocate(my_ac(my_ibs:my_ibe,my_jbs:my_jbe,1:nbins))
-    allocate(my_ap(1:nbins))
+    allocate(my_ac   (my_ibs:my_ibe,my_jbs:my_jbe,1:nbins))
+    allocate(my_awetc(my_ibs:my_ibe,my_jbs:my_jbe,1:nbins))
+    allocate(my_ap   (1:nbins))
     !
     !*** Get ground accumulation at corner points (my_acum in kg/m2)
     !
     do ibin = 1,nbins
        call Grid_p2c_2D(MY_TRA%my_acum(:,:,ibin),my_ac(:,:,ibin))
     end do
+    !
+    !*** Get wet deposition at corner points (my_awetc in kg/m2)
+    !
+    do ibin = 1,nbins    
+       call domain_swap_mass_points_2halo_2Dx ( MY_TRA%my_awet(:,:,ibin) )
+       call domain_swap_mass_points_2halo_2Dy ( MY_TRA%my_awet(:,:,ibin) )
+       !
+       call Grid_p2c_2D(MY_TRA%my_awet(:,:,ibin),my_awetc(:,:,ibin))
+    end do
+    !
+    !*** Add the contribution of wet deposition to ground accumulation, which includes
+    !*** both dry and wet (not that wet part is 0 if MY_MOD%wet_deposition = .false.)
+    !
+    my_ac = my_ac + my_awetc
     !
     !*** Loop over species and points
     !
@@ -1735,9 +1771,15 @@ CONTAINS
                 if(MY_TRA%MY_BIN%bin_spe(ibin).eq.spe_code) then
                    jb = jb + 1
                    diam = MY_TRA%MY_BIN%bin_diam(ibin)*1e3_rp               ! in mm
+                   ! Avoids NaN when total=0
+                   if(total > 0.0_rp) then
+                      fraction = 100.0_rp*my_ap(jb)/total
+                   else
+                      fraction = 0.0_rp
+                   end if
                    write(90,30) diam, -log(diam)/log(2.0_rp), &
-                                my_ap(jb), 100.0_rp*my_ap(jb)/total
-30                 format(f7.4,1x,f7.2,1x,e13.6,1x,f9.4)
+                                my_ap(jb), fraction
+30                 format(f7.4,1x,f7.2,1x,e15.6E3,1x,f9.4)
                 end if
              end do
              close(90)

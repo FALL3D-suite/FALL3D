@@ -242,6 +242,15 @@ CONTAINS
        write(str(12:13),'(i2.2)') ihr
        write(str(15:16),'(i2.2)') imi
        !
+    case(5)
+       !
+       if(str_len.lt.11) return
+       str = '00mon-00:00'
+       write(str(1 :2 ),'(i2.2)') idy
+       write(str(3 :5 ),'(a3)'  ) mo(imo)
+       write(str(7 :8 ),'(i2.2)') ihr
+       write(str(10:11),'(i2.2)') imi
+       !
     case default
        !
     end select
@@ -290,7 +299,7 @@ CONTAINS
   subroutine time_addtime_r4(iyr0,imo0,idy0,ihr0,iyr,imo,idy,ihr,imi,ise,time,MY_ERR)
     !**********************************************************************
     !*
-    !*    Convert time in seconds after a reference time in datetime format 
+    !*    Convert time in seconds after a reference time in datetime format
     !*
     !*    INPUTS:
     !*       IYR0    - integer - Reference year
@@ -373,7 +382,7 @@ CONTAINS
   subroutine time_addtime_r8(iyr0,imo0,idy0,ihr0,iyr,imo,idy,ihr,imi,ise,time,MY_ERR)
     !**********************************************************************
     !*
-    !*    Convert time in seconds after a reference time in datetime format 
+    !*    Convert time in seconds after a reference time in datetime format
     !*
     !*    INPUTS:
     !*       IYR0    - integer - Reference year

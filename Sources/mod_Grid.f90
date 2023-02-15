@@ -84,7 +84,7 @@ CONTAINS
     !
     call inpout_get_rea (file_inp, 'CODE','VERSION', file_version, 1, MY_ERR)
     if(MY_ERR%flag.ne.0) then
-       return 
+       return
     elseif(file_version < MIN_REQUIRED_VERSION) then
        MY_ERR%flag    = 1
        MY_ERR%source  = 'grid_read_inp_grid'
@@ -915,31 +915,29 @@ CONTAINS
        !
     case(MAP_V_SIGMA_NO_DECAY)
        !
-       do k = my_kps_2h,my_kpe_2h
-          kk = min(max(k,my_kps),my_kpe)
+       do k = my_kps,my_kpe
           do j = my_jps,my_jpe
              do i = my_ips,my_ipe
                 Hm3 = MY_GRID%Hm3_p (i,j)
                 hx  = MY_GRID%dhdx_p(i,j)
                 hy  = MY_GRID%dhdy_p(i,j)
                 !
-                my_k3(i,j,k) = (my_k3(i,j,k) + hx*hx*my_k1(i,j,kk) + hy*hy*my_k2(i,j,kk))/(Hm3*Hm3)
+                my_k3(i,j,k) = (my_k3(i,j,k) + hx*hx*my_k1(i,j,k) + hy*hy*my_k2(i,j,k))/(Hm3*Hm3)
              end do
           end do
        end do
        !
     case(MAP_V_SIGMA_LINEAR_DECAY)
        !
-       do k = my_kps_2h,my_kpe_2h
-          kk = min(max(k,my_kps),my_kpe)
-          hz = (1.0_rp - MY_GRID%X3_p(kk)/MY_GRID%X3max)
+       do k = my_kps,my_kpe
+          hz = (1.0_rp - MY_GRID%X3_p(k)/MY_GRID%X3max)
           do j = my_jps,my_jpe
              do i = my_ips,my_ipe
                 Hm3 = MY_GRID%Hm3_p (i,j)
                 hx  = MY_GRID%dhdx_p(i,j)* hz
                 hy  = MY_GRID%dhdy_p(i,j)* hz
                 !
-                my_k3(i,j,k) = (my_k3(i,j,k) + hx*hx*my_k1(i,j,kk) + hy*hy*my_k2(i,j,kk))/(Hm3*Hm3)
+                my_k3(i,j,k) = (my_k3(i,j,k) + hx*hx*my_k1(i,j,k) + hy*hy*my_k2(i,j,k))/(Hm3*Hm3)
              end do
           end do
        end do
@@ -955,6 +953,17 @@ CONTAINS
        return
        !
     end select
+    !
+    my_k3(:,:,my_kps_2h  ) = my_k3(:,:,my_kps)
+    my_k3(:,:,my_kps_2h+1) = my_k3(:,:,my_kps)
+    my_k3(:,:,my_kpe_2h  ) = my_k3(:,:,my_kpe)
+    my_k3(:,:,my_kpe_2h-1) = my_k3(:,:,my_kpe)
+    !
+    do j = my_jps,my_jpe
+       do i = my_ips,my_ipe
+          call domain_swap_mass_points_2halo_1dz(my_k3(i,j,:))
+       end do
+    end do
     !
     !*** Scale k1 (mass points)
     !
@@ -1199,6 +1208,8 @@ CONTAINS
     call domain_swap_mass_points_2halo_2Dx (my_c)
     call domain_swap_mass_points_2halo_2Dy (my_c)
     !
+    ! LAM: needed swapping corners?? -> my_c(i-1,j-1)
+    !
     do j = my_jbs,my_jbe
        do i = my_ibs,my_ibe
           my_cc(i,j) = (my_c(i,j) + my_c(i-1,j) + my_c(i,j-1) + my_c(i-1,j-1))/4.0_rp
@@ -1399,8 +1410,8 @@ CONTAINS
     type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    integer(ip)           :: i,j
-    real(rp)              :: dX,dY,my_mass
+    integer(ip)           :: i,j,ibin
+    real(rp)              :: dX,dY,my_mass,awet
     real(rp), allocatable :: mass(:)
     !
     !*** Initializations
@@ -1415,8 +1426,12 @@ CONTAINS
     do j = my_jps,my_jpe
        dY = MY_GRID%dX2_p(j)
        do i = my_ips,my_ipe
-          dX = MY_GRID%dX1_p(i)
-          my_mass = my_mass + MY_TRA%my_awet(i,j)*dX*dY
+          dX   = MY_GRID%dX1_p(i)
+          awet = 0.0_rp
+          do ibin = 1,MY_TRA%nbins
+             awet = awet + MY_TRA%my_awet(i,j,ibin)
+          end do
+          my_mass = my_mass + awet*dX*dY
        end do
     end do
     !

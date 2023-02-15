@@ -9,6 +9,7 @@ MODULE Tgsd
   use KindType
   use InpOut
   use Parallel
+  use Ensemble
   implicit none
   save
   !
@@ -111,17 +112,19 @@ CONTAINS
   !>   @brief
   !>   Reads a specie_TGSD block form the input file
   !
-  subroutine tgsd_read_inp_granulometry(MY_FILES,MY_TGSD,SPE_CODE,MY_ERR)
+  subroutine tgsd_read_inp_granulometry(MY_FILES,MY_TGSD,SPE_CODE,MY_ENS,MY_ERR)
     implicit none
     !
     !>   @param MY_FILES  list of files
     !>   @param MY_TGSD   tgsd configuration parameters
     !>   @param SPE_CODE  specie code
+    !>   @param MY_ENS    list of ensemble parameters
     !>   @param MY_ERR    error handler
     !
     type(FILE_LIST),    intent(INOUT) :: MY_FILES
     type(TGSD_PARAMS),  intent(INOUT) :: MY_TGSD
     integer(ip),        intent(IN   ) :: SPE_CODE
+    type(ENS_PARAMS),   intent(IN   ) :: MY_ENS
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
 
     !
@@ -167,6 +170,13 @@ CONTAINS
        MY_TGSD%fimean(1) = work(1)
        MY_TGSD%fidisp(1) = work(2)
        !
+       !*** If necessary, perturbate fi_mean in ensemble runs
+       !
+       if(nens.gt.1) then
+          MY_TGSD%fimean(1) = ensemble_perturbate_variable( ID_FI_MEAN, &
+                                                            MY_TGSD%fimean(1), MY_ENS )
+       end if
+       !
     case('BIGAUSSIAN')
        !
        MY_TGSD%ng = 2
@@ -179,6 +189,13 @@ CONTAINS
        MY_TGSD%fidisp(2)  = work(4)
        MY_TGSD%pweight(1) = work(5)
        MY_TGSD%pweight(2) = 1.0_rp - work(5)
+       !
+       !*** If necessary, perturbate fi_mean in ensemble runs (coarse mode only)
+       !
+       if(nens.gt.1) then
+          MY_TGSD%fimean(1) = ensemble_perturbate_variable( ID_FI_MEAN, &
+                                                            MY_TGSD%fimean(1), MY_ENS )
+       end if
        !
     case('WEIBULL')
        !

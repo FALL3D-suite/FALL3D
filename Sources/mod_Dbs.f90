@@ -43,8 +43,6 @@ MODULE Dbs
   PRIVATE :: dbs_get_geopotential_hyb
   PRIVATE :: dbs_get_map_projection_info
   PRIVATE :: dbs_get_zo_from_24ldu
-  PRIVATE :: dbs_replace
-  PRIVATE :: dbs_get_unit_time
   !
   !    LIST OF PRIVATE VARIABLES
   !
@@ -426,7 +424,7 @@ CONTAINS
     type(DATETIME) :: time_dbs_start,time_dbs_end,time_driver_ref
     !
     real(rp)                       :: time_factor
-    character(len=80)              :: unit_time_string
+    character(len=s_name)          :: timeunit_string
     real(dp),          allocatable :: driver_times(:)
     character(len=19), allocatable :: WRF_string(:)
     !
@@ -458,10 +456,10 @@ CONTAINS
     !
     allocate(GL_METMODEL%time   ( GL_METMODEL%nt ))
     allocate(GL_METMODEL%timesec( GL_METMODEL%nt ))
-    allocate(driver_times(GL_METMODEL%nt)) 
+    allocate(driver_times(GL_METMODEL%nt))
     !
     !*** Read times from driver
-    ! 
+    !
     select case(MY_MET%meteo_data_type)
     case('WRF')
         !
@@ -520,18 +518,24 @@ CONTAINS
           return
         end if
         !
-        call dbs_get_unit_time(ncID,varID,'units',time_factor,unit_time_string,MY_ERR)
+        istat = nf90_inquire_attribute(ncID, varID, 'units')
+        if (istat.eq.nf90_noerr) then
+          istat = nf90_get_att(ncID, varID, 'units', timeunit_string)
+        end if
+        !
+        if(istat.ne.nf90_noerr) then
+            MY_ERR%flag    = istat
+            MY_ERR%source  = 'dbs_read_metmodel_times'
+            MY_ERR%message = nf90_strerror(istat)
+            return
+        end if
+        !
+        call inpout_decode_timeunit(timeunit_string,time_factor,time_driver_ref,MY_ERR)
         if(MY_ERR%flag.ne.0) return
         !
         !*** Convert to seconds
         !
         driver_times = time_factor*driver_times
-        !
-        !*** Read the reference datetime from time units attribute
-        !    We use list-directed I/O
-        !
-        call dbs_replace(unit_time_string,'-:.TZ')
-        READ(unit_time_string,fmt=*) time_driver_ref
         !
         !*** Compute driver time seconds after YYYY-MM-DD 00:00:00
         !
@@ -540,7 +544,7 @@ CONTAINS
                        time_driver_ref%minute * 60.0_dp + &
                        time_driver_ref%second * 1.0_dp
         !
-        !time_addtime assumes a proleptic 
+        !time_addtime assumes a proleptic
         !Gregorian calendar.
         !If year<=1582 a difference of 2 days
         !exists between the Julian and
@@ -582,8 +586,8 @@ CONTAINS
     !
     GL_METMODEL%start_year   = GL_METMODEL%time(1)%year
     GL_METMODEL%start_month  = GL_METMODEL%time(1)%month
-    GL_METMODEL%start_day    = GL_METMODEL%time(1)%day 
-    GL_METMODEL%start_hour   = GL_METMODEL%time(1)%hour 
+    GL_METMODEL%start_day    = GL_METMODEL%time(1)%day
+    GL_METMODEL%start_hour   = GL_METMODEL%time(1)%hour
     GL_METMODEL%start_minute = GL_METMODEL%time(1)%minute
     GL_METMODEL%start_second = GL_METMODEL%time(1)%second
     !
@@ -593,7 +597,7 @@ CONTAINS
     call time_julian_date(GL_METMODEL%start_year,GL_METMODEL%start_month,GL_METMODEL%start_day,julday2,MY_ERR)
     !
     ! Compute this in double precision
-    driver_times(:) = driver_times(:) - (julday2-julday1)*86400.0_dp 
+    driver_times(:) = driver_times(:) - (julday2-julday1)*86400.0_dp
     GL_METMODEL%timesec(:) = driver_times(:)
     !
     !*** Calculates time lag (that is, the time in seconds between the met model origin
@@ -617,7 +621,7 @@ CONTAINS
     time_dbs_start     = DATETIME(iyr,imo,idy,ihr,0,0)
     time_dbs_start_sec = MY_TIME%dbs_start
     call time_addtime(MY_TIME%start_year,      &
-                      MY_TIME%start_month,     & 
+                      MY_TIME%start_month,     &
                       MY_TIME%start_day,       &
                       0,                       &
                       iyr,imo,idy,ihr,imi,ise, &
@@ -762,7 +766,7 @@ CONTAINS
     if(.not.master_model) then
        allocate(GL_METMODEL%time    (GL_METMODEL%nt))
        allocate(GL_METMODEL%timesec (GL_METMODEL%nt))
-     
+
        allocate(MY_MET%time    (MY_MET%nt))
        allocate(MY_MET%timesec (MY_MET%nt))
     end if
@@ -2433,7 +2437,7 @@ CONTAINS
     !
     nx = GL_METMODEL%nx
     ny = GL_METMODEL%ny
-    GL_METMODEL%GRID2D%nx    = nx 
+    GL_METMODEL%GRID2D%nx    = nx
     GL_METMODEL%GRID2D%ny    = ny
     GL_METMODEL%GRID2D%npoin = nx * ny
     GL_METMODEL%GRID2D%nelem = (nx-1) * (ny-1)
@@ -2527,7 +2531,7 @@ CONTAINS
           ! 4--3
           ! 1--2
           MY_MET%interp_factor(1,ipoin) = (1.0_rp-t-s+st)*0.25_rp
-          MY_MET%interp_factor(2,ipoin) = (1.0_rp-t+s-st)*0.25_rp 
+          MY_MET%interp_factor(2,ipoin) = (1.0_rp-t+s-st)*0.25_rp
           MY_MET%interp_factor(3,ipoin) = (1.0_rp+t+s+st)*0.25_rp
           MY_MET%interp_factor(4,ipoin) = (1.0_rp+t-s-st)*0.25_rp
           !
@@ -2564,7 +2568,8 @@ CONTAINS
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
     integer(ip) :: el_po(1),ielem,nx,ny,ix,iy
-    real(dp)    :: lon(1),lat(1),s_po(1),t_po(1),s,t,st,myshape(4)
+    real(rp)    :: s,t,st,myshape(4)
+    real(dp)    :: lon(1),lat(1),s_po(1),t_po(1)
     !
     !*** Initializations
     !
@@ -3587,96 +3592,6 @@ CONTAINS
     !
     return
   end subroutine dbs_get_zo_from_24ldu
-  !
-  !
-  !
-  !-----------------------------------------
-  !    subroutine dbs_get_unit_time
-  !-----------------------------------------
-  !
-  subroutine dbs_get_unit_time(ncID,varID,unit_id,time_factor,time_ref,MY_ERR)
-      implicit none
-      !
-      integer(ip),         intent(in)     :: ncID
-      integer(ip),         intent(in)     :: varID
-      character(len=*),    intent(in)     :: unit_id
-      real(rp),            intent(out)    :: time_factor
-      character(len=*),    intent(inout)  :: time_ref
-      type(ERROR_STATUS),  intent(INOUT)  :: MY_ERR
-      !
-      integer(ip)       :: istat
-      integer(ip)       :: istring
-      character(len=80) :: time_unit_string,string_left
-      !
-      MY_ERR%flag    = 0
-      MY_ERR%source  = 'dbs_get_unit_time'
-      MY_ERR%message = ' ' 
-      !
-      time_unit_string = ''
-      string_left= ''
-      time_ref= ''
-      !
-      istat = nf90_inquire_attribute(ncID, varID, unit_id)
-      if (istat.eq.nf90_noerr) then
-        istat = nf90_get_att(ncID, varID, unit_id, time_unit_string)
-      end if
-      !
-      if(istat.ne.nf90_noerr .or. time_unit_string.eq.'') then
-          MY_ERR%flag = 1
-          MY_ERR%message = "not found a valid unit time"
-          return
-      end if
-      !
-      istring = index(time_unit_string,'since')-1
-      string_left = adjustl(trim(time_unit_string(1:istring)))
-      !
-      if(string_left.eq.'') then
-          MY_ERR%flag    = 1
-          MY_ERR%message = "expected format for unit time: XXX since YYYY-MM-DD HH:MM:SS"
-          return
-      else
-          call upcase(string_left)
-      end if
-      !
-      select case (TRIM(string_left))
-          case('SECONDS','SECOND')
-              time_factor = 1.0_rp
-          case('MINUTES','MINUTE')
-              time_factor = 60.0_rp 
-          case('HOURS','HOUR')
-              time_factor = 3600.0_rp
-          case('DAYS','DAY')
-              time_factor = 86400.0_rp
-          case default
-              MY_ERR%flag    = 1
-              MY_ERR%message = 'not recognised time unit: ' // string_left
-              return
-      end select
-      !
-      time_ref = adjustl(trim(time_unit_string(istring+6:)))
-      !
-  end subroutine dbs_get_unit_time
-  !
-  !
-  !
-  !-----------------------------------------
-  !    subroutine dbs_replace
-  !-----------------------------------------
-  !
-  recursive subroutine dbs_replace(string,substring) 
-      implicit none
-      !
-      character(len=*), intent(inout) :: string
-      character(len=*), intent(in)    :: substring
-      integer(ip)                     :: istring
-      !
-      istring = scan(string,substring)
-      if(istring.gt.0) then
-          string(istring:istring) = ' '
-          call dbs_replace(string,substring) 
-      end if
-      return
-  end subroutine dbs_replace
   !
   !
   !

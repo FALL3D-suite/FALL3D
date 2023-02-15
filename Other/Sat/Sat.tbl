@@ -1,28 +1,34 @@
-|--------------------------------------------|
-|                                            |
-|  FALL3D dictionary for default sat data    |
-|                                            |
-|--------------------------------------------|
-|  DIM_ID  |  DIM_TYPE   |  DIM_NAME         | 
-|--------------------------------------------|
-|    1     |  DIM_LON    |  lon              |
-|    2     |  DIM_LAT    |  lat              |
-|    3     |  DIM_TIME   |  time             |
-|--------------------------------------------|
-|  VAR_ID  |  VAR_TYPE   |  VAR_NAME         |
-|--------------------------------------------|
-|    4     |  VAR_LON    |  longitude        |
-|    5     |  VAR_LAT    |  latitude         |
-|    6     |  VAR_TIME   |  time             | 
-|    7     |  VAR_MASS   |  mass_loading     |
-|    8     |  VAR_HTOP   |  cloud_top_height |
-|    9     |  VAR_THICK  |  cloud_thickness  |
-|--------------------------------------------|
-|  ATR_ID  |  ATR_TYPE   |  ATR_NAME         |
-|--------------------------------------------|
-|    10    |  ATR_T0     |  T0               |
-|    11    |  ATR_SENSOR |  sensor           |
-|    12    |  ATR_PLATFO |  platform_name    |
-|    13    |  ATR_RESOL  |  resolution       |
-|    14    |  ATR_TRACER |  tracer_type      |
-|--------------------------------------------|
+|------------------------------------------------|
+|                                                |
+|  FALL3D dictionary for default netCDF          |
+|          satelite data                         |
+|  NOTE: copy this template file and modify only |
+|        the last colum of the table at your own |
+|        convenience                             |
+|                                                |
+|------------------------------------------------|
+|  DIM_ID  |  DIM_TYPE   |  DIM_NAME             | 
+|------------------------------------------------|
+|    1     |  DIM_LON    |  lon                  |
+|    2     |  DIM_LAT    |  lat                  |
+|    3     |  DIM_TIME   |  time                 |
+|------------------------------------------------|
+|  VAR_ID  |  VAR_TYPE   |  VAR_NAME             |
+|------------------------------------------------|
+|    10    |  VAR_LON    |  longitude            |
+|    11    |  VAR_LAT    |  latitude             |
+|    12    |  VAR_TIME   |  time                 | 
+|    13    |  VAR_MASS   |  mass_loading         |
+|    14    |  VAR_HTOP   |  cloud_top_height     |
+|    15    |  VAR_THICK  |  cloud_thickness      |
+|    16    |  VAR_ERROR  |  mass_error           |
+|    17    |  VAR_MASK   |  ash_flag             |
+|------------------------------------------------|
+|  ATR_ID  |  ATR_TYPE   |  ATR_NAME             |
+|------------------------------------------------|
+|    20    |  ATR_T0     |  T0                   |
+|    21    |  ATR_SENSOR |  sensor               |
+|    22    |  ATR_PLATFO |  platform_name        |
+|    23    |  ATR_RESOL  |  resolution           |
+|    24    |  ATR_TRACER |  tracer_type          |
+|------------------------------------------------|

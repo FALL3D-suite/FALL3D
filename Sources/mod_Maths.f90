@@ -6,16 +6,11 @@
 !>
 !***************************************************************
 MODULE Maths
-  use KindType, only: ip,Q1_GRID,ERROR_STATUS
+  use KindType, only: ip,dp,Q1_GRID,ERROR_STATUS
   implicit none
   save
   !
-  ! LAM:
-  ! maths_elq1p1 routine doesn't work with single precision
-  ! In this module, rp is redefined to double precision.
-  ! The Private attribute prevents this redefinition from 
-  ! affecting other modules.
-  integer, parameter, private :: rp = 8
+  !    NOTE: This routine works always in double precision
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
@@ -100,17 +95,17 @@ CONTAINS
     !
     type(Q1_GRID),     intent(IN   ) :: MY_MESH
     integer(ip),       intent(IN   ) :: npoin
-    real(rp),          intent(IN   ) :: lon_po(npoin)
-    real(rp),          intent(IN   ) :: lat_po(npoin)
+    real(dp),          intent(IN   ) :: lon_po(npoin)
+    real(dp),          intent(IN   ) :: lat_po(npoin)
     integer(ip),       intent(INOUT) :: el_po (npoin)
-    real(rp),          intent(INOUT) :: s_po  (npoin)
-    real(rp),          intent(INOUT) :: t_po  (npoin)
+    real(dp),          intent(INOUT) :: s_po  (npoin)
+    real(dp),          intent(INOUT) :: t_po  (npoin)
     type(ERROR_STATUS),intent(INOUT) :: MY_ERR
     !
     logical     :: found
     integer(ip) :: ipoin,ielem,i
-    real   (rp) :: elcod(2,4),coglo(2),coloc(2)
-    real   (rp) :: lmini,lmaxi
+    real   (dp) :: elcod(2,4),coglo(2),coloc(2)
+    real   (dp) :: lmini,lmaxi
     !
     !*** Initializations
     !
@@ -118,8 +113,8 @@ CONTAINS
     MY_ERR%source  = 'maths_get_host_elemQ1'
     MY_ERR%message = ' '
     !
-    lmini = 0.0_rp
-    lmaxi = 1.0_rp
+    lmini = 0.0_dp
+    lmaxi = 1.0_dp
     !
     !*** Loop over all points
     !
@@ -145,9 +140,9 @@ CONTAINS
           !if any discontinuity is detected, we convert them to [0,360)
           if(elcod(1,1).gt.elcod(1,2) .or. elcod(1,4).gt.elcod(1,3) ) then
              do i=1,4
-                if (elcod(1,i).lt.0.0_rp) elcod(1,i) = elcod(1,i) + 360.0_rp
+                if (elcod(1,i).lt.0.0_dp) elcod(1,i) = elcod(1,i) + 360.0_dp
              end do
-             if(coglo(1).lt.0.0_rp) coglo(1) = coglo(1) + 360.0_rp
+             if(coglo(1).lt.0.0_dp) coglo(1) = coglo(1) + 360.0_dp
           end if
           call maths_elq1p1(4_ip,lmini,lmaxi,elcod,coglo,coloc,found)
           !
@@ -156,8 +151,8 @@ CONTAINS
        !*** Element found
        !
        el_po(ipoin) = ielem
-       s_po (ipoin) = MAX(-1.0_rp,MIN(1.0_rp,coloc(1)))
-       t_po (ipoin) = MAX(-1.0_rp,MIN(1.0_rp,coloc(2)))
+       s_po (ipoin) = MAX(-1.0_dp,MIN(1.0_dp,coloc(1)))
+       t_po (ipoin) = MAX(-1.0_dp,MIN(1.0_dp,coloc(2)))
        !
     end do
     !
@@ -193,10 +188,10 @@ CONTAINS
     implicit none
     logical                  :: found
     integer(ip), intent(in)  :: pnode
-    real(rp),    intent(in)  :: lmini,lmaxi,elcod(2,pnode),coglo(2)
-    real(rp),    intent(out) :: coloc(2)
+    real(dp),    intent(in)  :: lmini,lmaxi,elcod(2,pnode),coglo(2)
+    real(dp),    intent(out) :: coloc(2)
     !
-    real(rp)                 :: deter,colo3,x2x1,y2y1,x3x1,y3y1,xx1,yy1
+    real(dp)                 :: deter,colo3,x2x1,y2y1,x3x1,y3y1,xx1,yy1
     !
     found = .false.
     !
@@ -208,16 +203,16 @@ CONTAINS
     y3y1     = elcod(2,3)-elcod(2,1)
     xx1      = coglo(1)  -elcod(1,1)
     yy1      = coglo(2)  -elcod(2,1)
-    deter    = 1.0_rp/(x3x1*y2y1-y3y1*x2x1)
+    deter    = 1.0_dp/(x3x1*y2y1-y3y1*x2x1)
     coloc(1) = deter*(x3x1*yy1-y3y1*xx1)
     coloc(2) = deter*(y2y1*xx1-x2x1*yy1)
     !
-    if(abs(coloc(1)).le.1d-8) coloc(1) = 0.0_rp
-    if(abs(coloc(2)).le.1d-8) coloc(2) = 0.0_rp
+    if(abs(coloc(1)).le.1d-8) coloc(1) = 0.0_dp
+    if(abs(coloc(2)).le.1d-8) coloc(2) = 0.0_dp
 
     if((coloc(1)>=lmini).and.(coloc(1)<=lmaxi)) then
        if((coloc(2)>=lmini).and.(coloc(2)<=lmaxi)) then
-          colo3 = 1.0_rp-coloc(1)-coloc(2)
+          colo3 = 1.0_dp-coloc(1)-coloc(2)
           if(colo3>=lmini.and.colo3<=lmaxi) found = .true.
        end if
     end if
@@ -233,16 +228,16 @@ CONTAINS
           y3y1     = elcod(2,4)-elcod(2,1)
           xx1      = coglo(1)  -elcod(1,1)
           yy1      = coglo(2)  -elcod(2,1)
-          deter    = 1.0_rp/(x3x1*y2y1-y3y1*x2x1)
+          deter    = 1.0_dp/(x3x1*y2y1-y3y1*x2x1)
           coloc(1) = deter*(x3x1*yy1-y3y1*xx1)
           coloc(2) = deter*(y2y1*xx1-x2x1*yy1)
           !
-          if(abs(coloc(1)).le.1d-8) coloc(1) = 0.0_rp
-          if(abs(coloc(2)).le.1d-8) coloc(2) = 0.0_rp
+          if(abs(coloc(1)).le.1d-8) coloc(1) = 0.0_dp
+          if(abs(coloc(2)).le.1d-8) coloc(2) = 0.0_dp
 
           if((coloc(1)>=lmini).and.(coloc(1)<=lmaxi)) then
              if((coloc(2)>=lmini).and.(coloc(2)<=lmaxi)) then
-                colo3 = 1.0_rp-coloc(1)-coloc(2)
+                colo3 = 1.0_dp-coloc(1)-coloc(2)
                 if(colo3>=lmini.and.colo3<=lmaxi) found = .true.
              end if
           end if
@@ -272,21 +267,21 @@ CONTAINS
     !**************************************************************
     implicit none
     integer(ip), intent(in)  :: ndime,pnode
-    real(rp),    intent(in)  :: coglo(ndime),elcod(ndime,pnode)
-    real(rp),    intent(out) :: coloc(ndime)
+    real(dp),    intent(in)  :: coglo(ndime),elcod(ndime,pnode)
+    real(dp),    intent(out) :: coloc(ndime)
     !
     integer(ip)              :: inode,iiter,jdime,maxit,idime,ntens
-    real(rp)                 :: shapf(4),deriv(2,4)
-    real(rp)                 :: xjacm(2,2),xjaci(2,2)
-    real(rp)                 :: deltx(3),delts(3),xnorm,detja
-    real(rp)                 :: rnode,diame,coocg(3)
-    real(rp)                 :: shacg(4),dercg(2,4)
+    real(dp)                 :: shapf(4),deriv(2,4)
+    real(dp)                 :: xjacm(2,2),xjaci(2,2)
+    real(dp)                 :: deltx(3),delts(3),xnorm,detja
+    real(dp)                 :: rnode,diame,coocg(3)
+    real(dp)                 :: shacg(4),dercg(2,4)
     !
     ! Initial condition
     !
-    coloc(1)=0.0_rp
-    coloc(2)=0.0_rp
-    coloc(ndime)=0.0_rp
+    coloc(1)=0.0_dp
+    coloc(2)=0.0_dp
+    coloc(ndime)=0.0_dp
     if(ndime==1) then
        ntens=1
     else if(ndime==2) then
@@ -299,32 +294,32 @@ CONTAINS
     ! Element diameter
     !
     do idime=1,ndime
-       coocg(idime)=0.0_rp
+       coocg(idime)=0.0_dp
     end do
     do inode=1,pnode
        do idime=1,ndime
           coocg(idime)=coocg(idime)+elcod(idime,inode)
        end do
     end do
-    rnode=1.0_rp/real(pnode)
+    rnode=1.0_dp/real(pnode)
     do idime=1,ndime
        coocg(idime)=rnode*coocg(idime)
     end do
     call maths_shafun_q1(coocg(1),coocg(2),shacg,dercg)
     call maths_mbmabt(xjacm,elcod,dercg,ndime,ndime,pnode)
     call maths_invmtx(xjacm,xjaci,diame,ndime)
-    diame=1.0_rp/(diame**(2.0_rp/real(ndime)))
+    diame=1.0_dp/(diame**(2.0_dp/real(ndime)))
     !
     ! Initialize dx=coglo-f(s_1) with s_1=(0,0,0)
     !
     do idime=1,ndime
-       deltx(idime)=0.0_rp
+       deltx(idime)=0.0_dp
        do inode=1,pnode
           deltx(idime)=deltx(idime)&
                +shapf(inode)*elcod(idime,inode)
        end do
     end do
-    xnorm=0.0_rp
+    xnorm=0.0_dp
     do idime=1,ndime
        deltx(idime) = coglo(idime)-deltx(idime)
        xnorm        = xnorm+deltx(idime)*deltx(idime)
@@ -342,7 +337,7 @@ CONTAINS
        !
        do jdime=1,ndime
           do idime=1,ndime
-             xjacm(idime,jdime)=0.0_rp
+             xjacm(idime,jdime)=0.0_dp
              do inode=1,pnode
                 xjacm(idime,jdime)=xjacm(idime,jdime)&
                      +deriv(idime,inode)*elcod(jdime,inode)
@@ -355,7 +350,7 @@ CONTAINS
        call maths_invmtx(xjacm,xjaci,detja,ndime)
 
        do idime=1,ndime
-          delts(idime)=0.0_rp
+          delts(idime)=0.0_dp
           !
           ! Compute J^{-1}.dx
           !
@@ -375,7 +370,7 @@ CONTAINS
        ! Compute f_i
        !
        do idime=1,ndime
-          deltx(idime)=0.0_rp
+          deltx(idime)=0.0_dp
           do inode=1,pnode
              deltx(idime)=deltx(idime)&
                   +shapf(inode)*elcod(idime,inode)
@@ -385,14 +380,14 @@ CONTAINS
        ! Compute dx=coglo-f
        !         xnorm=sum ds^2
        !
-       xnorm=0.0_rp
+       xnorm=0.0_dp
        do idime=1,ndime
           deltx(idime)=coglo(idime)-deltx(idime)
           xnorm=xnorm+delts(idime)*delts(idime)
        end do
        xnorm=xnorm*diame
     end do
-    if(xnorm>1d-8) coloc(1)=2.0_rp
+    if(xnorm>1d-8) coloc(1)=2.0_dp
 
   end subroutine maths_newrap
   !
@@ -408,11 +403,11 @@ CONTAINS
     implicit none
     integer(ip) :: n1,n2,n3
     integer(ip) :: i,j,k
-    real(rp)    :: a(n1,n2), b(n1,n3), c(n2,n3)
+    real(dp)    :: a(n1,n2), b(n1,n3), c(n2,n3)
     !
     do i=1,n1
        do j=1,n2
-          a(i,j)=0.0_rp
+          a(i,j)=0.0_dp
           do k=1,n3
              a(i,j)=a(i,j)+b(i,k)*c(j,k)
           end do
@@ -433,25 +428,25 @@ CONTAINS
     !********************************************************************
     implicit none
     integer(ip), intent(in)  :: nsize
-    real(rp),    intent(in)  :: a(nsize,*)
-    real(rp),    intent(out) :: deter,b(nsize,*)
-    real(rp)                 :: t1,t2,t3,t4,denom
+    real(dp),    intent(in)  :: a(nsize,*)
+    real(dp),    intent(out) :: deter,b(nsize,*)
+    real(dp)                 :: t1,t2,t3,t4,denom
 
     if(nsize==1) then
        !
        ! Inverse of a 1*1 matrix
        !
        deter=a(1,1)
-       if(deter/=0.0_rp) return
-       b(1,1) = 1.0_rp/a(1,1)
+       if(deter/=0.0_dp) return
+       b(1,1) = 1.0_dp/a(1,1)
 
     else if(nsize==2) then
        !
        ! Inverse of a 2*2 matrix
        !
        deter=a(1,1)*a(2,2)-a(2,1)*a(1,2)
-       if(deter==0.0_rp) return
-       denom  = 1.0_rp/deter
+       if(deter==0.0_dp) return
+       denom  = 1.0_dp/deter
        b(1,1) = a(2,2)*denom
        b(2,2) = a(1,1)*denom
        b(2,1) =-a(2,1)*denom
@@ -465,8 +460,8 @@ CONTAINS
        t2  =-a(2,1)*a(3,3) + a(3,1)*a(2,3)
        t3  = a(2,1)*a(3,2) - a(3,1)*a(2,2)
        deter = a(1,1)*t1 + a(1,2)*t2 + a(1,3)*t3
-       if(deter==0.0_rp) return
-       denom  = 1.0_rp/deter
+       if(deter==0.0_dp) return
+       denom  = 1.0_dp/deter
        b(1,1) = t1*denom
        b(2,1) = t2*denom
        b(3,1) = t3*denom
@@ -494,8 +489,8 @@ CONTAINS
             -a(2,3)*a(3,1)*a(4,2) + a(2,3)*a(3,2)*a(4,1)&
             +a(2,2)*a(3,1)*a(4,3) + a(2,1)*a(3,3)*a(4,2)
        deter= a(1,1)*t1 + a(1,2)*t2 + a(1,3)*t3 + a(1,4)*t4
-       if(deter==0.0_rp) return
-       denom = 1.0_rp/deter
+       if(deter==0.0_dp) return
+       denom = 1.0_dp/deter
        b(1,1) = t1*denom
        b(2,1) = t2*denom
        b(3,1) = t3*denom
@@ -559,22 +554,22 @@ CONTAINS
     !*
     !************************************************************
     implicit none
-    real(rp) :: s,t,myshape(4),deriv(2,4)
-    real(rp) :: st
+    real(dp) :: s,t,myshape(4),deriv(2,4)
+    real(dp) :: st
     !
     st=s*t
-    myshape(1)=(1.0_rp-t-s+st)*0.25_rp                           !  4         3
-    myshape(2)=(1.0_rp-t+s-st)*0.25_rp                           !
-    myshape(3)=(1.0_rp+t+s+st)*0.25_rp                           !
-    myshape(4)=(1.0_rp+t-s-st)*0.25_rp                           !
-    deriv(1,1)=(-1.0_rp+t)*0.25_rp                               !  1         2
-    deriv(1,2)=(+1.0_rp-t)*0.25_rp
-    deriv(1,3)=(+1.0_rp+t)*0.25_rp
-    deriv(1,4)=(-1.0_rp-t)*0.25_rp
-    deriv(2,1)=(-1.0_rp+s)*0.25_rp
-    deriv(2,2)=(-1.0_rp-s)*0.25_rp
-    deriv(2,3)=(+1.0_rp+s)*0.25_rp
-    deriv(2,4)=(+1.0_rp-s)*0.25_rp
+    myshape(1)=(1.0_dp-t-s+st)*0.25_dp                           !  4         3
+    myshape(2)=(1.0_dp-t+s-st)*0.25_dp                           !
+    myshape(3)=(1.0_dp+t+s+st)*0.25_dp                           !
+    myshape(4)=(1.0_dp+t-s-st)*0.25_dp                           !
+    deriv(1,1)=(-1.0_dp+t)*0.25_dp                               !  1         2
+    deriv(1,2)=(+1.0_dp-t)*0.25_dp
+    deriv(1,3)=(+1.0_dp+t)*0.25_dp
+    deriv(1,4)=(-1.0_dp-t)*0.25_dp
+    deriv(2,1)=(-1.0_dp+s)*0.25_dp
+    deriv(2,2)=(-1.0_dp-s)*0.25_dp
+    deriv(2,3)=(+1.0_dp+s)*0.25_dp
+    deriv(2,4)=(+1.0_dp-s)*0.25_dp
     !
     return
   end subroutine maths_shafun_q1

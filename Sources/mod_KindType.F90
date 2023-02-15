@@ -24,13 +24,15 @@ MODULE KindType
   integer(ip), parameter :: s_mess  = 512                   !< Message string lenght
   integer(ip), parameter :: s_file  = 512                   !< File path string lenght
   !
-  integer(ip)            :: TASK_FLAG(0:5)  = (/0,0,0,0,0,0/) !< task         flags
-  integer(ip), parameter :: TASK_RUN_ALL    = 0               !< All     task flag
-  integer(ip), parameter :: TASK_SET_ENS    = 1               !< SetTgsd task flag
-  integer(ip), parameter :: TASK_SET_TGSD   = 2               !< SetTgsd task flag
-  integer(ip), parameter :: TASK_SET_DBS    = 3               !< SetDbs  task flag
-  integer(ip), parameter :: TASK_SET_SRC    = 4               !< SetSrc  task flag
-  integer(ip), parameter :: TASK_RUN_FALL3D = 5               !< Fall3d  task flag
+  integer(ip)            :: TASK_FLAG(0:7)                   !< task          flags
+  integer(ip), parameter :: TASK_RUN_ALL    = 0              !< All      task flag
+  integer(ip), parameter :: TASK_SET_ENS    = 1              !< SetTgsd  task flag
+  integer(ip), parameter :: TASK_SET_TGSD   = 2              !< SetTgsd  task flag
+  integer(ip), parameter :: TASK_SET_DBS    = 3              !< SetDbs   task flag
+  integer(ip), parameter :: TASK_SET_SRC    = 4              !< SetSrc   task flag
+  integer(ip), parameter :: TASK_RUN_FALL3D = 5              !< Fall3d   task flag
+  integer(ip), parameter :: TASK_POS_ENS    = 6              !< PosEns   task flag
+  integer(ip), parameter :: TASK_POS_VAL    = 7              !< Validate task flag
   !
   integer(ip), parameter :: LOG_LEVEL_NONE   = 0             !< log file level flag for none
   integer(ip), parameter :: LOG_LEVEL_NORMAL = 1             !< log file level flag for normal
@@ -128,9 +130,12 @@ MODULE KindType
      character(s_file) :: file_res     = '-'      !< Name of the res   file
      character(s_file) :: file_rst     = '-'      !< Name of the rst   file
      character(s_file) :: file_sat     = '-'      !< Name of the sat   file
+     character(s_file) :: file_dep     = '-'      !< Name of the dep   file
+     character(s_file) :: file_pos     = '-'      !< Name of the pos   file
      character(s_file) :: file_hyb     = '-'      !< Name of the hyb   file (hybrid meteo models lookup table)
-     character(s_file) :: file_tbl_met = '-'      !< Name of the tbl   file (meteo model diccionary table)
-     character(s_file) :: file_tbl_sat = '-'      !< Name of the tbl   file (sat data    diccionary table)
+     character(s_file) :: file_tbl_met = '-'      !< Name of the tbl   file (meteo  model diccionary table)
+     character(s_file) :: file_tbl_sat = '-'      !< Name of the tbl   file (sat     data diccionary table)
+     character(s_file) :: file_tbl_dep = '-'      !< Name of the tbl   file (deposit data diccionary table)
      !
   end type FILE_LIST
   !
@@ -146,7 +151,7 @@ MODULE KindType
      integer(ip)              :: nspe = 0      !<  number of species
      integer(ip), allocatable :: code    (:)   !< code    (nspe) specie   type code
      integer(ip), allocatable :: category(:)   !< category(nspe) category type code
-     real(rp),    allocatable :: mf      (:)   !< mf      (nspe) specie   mass fractionç
+     real(rp),    allocatable :: mf      (:)   !< mf      (nspe) specie   mass fraction
      !
      character(s_name), allocatable :: name(:) !< name(nspe) specie name (tag)
      !
@@ -319,6 +324,42 @@ MODULE KindType
      !
   end type SRC_PARAMS
   !
+  !>   type ENS_PARAMS: variables defining an ensemble of runs
+  !
+  type ENS_PARAMS
+     !
+     logical     :: read_random_from_file   = .false.
+     logical     :: postprocess_members     = .false.
+     logical     :: postprocess_mean        = .false.
+     logical     :: postprocess_logmean     = .false.
+     logical     :: postprocess_median      = .false.
+     logical     :: postprocess_sandard_dev = .false.
+     logical     :: postprocess_probability = .false.
+     logical     :: postprocess_percentiles = .false.
+     !
+     integer(ip) :: pp_nt                                      !< number postprocess timesteps
+     integer(ip) :: nth_con                                    !< number of concentration thresholds (in mg/m3)
+     integer(ip) :: nth_col_mass                               !< number of column mass   thresholds (in g/m2)
+     integer(ip) :: nth_col_mass_DU                            !< number of column mass   thresholds (in DU)
+     integer(ip) :: nth_grn_load                               !< number of ground load   thresholds (in kg/m2)
+     integer(ip) :: nval_per                                   !< number percentile       values     (in %)
+     !
+     character(s_name), allocatable :: perturbation_name(:)    !< perturbation_name(nper) perturbation parameter name
+     integer(ip),       allocatable :: perturbation_type(:)    !< perturbation_type(nper) perturbation type
+     integer(ip),       allocatable :: perturbation_pdf (:)    !< perturbation_pdf (nper) PDF          type
+     !
+     real(rp), allocatable :: perturbation_range (:)           !< perturbation_range (nper) perturbation range (relative or absolute)
+     real(rp), allocatable :: perturbation_random(:)           !< perturbation_random(nper) perturbation random number in (-1,1)
+     !
+     real(rp), allocatable :: pp_timesec    (:)                !< postprocess times
+     real(rp), allocatable :: th_con        (:)                !< concentration threshold values (in mg/m3)
+     real(rp), allocatable :: th_col_mass   (:)                !< column mass   threshold values (in g/m2 )
+     real(rp), allocatable :: th_col_mass_DU(:)                !< column mass   threshold values (in DU   )
+     real(rp), allocatable :: th_grn_load   (:)                !< ground load   threshold values (in kg/m2)
+     real(rp), allocatable :: val_per       (:)                !< percentile              values (in %    )
+     !
+  end type ENS_PARAMS
+  !
   !>   type TRACERS: definition of all variables related to tracers and bin characterisitcs
   !
   type TRACERS
@@ -347,7 +388,7 @@ MODULE KindType
      real(rp), allocatable :: my_s   (:,:,:,:) !< my_s   (my_ips   :my_ipe   ,my_jps   :my_jpe   ,my_kps   :my_kpe   ,1:nbins)  scaled tracer source        at mass points
      real(rp), allocatable :: my_vs  (:,:,:,:) !< my_vs  (my_ips   :my_ipe   ,my_jps   :my_jpe   ,my_kbs_1h:my_kbe_1h,1:nbins)  settling velocity           at w-boundaries
      real(rp), allocatable :: my_acum(:,:,:  ) !< my_acum(my_ips_2h:my_ipe_2h,my_jps_2h:my_jpe_2h                    ,1:nbins)  ground accumulation         at mass points
-     real(rp), allocatable :: my_awet(:,:    ) !< my_awet(my_ips_2h:my_ipe_2h,my_jps_2h:my_jpe_2h                            )  accumulated wet deposition  at mass points
+     real(rp), allocatable :: my_awet(:,:,:  ) !< my_awet(my_ips_2h:my_ipe_2h,my_jps_2h:my_jpe_2h                    ,1:nbins)  accumulated wet deposition  at mass points
      !
   end type TRACERS
   !
@@ -564,7 +605,7 @@ MODULE KindType
      real(rp)    :: lat                    !< profile latitude
      real(rp)    :: zo                     !< terrain elevation at profile point (lon.lat)
      !
-     type(DATETIME), allocatable :: time(:) !< time(nt)     met model time steps 
+     type(DATETIME), allocatable :: time(:) !< time(nt)     met model time steps
      real(rp), allocatable :: timesec(:)    !< timesec(nt)  met model time steps sec after 0000UTC
      real(rp), allocatable :: zavl(:,:)    !< zavl(nz,nt)  height level (above terrain or vent level)
      real(rp), allocatable :: zasl(:,:)    !< zasl(nz,nt)  height level (above sea level)

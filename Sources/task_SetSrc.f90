@@ -89,7 +89,7 @@ subroutine task_SetSrc
   !
   !*** Master reads and broadcasts SOURCE block from input file (MY_ESP)
   !
-  if(master_model) call src_read_inp_source_params(MY_FILES, MY_TIME, MY_SPE, MY_ESP, MY_PLUME, MY_ERR)
+  if(master_model) call src_read_inp_source_params(MY_FILES, MY_TIME, MY_SPE, MY_ESP, MY_PLUME, MY_ENS, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
@@ -97,7 +97,7 @@ subroutine task_SetSrc
   !
   !*** Master reads and broadcasts PARTICLE_AGGREGATION block from input file (MY_AGR)
   !
-  if(master_model) call grn_read_inp_aggregation(MY_FILES, MY_AGR, MY_ERR)
+  if(master_model) call grn_read_inp_aggregation(MY_FILES, MY_AGR, MY_ENS, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_SRC, MY_FILES, MY_ERR)
   !
@@ -190,13 +190,13 @@ subroutine task_SetSrc
      case('POINT','SUZUKI','TOP-HAT')
         write(MY_FILES%lulog,20)
 20      format('  From time   To time      MER     Column height  Column height     Mass   ',/,&
-             '     (s)        (s)      (kg/s)      (m a.v.l.)     (m a.s.l)       (kg)   ',/,&
-             '  -------------------------------------------------------------------------')
+               '     (s)        (s)      (kg/s)      (m a.v.l.)     (m a.s.l)       (kg)   ',/,&
+               '  -------------------------------------------------------------------------')
      case('PLUME')
         write(MY_FILES%lulog,30)
 30      format('  From time   To time      MER     Column height  Column height     Mass   ',/,&
-             '     (s)        (s)      (kg/s)    NBL (m a.s.l.) Total (m a.s.l)   (kg)   ',/,&
-             '  -------------------------------------------------------------------------')
+               '     (s)        (s)      (kg/s)    NBL (m a.s.l.) Total (m a.s.l)   (kg)   ',/,&
+               '  -------------------------------------------------------------------------')
      end select
   end if
   !

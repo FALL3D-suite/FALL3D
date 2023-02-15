@@ -43,7 +43,7 @@ CONTAINS
   !>   @brief
   !>   Reads the SOURCE block from the input file (source parameters)
   !
-  subroutine src_read_inp_source_params(MY_FILES, MY_TIME, MY_SPE, MY_ESP, MY_PLUME, MY_ERR)
+  subroutine src_read_inp_source_params(MY_FILES, MY_TIME, MY_SPE, MY_ESP, MY_PLUME, MY_ENS, MY_ERR)
     implicit none
     !
     !>   @param MY_FILES  list of files
@@ -51,6 +51,7 @@ CONTAINS
     !>   @param MY_SPE    list of parameters defining species and categories
     !>   @param MY_ESP    list of parameters defining a Eruption Source Parameters
     !>   @param MY_PLUME  list of parameters defining the Plume Source Parameters
+    !>   @param MY_ENS    list of ensemble parameters
     !>   @param MY_ERR    error handler
     !
     type(FILE_LIST),      intent(IN   ) :: MY_FILES
@@ -58,6 +59,7 @@ CONTAINS
     type(SPECIES_PARAMS), intent(IN   ) :: MY_SPE
     type(ESP_PARAMS),     intent(INOUT) :: MY_ESP
     type(PLUME_PARAMS),   intent(INOUT) :: MY_PLUME
+    type(ENS_PARAMS),     intent(IN   ) :: MY_ENS
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
     integer(ip), parameter :: MAX_RVOID=1000
@@ -68,6 +70,7 @@ CONTAINS
     character(len=s_name)  :: cvoid
     character(len=24    )  :: time1_string,time2_string
     integer(ip)            :: ndt,idt,ndt0
+    integer(ip)            :: es_duration
     real(rp)               :: rvoid(MAX_RVOID)
     !
     !*** Initializations
@@ -145,7 +148,7 @@ CONTAINS
        call inpout_get_npar(file_inp, 'SOURCE','SOURCE_START_(HOURS_AFTER_00)', ndt, MY_ERR)
        if(MY_ERR%flag.ne.0) return
     else
-       if(file_ndt(1:1) /= '/') file_ndt = TRIM(MY_FILES%problempath)//'/'//TRIM(file_ndt)  ! If no absolute path, then prepend the directory name
+       if(file_ndt(1:1) /= '/') file_ndt = TRIM(MY_FILES%commonpath)//'/'//TRIM(file_ndt)  ! If no absolute path, then prepend the directory name
        call inpout_get_file_nrows(file_ndt,ndt,MY_ERR)  ! get ndt from file
        if(MY_ERR%flag.ne.0) return
     end if
@@ -201,6 +204,34 @@ CONTAINS
        MY_ESP%end_time(idt) = INT(rvoid(idt)*3600.0_rp)    ! h --> s
     end do
     !
+    !*** If necessary, perturbate source times
+    !
+    if(nens.gt.1) then
+       !
+       !*** Perturbate start/end time
+       !
+       do idt = 1, MY_ESP%ndt
+          !
+          es_duration            = MAX(MY_ESP%end_time(idt) - MY_ESP%start_time(idt), 0)
+          !
+          es_duration            = INT(ensemble_perturbate_variable( ID_SOURCE_DURATION, &
+                                         1.0_rp*es_duration, MY_ENS ))
+          !
+          MY_ESP%start_time(idt) = INT(ensemble_perturbate_variable( ID_SOURCE_START, &
+                                         1.0_rp*MY_ESP%start_time(idt), MY_ENS ))
+          !
+          MY_ESP%end_time(idt)   = MY_ESP%start_time(idt) + es_duration
+          !
+       end do
+       !
+       !*** Check for overlapping phases
+       !
+       do idt = 1, MY_ESP%ndt-1
+          MY_ESP%end_time(idt) = min(MY_ESP%end_time(idt),MY_ESP%start_time(idt+1))
+       end do
+       !
+    end if
+    !
     !*** Check consistency between multiple (>1) intervals
     !
     do idt = 2, MY_ESP%ndt
@@ -224,11 +255,11 @@ CONTAINS
        call inpout_get_file_col(file_ndt,3,MY_ESP%h_dt,MY_ESP%ndt,MY_ERR)  ! read third column
     end if
     !
-    !****NEW LAM!!
-    !*** Perturbate column height in ensemble runs
+    !*** If necessary, perturbate column height in ensemble runs
     !
-    if(perturbate(ID_COLUMN_HEIGHT)) then
-        MY_ESP%h_dt = MY_ESP%h_dt * perturbation_factor(ID_COLUMN_HEIGHT)
+    if(nens.gt.1) then
+       MY_ESP%h_dt = ensemble_perturbate_variable( ID_COLUMN_HEIGHT, &
+                                                   MY_ESP%h_dt, MY_ENS )
     end if
     !
     !*** Reads source mass flow rate
@@ -303,6 +334,13 @@ CONTAINS
           if(MY_ERR%flag.ne.0) return
           if(ndt0.lt.ndt) MY_ESP%M0_dt(ndt0:ndt) = MY_ESP%M0_dt(ndt0)
           !
+          !*** If necessary, perturbate mass flow rate in ensemble runs. Note that this is not activated for PLUME or ESTIMATE options
+          !
+          if(nens.gt.1) then
+            MY_ESP%M0_dt = ensemble_perturbate_variable( ID_MASS_FLOW_RATE, &
+                                                         MY_ESP%M0_dt, MY_ENS )
+          end if
+          !
        end select
        !
     end if
@@ -366,6 +404,15 @@ CONTAINS
        if(MY_ERR%flag.ne.0) return
        if(ndt0.lt.ndt) MY_ESP%Ls_dt(ndt0:ndt) = MY_ESP%Ls_dt(ndt0)
        !
+       !*** If necessary, perturbate Suzuki parameters in ensemble runs
+       !
+       if(nens.gt.1) then
+          MY_ESP%As_dt = ensemble_perturbate_variable( ID_SUZUKI_A, &
+                                                       MY_ESP%As_dt, MY_ENS )
+          MY_ESP%Ls_dt = ensemble_perturbate_variable( ID_SUZUKI_L, &
+                                                       MY_ESP%Ls_dt, MY_ENS )
+       end if
+       !
     case('TOP-HAT')
        !
        call inpout_get_npar(file_inp, 'IF_TOP-HAT_SOURCE','THICKNESS_(M)', ndt0, MY_ERR)
@@ -374,6 +421,13 @@ CONTAINS
        call inpout_get_rea (file_inp, 'IF_TOP-HAT_SOURCE','THICKNESS_(M)', MY_ESP%Th_dt, ndt0, MY_ERR)
        if(MY_ERR%flag.ne.0) return
        if(ndt0.lt.ndt) MY_ESP%Th_dt(ndt0:ndt) = MY_ESP%Th_dt(ndt0)
+       !
+       !*** If necessary, perturbate Top-hat parameters in ensemble runs
+       !
+       if(nens.gt.1) then
+          MY_ESP%Th_dt = ensemble_perturbate_variable( ID_TOP_HAT_THICKNESS, &
+                                                       MY_ESP%Th_dt, MY_ENS )
+       end if
        !
     case('PLUME')
        !
@@ -721,7 +775,6 @@ CONTAINS
     real(rp)              :: param(nwormax)
     integer(ip)           :: nword, npar
     integer(ip)           :: nt,nz,it,iz
-    integer(ip)           :: iyr,imo,idy,ihr,imi,ise
     !
     !*** Initializations
     !
@@ -924,11 +977,6 @@ CONTAINS
     type(METEO_PROFILE), intent(IN   ) :: GL_METPROFILES
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    logical     :: found
-    integer(ip) :: iyr,imo,idy,ihr,imi,ise
-    integer(ip) :: iyr2,imo2,idy2,ihr2,imi2,ise2
-    real(rp)    :: time1,time2
-    !
     !*** Initializations
     !
     MY_ERR%flag    = 0
@@ -1053,6 +1101,8 @@ CONTAINS
        end if
        !
        GL_PLUMEPROF%Nair(iz,1) = GI*GI*(1+CA0*dTdz/GI)/(CA0*GL_PLUMEPROF%t(1,1))
+       !LAM: quick fix for negative Nair. To be reviewed!
+       if(GL_PLUMEPROF%Nair(iz,1).lt.0) GL_PLUMEPROF%Nair(iz,1) = 0.0
        !
     end do
     !
@@ -1135,9 +1185,14 @@ CONTAINS
        !
        !*** Estimates fW as in Degruyter and Bonadonna (2012)
        !
-       W  = v_mean/(N_mean*H1)
-       fW = ((z1**4.0_rp)*beta*beta*W)/((2.0_rp**2.5_rp)*6.0_rp*alfa*alfa)
-       fW = 1.0_rp + fW
+       !LAM: check it
+       if(N_mean.gt.0.0) then
+           W  = v_mean/(N_mean*H1)
+           fW = ((z1**4.0_rp)*beta*beta*W)/((2.0_rp**2.5_rp)*6.0_rp*alfa*alfa)
+           fW = 1.0_rp + fW
+       else
+           fW = 0.0
+       end if
        !
     case('ESTIMATE-WOODHOUSE')
        !
@@ -1154,9 +1209,13 @@ CONTAINS
        b  = 1.09_rp + 0.32_rp*beta/alfa
        c  = 0.06_rp + 0.03_rp*beta/alfa
        !
-       W  = 1.44_rp*V1/(N_mean*H1)
-       fW = (1.0_rp+b*W+c*W*W) /(1.0_rp+a*W)
-       fW = fW**4.0_rp
+       if(N_mean.gt.0.0) then
+           W  = 1.44_rp*V1/(N_mean*H1)
+           fW = (1.0_rp+b*W+c*W*W) /(1.0_rp+a*W)
+           fW = fW**4.0_rp
+       else
+           fW = 0.0
+       end if
        !
     case default
        !
@@ -1247,8 +1306,8 @@ CONTAINS
     type(SRC_PARAMS),    intent(INOUT) :: GL_SRC
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    integer(ip)           :: nbins,np,ip,ic
-    real(rp)              :: sum,deltaz,z
+    integer(ip)           :: nbins,np,is,ic
+    real(rp)              :: sum,deltaz,z,z2
     real(rp), allocatable :: S(:)
     !
     !*** Initializations
@@ -1270,11 +1329,13 @@ CONTAINS
     allocate(S(np))
     sum    = 0.0_rp
     deltaz = Havl/np   ! from the ground to Havl
-    do ip = 1,np
-       z            = ip*deltaz
-       S(ip)        = ((1.0_rp-z/Havl)*exp(As*(z/Havl-1.0_rp)))**Ls
-       GL_SRC%z(ip) = MY_ESP%zo + z   ! a.s.l.
-       sum          = sum + S(ip)
+    do is = 1,np
+       z            = is*deltaz
+       z2           = max(1.0_rp-z/Havl,0.0_rp)
+       S(is)        = z2*exp(-As*z2)
+       S(is)        = S(is)**Ls
+       GL_SRC%z(is) = MY_ESP%zo + z   ! a.s.l.
+       sum          = sum + S(is)
     end do
     !
     !*** Normalization to MFR (SUMz=MFR)
@@ -1283,9 +1344,9 @@ CONTAINS
     !
     !*** Mass distribution
     !
-    do ip = 1,np
+    do is = 1,np
        do ic = 1,nbins
-          GL_SRC%M(ic,ip) = MY_GRN%bin_fc(ic)*S(ip)
+          GL_SRC%M(ic,is) = MY_GRN%bin_fc(ic)*S(is)
        end do
     end do
     !
@@ -1854,17 +1915,19 @@ CONTAINS
     !
     !*** Memory allocation
     !
-    if(.not.master_model) then
-       allocate(GL_SRC%x(np))
-       allocate(GL_SRC%y(np))
-       allocate(GL_SRC%z(np))
-       allocate(GL_SRC%M(nbins,np))
+    if(GL_SRC%np.gt.0) then
+      if(.not.master_model) then
+         allocate(GL_SRC%x(np))
+         allocate(GL_SRC%y(np))
+         allocate(GL_SRC%z(np))
+         allocate(GL_SRC%M(nbins,np))
+      end if
+      !
+      call parallel_bcast(GL_SRC%x,np      ,0)
+      call parallel_bcast(GL_SRC%y,np      ,0)
+      call parallel_bcast(GL_SRC%z,np      ,0)
+      call parallel_bcast(GL_SRC%M,nbins*np,0)
     end if
-    !
-    call parallel_bcast(GL_SRC%x,np      ,0)
-    call parallel_bcast(GL_SRC%y,np      ,0)
-    call parallel_bcast(GL_SRC%z,np      ,0)
-    call parallel_bcast(GL_SRC%M,nbins*np,0)
     !
     return
   end subroutine src_bcast_source

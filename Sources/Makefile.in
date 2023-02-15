@@ -118,13 +118,16 @@ am__objects_1 = slsode.$(OBJEXT) dlsode.$(OBJEXT) mod_ADS.$(OBJEXT) \
 	mod_Grn.$(OBJEXT) mod_InpOut.$(OBJEXT) mod_KindType.$(OBJEXT) \
 	mod_Maths.$(OBJEXT) mod_Odepack.$(OBJEXT) \
 	mod_Parallel.$(OBJEXT) mod_Phys.$(OBJEXT) \
-	mod_PlumeBPT.$(OBJEXT) mod_Sat.$(OBJEXT) mod_Shared.$(OBJEXT) \
-	mod_Src.$(OBJEXT) mod_StdAtm.$(OBJEXT) mod_Tgsd.$(OBJEXT) \
-	mod_Time.$(OBJEXT) mod_nc_IO.$(OBJEXT) mod_Ensemble.$(OBJEXT) \
-	task_Fall3d.$(OBJEXT) task_SetDbs.$(OBJEXT) \
-	task_SetSrc.$(OBJEXT) task_SetTgsd.$(OBJEXT) \
-	task_SetEns.$(OBJEXT) task_runend.$(OBJEXT) \
-	task_Manager.$(OBJEXT)
+	mod_PlumeBPT.$(OBJEXT) mod_Sat.$(OBJEXT) mod_Deposit.$(OBJEXT) \
+	mod_Shared.$(OBJEXT) mod_Src.$(OBJEXT) mod_StdAtm.$(OBJEXT) \
+	mod_Tgsd.$(OBJEXT) mod_Time.$(OBJEXT) \
+	mod_nc_IO_names.$(OBJEXT) mod_nc_IO.$(OBJEXT) \
+	mod_Ensemble.$(OBJEXT) mod_Postp.$(OBJEXT) \
+	mod_Validation.$(OBJEXT) task_Fall3d.$(OBJEXT) \
+	task_SetDbs.$(OBJEXT) task_SetSrc.$(OBJEXT) \
+	task_SetTgsd.$(OBJEXT) task_SetEns.$(OBJEXT) \
+	task_PosEns.$(OBJEXT) task_runend.$(OBJEXT) \
+	task_PosVal.$(OBJEXT) task_Manager.$(OBJEXT)
 am_Fall3d_r4_x_OBJECTS = $(am__objects_1)
 Fall3d_r4_x_OBJECTS = $(am_Fall3d_r4_x_OBJECTS)
 Fall3d_r4_x_LDADD = $(LDADD)
@@ -341,14 +344,14 @@ DISTCLEANFILES = Fall3d.r[48].x
 
 # Common source files for single and double precision
 # Note: dlsode.f contains stuff used by slsode and is needed also for single precision
-common_files = slsode.f dlsode.f mod_ADS.f90 mod_Config.f90 mod_Coord.f90 \
+common_files = slsode.f dlsode.f mod_ADS.F90 mod_Config.f90 mod_Coord.f90 \
 	mod_Dbs.f90 mod_Domain.F90 mod_F3D.f90 mod_Grid.f90 mod_Grn.f90 \
 	mod_InpOut.f90 mod_KindType.F90 mod_Maths.f90 mod_Odepack.f90 \
-	mod_Parallel.F90 mod_Phys.f90 mod_PlumeBPT.f90 mod_Sat.f90 \
+	mod_Parallel.F90 mod_Phys.f90 mod_PlumeBPT.f90 mod_Sat.f90 mod_Deposit.f90 \
 	mod_Shared.f90 mod_Src.f90 mod_StdAtm.f90 mod_Tgsd.f90 mod_Time.f90 \
-	mod_nc_IO.F90 mod_Ensemble.f90 \
+	mod_nc_IO_names.f90 mod_nc_IO.F90 mod_Ensemble.f90 mod_Postp.f90 mod_Validation.f90 \
 	task_Fall3d.f90 task_SetDbs.f90 task_SetSrc.f90 task_SetTgsd.f90 \
-	task_SetEns.f90 task_runend.f90 task_Manager.f90
+	task_SetEns.f90 task_PosEns.f90 task_runend.f90 task_PosVal.f90 task_Manager.f90
 
 Fall3d_r4_x_SOURCES = $(common_files)
 Fall3d_r8_x_SOURCES = $(common_files)
@@ -696,16 +699,16 @@ uninstall-am: uninstall-binPROGRAMS
 #
 .depend: Makefile.am $(common_files)
 	if test ! -z '$(MAKEDEPF90)'; then $(MAKEDEPF90) $(common_files) > .depend; fi;
-slsode.o : slsode.f 
-dlsode.o : dlsode.f 
-mod_ADS.o : mod_ADS.f90 mod_Domain.o mod_KindType.o 
+mod_ADS.o : mod_ADS.F90 mod_Domain.o mod_KindType.o 
 mod_Config.o : mod_Config.f90 
 mod_Coord.o : mod_Coord.f90 mod_KindType.o 
 mod_Dbs.o : mod_Dbs.f90 mod_Phys.o mod_Grid.o mod_Time.o mod_Maths.o mod_Domain.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_Deposit.o : mod_Deposit.f90 mod_Parallel.o mod_InpOut.o mod_KindType.o 
 mod_Domain.o : mod_Domain.F90 mod_Parallel.o mod_KindType.o 
+mod_Ensemble.o : mod_Ensemble.f90 mod_Shared.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
 mod_F3D.o : mod_F3D.f90 mod_ADS.o mod_nc_IO.o mod_Src.o mod_Phys.o mod_Grid.o mod_Time.o mod_Parallel.o mod_KindType.o 
 mod_Grid.o : mod_Grid.f90 mod_Domain.o mod_InpOut.o mod_KindType.o 
-mod_Grn.o : mod_Grn.f90 mod_Phys.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_Grn.o : mod_Grn.f90 mod_Ensemble.o mod_Phys.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
 mod_InpOut.o : mod_InpOut.f90 mod_Shared.o mod_KindType.o 
 mod_KindType.o : mod_KindType.F90 mod_Config.o 
 mod_Maths.o : mod_Maths.f90 mod_KindType.o 
@@ -713,21 +716,27 @@ mod_Odepack.o : mod_Odepack.f90
 mod_Parallel.o : mod_Parallel.F90 mod_KindType.o 
 mod_Phys.o : mod_Phys.f90 mod_Grid.o mod_Domain.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
 mod_PlumeBPT.o : mod_PlumeBPT.f90 mod_Odepack.o mod_Time.o mod_Phys.o mod_StdAtm.o mod_KindType.o 
-mod_Sat.o : mod_Sat.f90 mod_Time.o mod_Domain.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_Postp.o : mod_Postp.f90 mod_Parallel.o mod_KindType.o 
+mod_Sat.o : mod_Sat.f90 mod_Ensemble.o mod_Time.o mod_Domain.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
 mod_Shared.o : mod_Shared.f90 mod_KindType.o 
-mod_Src.o : mod_Src.f90 mod_Phys.o mod_PlumeBPT.o mod_Coord.o mod_Time.o mod_Parallel.o mod_InpOut.o mod_KindType.o mod_Ensemble.o
+mod_Src.o : mod_Src.f90 mod_Ensemble.o mod_Phys.o mod_PlumeBPT.o mod_Coord.o mod_Time.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
 mod_StdAtm.o : mod_StdAtm.f90 mod_KindType.o 
-mod_Tgsd.o : mod_Tgsd.f90 mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_Tgsd.o : mod_Tgsd.f90 mod_Ensemble.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
 mod_Time.o : mod_Time.f90 mod_Parallel.o mod_InpOut.o mod_KindType.o 
-mod_nc_IO.o : mod_nc_IO.F90 mod_Time.o mod_Parallel.o mod_Grid.o mod_Domain.o mod_KindType.o 
-mod_Ensemble.o: mod_Ensemble.f90 mod_Parallel.o mod_InpOut.o mod_KindType.o 
-task_Fall3d.o : task_Fall3d.f90 mod_Sat.o mod_Dbs.o mod_F3D.o mod_nc_IO.o mod_Parallel.o mod_Domain.o mod_Phys.o mod_Grid.o mod_Time.o mod_Grn.o mod_InpOut.o mod_Shared.o mod_KindType.o 
-task_SetDbs.o : task_SetDbs.f90 mod_nc_IO.o mod_Domain.o mod_Dbs.o mod_Grid.o mod_Time.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
-task_SetSrc.o : task_SetSrc.f90 mod_Ensemble.o mod_Time.o mod_Src.o mod_Grn.o mod_Parallel.o mod_InpOut.o mod_Shared.o mod_KindType.o 
-task_SetTgsd.o : task_SetTgsd.f90 mod_Grn.o mod_Tgsd.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
-task_runend.o : task_runend.f90 mod_InpOut.o mod_Parallel.o mod_KindType.o 
-task_SetEns.o : task_SetEns.f90 mod_Ensemble.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
+mod_Validation.o : mod_Validation.f90 mod_Postp.o mod_Maths.o mod_Grid.o mod_Deposit.o mod_Sat.o mod_Time.o mod_nc_IO.o mod_nc_IO_names.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_nc_IO.o : mod_nc_IO.F90 mod_Time.o mod_Parallel.o mod_Grid.o mod_Domain.o mod_nc_IO_names.o mod_KindType.o 
+mod_nc_IO_names.o : mod_nc_IO_names.f90 mod_KindType.o 
+task_Fall3d.o : task_Fall3d.f90 mod_Ensemble.o mod_Sat.o mod_Dbs.o mod_F3D.o mod_nc_IO.o mod_Parallel.o mod_Domain.o mod_Phys.o mod_Grid.o mod_Time.o mod_Grn.o mod_InpOut.o mod_Shared.o mod_KindType.o 
 task_Manager.o : task_Manager.f90 mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
+task_PosEns.o : task_PosEns.f90 mod_Postp.o mod_nc_IO.o mod_nc_IO_names.o mod_Grn.o mod_InpOut.o mod_Parallel.o mod_Domain.o mod_Shared.o mod_KindType.o 
+task_PosVal.o : task_PosVal.f90 mod_Grid.o mod_Deposit.o mod_Sat.o mod_Validation.o mod_Shared.o mod_KindType.o 
+task_SetDbs.o : task_SetDbs.f90 mod_nc_IO.o mod_Domain.o mod_Dbs.o mod_Grid.o mod_Time.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
+task_SetEns.o : task_SetEns.f90 mod_Ensemble.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
+task_SetSrc.o : task_SetSrc.f90 mod_Time.o mod_Src.o mod_Grn.o mod_Parallel.o mod_InpOut.o mod_Shared.o mod_KindType.o 
+task_SetTgsd.o : task_SetTgsd.f90 mod_Ensemble.o mod_Grn.o mod_Tgsd.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
+task_runend.o : task_runend.f90 mod_InpOut.o mod_Parallel.o mod_KindType.o 
+dlsode.o : dlsode.f 
+slsode.o : slsode.f 
 #
 # Include dependencies file
 

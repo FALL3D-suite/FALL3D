@@ -7,7 +7,7 @@ Download ERA5 data in pressure levels required by FALL3D model.
 import sys
 import argparse
 import configparser
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fall3dutil.ecmwf import ERA5pl
 
@@ -78,17 +78,7 @@ def main():
             args.output = args.output.strip() + '.nc'
     else:
         args.output = "{date1}-{date2}-pl.nc".format(date1 = args.date_start.strftime("%Y%m%d"), 
-                                                  date2 = args.date_end.strftime("%Y%m%d") ) 
-
-
-    if args.date_start.year != args.date_end.year or args.date_start.month != args.date_end.month:
-        print("Only is possible to download date from the same month")
-        if args.date_start.month == 12:
-            args.date_end = datetime(args.date_start.year+1,1,1)
-        else:
-            args.date_end = datetime(args.date_start.year,args.date_start.month+1,1)
-        args.date_end -= timedelta(days=1)
-        print("Using end_date:", args.date_end)
+                                                     date2 = args.date_end.strftime(  "%Y%m%d") ) 
 
     request = ERA5pl(args)
     request.retrieve()

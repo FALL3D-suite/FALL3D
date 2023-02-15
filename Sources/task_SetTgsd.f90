@@ -15,6 +15,7 @@
   use InpOut
   use Tgsd
   use Grn
+  use Ensemble
   implicit none
   !
   integer(ip)       :: ispe
@@ -51,7 +52,7 @@
      !
      !*** Master reads and broadcasts specie_TGSD block from input file (stored in MY_TGSD)
      !
-     if(master_model) call tgsd_read_inp_granulometry(MY_FILES, MY_TGSD, MY_SPE%code(ispe),MY_ERR)
+     if(master_model) call tgsd_read_inp_granulometry(MY_FILES, MY_TGSD, MY_SPE%code(ispe),MY_ENS,MY_ERR)
      call parallel_bcast(MY_ERR%flag,1,0)
      if(MY_ERR%flag.eq.0) then
         call tgsd_bcast_inp_granulometry(MY_TGSD,MY_ERR)

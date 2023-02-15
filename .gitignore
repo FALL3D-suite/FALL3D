@@ -6,7 +6,7 @@
 # Temporary object folders
 obj4
 obj8
-binary
+binary*
 
 #Hidden files
 .*

@@ -1,4 +1,4 @@
-!
+!  
 !-----------------------------------------------------
 !
 !   FALL3D : EXAMPLE INPUT FILE
@@ -12,7 +12,7 @@
  CODE
  ----
    !
-   VERSION 8.0
+   VERSION 8.1
    !
  --------
  TIME_UTC
@@ -41,13 +41,11 @@
    !    INSERTION_FILE                    : path to the initial condition file (only used if INITIAL_CONDITION = INSERTION)
    !    INSERTION_DICTIONARY_FILE         : Optional. Path to the insertion dictionary file. If not given, dafault value is used.
    !    INSERTION_TIME_SLAB               : value. Time slab (in the netCDF file) at which data is inserted
-   !    INSERTED_TRACER           options : TEPHRA / DUST / RADIONUCLIDE / H2O / SO2
    !    DIAMETER_CUT_OFF_(MIC)            : value, optional. If given, assimilate only for particles smaller than cut-off value
    !
    INSERTION_FILE             = Example-8.0.sat.nc
    INSERTION_DICTIONARY_FILE  = Sat.tbl
    INSERTION_TIME_SLAB        = 4
-   INSERTED_TRACER            = TEPHRA
    DIAMETER_CUT_OFF_(MIC)     = 64
    !
  ----------
@@ -170,7 +168,7 @@
    FI_RANGE         = -2 8
    DENSITY_RANGE    = 1200 2300
    SPHERICITY_RANGE = 0.9  0.9
-   DISTRIBUTION     = ESTIMATE
+   DISTRIBUTION     = GAUSSIAN
      !
      IF_GAUSSIAN    FI_MEAN  = 2.5        FI_DISP = 1.5
      IF_BIGAUSSIAN  FI_MEAN  = 0.25 0.75  FI_DISP = 1.44 1.46  MIXING_FACTOR = 0.5
@@ -231,9 +229,9 @@
    !   FRACTAL_EXPONENT                  : value. Only used if AGGREGATION_MODEL = COSTA
    !
    PARTICLE_CUT_OFF          = NONE
-   AGGREGATION_MODEL         = NONE
+   AGGREGATION_MODEL         = PERCENTAGE
    NUMBER_OF_AGGREGATE_BINS  = 2
-   DIAMETER_AGGREGATES_(MIC) = 250. 100.
+   DIAMETER_AGGREGATES_(MIC) = 300. 200.
    DENSITY_AGGREGATES_(KGM3) = 350. 250.
    PERCENTAGE_(%)            = 20.   10.
    VSET_FACTOR               = 0.5
@@ -289,7 +287,7 @@ SOURCE
    !   A_S                                  options : CONSTANT (value jet, value plume) / KAMINSKI-R / KAMINSKI-C / OLD
    !   A_V                                  options : CONSTANT (value) / TATE
    !
-   SOURCE_TYPE                   = point
+   SOURCE_TYPE                   = TOP-HAT
    SOURCE_START_(HOURS_AFTER_00) = 0
    SOURCE_END_(HOURS_AFTER_00)   = 10
    !
@@ -309,7 +307,7 @@ SOURCE
       L = 5.
    !
    IF_TOP-HAT_SOURCE
-      THICKNESS_(M) = 2000. 2000.
+      THICKNESS_(M) = 2000. 
    !
    IF_PLUME_SOURCE
       SOLVE_PLUME_FOR                   = MFR
@@ -330,6 +328,126 @@ SOURCE
       C_UMBRELLA    = 1.2
       A_S           = CONSTANT 0.075 0.12
       A_V           = CONSTANT 0.3
+   !
+ --------
+ ENSEMBLE
+ --------
+   !
+   !  RANDOM_NUMBERS_FROM_FILE                   options  : YES/NO (default NO)
+   !  PERTURBATE_COLUMN_HEIGHT                   options  : NO / RELATIVE / ABSOLUTE
+   !  PERTURBATE_MASS_FLOW_RATE                  options  : NO / RELATIVE / ABSOLUTE (only if MASS_FLOW_RATE_(KGS) is given; desactivated for PLUME or ESTIMATE options)
+   !  PERTURBATE_SOURCE_START                    options  : NO / RELATIVE / ABSOLUTE  
+   !  PERTURBATE_SOURCE_DURATION                 options  : NO / RELATIVE / ABSOLUTE  
+   !  PERTURBATE_TOP-HAT_THICKNESS               options  : NO / RELATIVE / ABSOLUTE (only if SOURCE_TYPE = TOP-HAT) 
+   !  PERTURBATE_SUZUKI_A                        options  : NO / RELATIVE / ABSOLUTE (only if SOURCE_TYPE = SUZUKI) 
+   !  PERTURBATE_SUZUKI_L                        options  : NO / RELATIVE / ABSOLUTE (only if SOURCE_TYPE = SUZUKI) 
+   !  PERTURBATE_WIND                            options  : NO / RELATIVE / ABSOLUTE
+   !  PERTURBATE_DATA_INSERTION_CLOUD_HEIGHT     options  : NO / RELATIVE / ABSOLUTE (only if INITIAL_CONDITION = INSERTION)
+   !  PERTURBATE_DATA_INSERTION_CLOUD_THICKNESS  options  : NO / RELATIVE / ABSOLUTE (only if INITIAL_CONDITION = INSERTION)
+   !  PERTURBATE_FI_MEAN                         options  : NO / RELATIVE / ABSOLUTE (only if DISTRIBUTION = GAUSSIAN / BIGAUSSIAN)
+   !  PERTURBATE_DIAMETER_AGGREGATES             options  : NO / RELATIVE / ABSOLUTE 
+   !  PERTURBATE_DENSITY_AGGREGATES              options  : NO / RELATIVE / ABSOLUTE 
+   !  (for all PERTURBATE options above)
+   !     PERTURBATION_RANGE                      options  : value. Percentage (in %) for RELATIVE or value (in units) for ABSOLUTE 
+   !     PDF                                     options  : UNIFORM / GAUSSIAN   
+   !  POSTPROCESS_MEMBERS                        options  : YES/NO (default NO)
+   !  POSTPROCESS_MEAN                           options  : YES/NO (default NO)
+   !  POSTPROCESS_MEDIAN                         options  : YES/NO (default NO)
+   !  POSTPROCESS_STANDARD_DEV                   options  : YES/NO (default NO)
+   !  POSTPROCESS_PROBABILITY                    options  : YES/NO (default NO)
+   !  POSTPROCESS_PERCENTILES                    options  : YES/NO (default NO)
+   !  IF_POSTPROCESS_PROBABILITY 
+   !    CONCENTRATION_THRESHOLDS_(MG/M3)                  : value(s)
+   !    COLUMN_MASS_THRESHOLDS_(G/M2)                     : value(s)
+   !    COLUMN_MASS_THRESHOLDS_(DU)                       : value(s)
+   !    GROUND_LOAD_THRESHOLDS_(KG/M2)                    : value(s)
+   !  IF_POSTPROCESS_PERCENTILES
+   !    PERCENTILE_VALUES_(%)                             : value(s)
+   !
+   RANDOM_NUMBERS_FROM_FILE  = yes
+   !
+   PERTURBATE_COLUMN_HEIGHT  = RELATIVE
+   IF_PERTURBATE_COLUMN_HEIGHT
+      PERTURBATION_RANGE = 20
+      PDF                = UNIFORM
+   !
+   PERTURBATE_MASS_FLOW_RATE = NO
+   IF_PERTURBATE_MASS_FLOW_RATE
+      PERTURBATION_RANGE = 20
+      PDF                = UNIFORM
+   !
+   PERTURBATE_SOURCE_START = NO
+   IF_PERTURBATE_SOURCE_START
+      PERTURBATION_RANGE = 3600
+      PDF   
+   !
+   PERTURBATE_SOURCE_DURATION = NO
+   IF_PERTURBATE_SOURCE_DURATION
+      PERTURBATION_RANGE = 3600
+      PDF                = UNIFORM
+   !
+   PERTURBATE_TOP-HAT_THICKNESS = NO
+   IF_PERTURBATE_TOP-HAT_THICKNESS
+      PERTURBATION_RANGE = 1000
+      PDF                = UNIFORM
+   !
+   PERTURBATE_SUZUKI_A = RELATIVE
+   IF_PERTURBATE_SUZUKI_A
+      PERTURBATION_RANGE = 25
+      PDF                = UNIFORM
+   !
+   PERTURBATE_SUZUKI_L = RELATIVE
+   IF_PERTURBATE_SUZUKI_L
+      PERTURBATION_RANGE = 25
+      PDF                = UNIFORM
+   !
+   PERTURBATE_WIND = NO
+   IF_PERTURBATE_WIND
+      PERTURBATION_RANGE = 10.0
+      PDF                = UNIFORM
+   !
+   PERTURBATE_DATA_INSERTION_CLOUD_HEIGHT  = NO
+   IF_PERTURBATE_DATA_INSERTION_CLOUD_HEIGHT
+      PERTURBATION_RANGE = 20
+      PDF                = UNIFORM
+   !
+   PERTURBATE_DATA_INSERTION_CLOUD_THICKNESS = NO
+   IF_PERTURBATE_DATA_INSERTION_CLOUD_THICKNESS
+      PERTURBATION_RANGE = 20
+      PDF                = UNIFORM
+   !
+   PERTURBATE_FI_MEAN = NO
+   IF_PERTURBATE_FI_MEAN
+      PERTURBATION_RANGE = 1
+      PDF                = UNIFORM
+   !
+   PERTURBATE_DIAMETER_AGGREGATES_(MIC) = NO
+   IF_PERTURBATE_DIAMETER_AGGREGATES_(MIC)
+      PERTURBATION_RANGE = 100
+      PDF                = UNIFORM
+   !
+   PERTURBATE_DENSITY_AGGREGATES = NO
+   IF_PERTURBATE_DENSITY_AGGREGATES
+      PERTURBATION_RANGE = 100
+      PDF                = UNIFORM
+   !
+   ENSEMBLE_POSTPROCESS
+      POSTPROCESS_MEMBERS      = no
+      POSTPROCESS_MEAN         = no
+      POSTPROCESS_LOGMEAN      = no
+      POSTPROCESS_MEDIAN       = yes      
+      POSTPROCESS_STANDARD_DEV = no
+      POSTPROCESS_PROBABILITY  = no
+      POSTPROCESS_PERCENTILES  = no
+      !
+      IF_POSTPROCESS_PROBABILITY 
+         CONCENTRATION_THRESHOLDS_(MG/M3) = 2
+         COLUMN_MASS_THRESHOLDS_(G/M2)    = 1
+         COLUMN_MASS_THRESHOLDS_(DU)      = 100
+         GROUND_LOAD_THRESHOLDS_(KG/M2)   = 1 
+      !
+      IF_POSTPROCESS_PERCENTILES
+         PERCENTILE_VALUES_(%) = 50 
    !
  -------------
  MODEL_PHYSICS
@@ -354,12 +472,12 @@ SOURCE
    !  GC_END_(HOURS_AFTER_00)                        : value. Only read if GRAVITY_CURRENT = YES. GC end   time
    !
    LIMITER                     = SUPERBEE
-   TIME_MARCHING               = EULER
+   TIME_MARCHING               = RUNGE-KUTTA
    CFL_CRITERION               = ALL_DIMENSIONS
    CFL_SAFETY_FACTOR           = 0.9
    !
    TERMINAL_VELOCITY_MODEL     = GANSER
-   HORIZONTAL_TURBULENCE_MODEL constant = 0.0 ! CMAQ
+   HORIZONTAL_TURBULENCE_MODEL CMAQ
    VERTICAL_TURBULENCE_MODEL   constant = 0.0 ! SIMILARITY
    WET_DEPOSITION              = no
    DRY_DEPOSITION              = no
@@ -397,7 +515,7 @@ SOURCE
    !  OUTPUT_CONCENTRATION_AT_ZCUTS      options  : YES/NO. If yes, outputs cuts at specifyed Z-values
    !  OUTPUT_CONCENTRATION_AT_FL         options  : YES/NO. If yes, outputs cuts at specifyed FLs
    !
-   PARALLEL_IO                   = NO
+   PARALLEL_IO                   = no
    LOG_FILE_LEVEL                = FULL
    RESTART_TIME_INTERVAL_(HOURS) = END_ONLY
    OUTPUT_INTERMEDIATE_FILES     = no
@@ -421,4 +539,27 @@ SOURCE
       Z-VALUES  5000 10000 15000
    OUTPUT_CONCENTRATION_AT_FL    = yes
       FL-VALUES  50 100 150 200 250 300 350 400
-
+   !
+ ----------------
+ MODEL_VALIDATION
+ ----------------
+   !
+   !  OBSERVATIONS_TYPE                         options  : SATELLITE_DETECTION / SATELLITE_RETRIEVAL / DEPOSIT_CONTOURS / DEPOSIT_POINTS
+   !  OBSERVATIONS_FILE                         options  : path to the observations file 
+   !  OBSERVATIONS_DICTIONARY_FILE              options  : optional. Path to the dictionary file. If not given, dafault value is used.
+   !  RESULTS_FILE                              options  : path to the FALL3D results file (both name.res.nc or name.ens.nc are supported)
+   !  COLUMN_MASS_OBSERVATION_THRESHOLD_(G/M2)  options  : value. Default 0.1
+   !  COLUMN_MASS_OBSERVATION_THRESHOLD_(DU)    options  : value. Default 1
+   !  GROUND_LOAD_OBSERVATION_THRESHOLD_(KG/M2) options  : value. Default 0.1
+   !
+   OBSERVATIONS_TYPE            = SATELLITE_RETRIEVAL
+   OBSERVATIONS_FILE            = Example-8.0.sat.nc
+   OBSERVATIONS_DICTIONARY_FILE = Sat.tbl
+   RESULTS_FILE                 = Example.ens.nc
+   !
+   IF_OBSERVATIONS_TYPE_SATELLITE
+      COLUMN_MASS_OBSERVATION_THRESHOLD_(G/M2)  = 0.1
+      COLUMN_MASS_OBSERVATION_THRESHOLD_(DU)    = 1
+   !
+   IF_OBSERVATIONS_TYPE_DEPOSIT
+      GROUND_LOAD_OBSERVATION_THRESHOLD_(KG/M2) = 0.1 

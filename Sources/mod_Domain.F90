@@ -151,8 +151,6 @@ CONTAINS
     MY_ERR%source  = 'domain_decompose'
     MY_ERR%message = ' '
     !
-#if defined WITH_MPI
-    !
     !*** Store global dimensions
     !
     gl_npx = np(1)
@@ -161,6 +159,8 @@ CONTAINS
     gl_nbx = gl_npx + 1
     gl_nby = gl_npy + 1
     gl_nbz = gl_npz + 1
+    !
+#if defined WITH_MPI
     !
     !*** Get Cartesian mesh communicator COMM_GRID
     !
@@ -189,26 +189,32 @@ CONTAINS
     !
     npx_min_proc =  gl_npx / mproc(1)
     npx_left     =  gl_npx - npx_min_proc*mproc(1)
-    if(npx_min_proc.lt.4) then
-       MY_ERR%flag    = 1
-       MY_ERR%message = 'too many processors along x direction'
-       return
+    if(mproc(1).gt.1) then
+       if(npx_min_proc.lt.4) then
+          MY_ERR%flag    = 1
+          MY_ERR%message = 'too many processors along x direction'
+          return
+       end if
     end if
     !
     npy_min_proc =  gl_npy / mproc(2)
     npy_left     =  gl_npy - npy_min_proc*mproc(2)
-    if(npy_min_proc.lt.4) then
-       MY_ERR%flag    = 1
-       MY_ERR%message = 'too many processors along y direction'
-       return
+    if(mproc(2).gt.1) then
+       if(npy_min_proc.lt.4) then
+          MY_ERR%flag    = 1
+          MY_ERR%message = 'too many processors along y direction'
+          return
+       end if
     end if
     !
     npz_min_proc =  gl_npz / mproc(3)
     npz_left     =  gl_npz - npz_min_proc*mproc(3)
-    if(npz_min_proc.lt.4) then
-       MY_ERR%flag    = 1
-       MY_ERR%message = 'too many processors along z direction'
-       return
+    if(mproc(3).gt.1) then
+       if(npz_min_proc.lt.4) then
+          MY_ERR%flag    = 1
+          MY_ERR%message = 'too many processors along z direction'
+          return
+       end if
     end if
     !
     !*** Groups of processors for integration across one dimension (parallel summ)
@@ -1219,7 +1225,7 @@ CONTAINS
        call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
-       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jpe-1:my_jpe,my_kpe-2:my_kpe-1)
+       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips_2h:my_ipe_2h,my_jpe-1:my_jpe,my_kps-2:my_kps-1)
        call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
@@ -1342,7 +1348,7 @@ CONTAINS
        call parallel_irecv( work_reciv(1,1,1), dim, my_W_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_E_proc.ne.-1 ) then
-       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe-2:my_ipe-1,my_jps_2h:my_jpe_2h,my_kpe+1:my_kpe+2)
+       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe-1:my_ipe,my_jps_2h:my_jpe_2h,my_kpe+1:my_kpe+2)
        call parallel_isend( work_send(1,1,1), dim, my_E_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_W_proc.ne.-1 ) then
@@ -1514,7 +1520,7 @@ CONTAINS
        call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
-       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe+1:my_ipe+2,my_jpe-2:my_jpe-1,my_kps_2h:my_kpe_2h)
+       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ipe+1:my_ipe+2,my_jpe-1:my_jpe,my_kps_2h:my_kpe_2h)
        call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then
@@ -1578,7 +1584,7 @@ CONTAINS
        call parallel_irecv( work_reciv(1,1,1), dim, my_S_proc, 0_ip, irhand, COMM_MODEL )
     end if
     if( my_N_proc.ne.-1 ) then
-       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips-2:my_ips-1,my_jpe-1:my_jpe-1,my_kps_2h:my_kpe_2h)
+       work_send(1:dimx,1:dimy,1:dimz) = my_c(my_ips-2:my_ips-1,my_jpe-1:my_jpe,my_kps_2h:my_kpe_2h)
        call parallel_isend( work_send(1,1,1), dim, my_N_proc, 0_ip, ishand, COMM_MODEL )
     end if
     if( my_S_proc.ne.-1 ) then

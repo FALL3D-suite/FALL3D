@@ -10,6 +10,7 @@ MODULE Grn
   use InpOut
   use Parallel
   use Phys
+  use Ensemble
   implicit none
   save
   !
@@ -142,7 +143,7 @@ CONTAINS
        call inpout_get_rea (file_inp, 'SPECIES','H2O', MY_SPE%mf(ispe), 1, MY_ERR)
        if(MY_ERR%flag.ne.0) then
           MY_SPE%mf(ispe) = 0.0_rp
-       else  
+       else
           MY_SPE%mf(ispe) = MY_SPE%mf(ispe)*1e-2_rp  !  from % to [0,1]
        end if
     end if
@@ -157,7 +158,7 @@ CONTAINS
        call inpout_get_rea (file_inp, 'SPECIES','SO2', MY_SPE%mf(ispe), 1, MY_ERR)
        if(MY_ERR%flag.ne.0) then
           MY_SPE%mf(ispe) = 0.0_rp
-       else  
+       else
           MY_SPE%mf(ispe) = MY_SPE%mf(ispe)*1e-2_rp  !  from % to [0,1]
        end if
     end if
@@ -174,7 +175,7 @@ CONTAINS
           MY_ERR%flag    = 1
           MY_ERR%message = 'Mass fraction for CS134 not specified '
           return
-       else  
+       else
           MY_SPE%mf(ispe) = MY_SPE%mf(ispe)*1e-2_rp  !  from % to [0,1]
        end if
     end if
@@ -191,7 +192,7 @@ CONTAINS
           MY_ERR%flag    = 1
           MY_ERR%message = 'Mass fraction for CS137 not specified '
           return
-       else  
+       else
           MY_SPE%mf(ispe) = MY_SPE%mf(ispe)*1e-2_rp  !  from % to [0,1]
        end if
     end if
@@ -208,7 +209,7 @@ CONTAINS
           MY_ERR%flag    = 1
           MY_ERR%message = 'Mass fraction for I131 not specified '
           return
-       else  
+       else
           MY_SPE%mf(ispe) = MY_SPE%mf(ispe)*1e-2_rp  !  from % to [0,1]
        end if
     end if
@@ -225,7 +226,7 @@ CONTAINS
           MY_ERR%flag    = 1
           MY_ERR%message = 'Mass fraction for SR90 not specified '
           return
-       else  
+       else
           MY_SPE%mf(ispe) = MY_SPE%mf(ispe)*1e-2_rp  !  from % to [0,1]
        end if
     end if
@@ -242,7 +243,7 @@ CONTAINS
           MY_ERR%flag    = 1
           MY_ERR%message = 'Mass fraction for Y90 not specified '
           return
-       else  
+       else
           MY_SPE%mf(ispe) = MY_SPE%mf(ispe)*1e-2_rp  !  from % to [0,1]
        end if
     end if
@@ -297,7 +298,7 @@ CONTAINS
        do ispe = 1,MY_SPE%nspe
           if(MY_SPE%category(ispe).eq.CAT_RADIONUCLIDE) then
              mf = mf + MY_SPE%mf(ispe)
-          end if   
+          end if
        end do
        !
        if(abs(mf-1.0_rp).gt.1e-4_rp) then
@@ -330,13 +331,13 @@ CONTAINS
          do ispe = 1,MY_SPE%nspe
             if(MY_SPE%category(ispe).eq.CAT_AEROSOL) then
                mf = mf + MY_SPE%mf(ispe)
-            end if   
+            end if
          end do
          !
          if(abs(mf-1.0_rp).gt.1e-4_rp) then
             MY_ERR%flag   = 1
             MY_ERR%message = 'Mass fraction of non-magmatic aerosols must sum 1  '
-            return 
+            return
          end if
          !
        end if
@@ -406,15 +407,17 @@ CONTAINS
   !>   @brief
   !>   Reads and MY_AGR (variables related to particle aggregation)
   !
-  subroutine  grn_read_inp_aggregation(MY_FILES, MY_AGR, MY_ERR)
+  subroutine  grn_read_inp_aggregation(MY_FILES, MY_AGR, MY_ENS, MY_ERR)
     implicit none
     !
     !>   @param MY_FILES  list of files
     !>   @param MY_AGR    list of parameters defining an aggregation model
+    !>   @param MY_ENS    list of ensemble parameters
     !>   @param MY_ERR    error handler
     !
     type(FILE_LIST),      intent(IN   ) :: MY_FILES
     type(AGR_PARAMS),     intent(INOUT) :: MY_AGR
+    type(ENS_PARAMS),     intent(IN   ) :: MY_ENS
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
     integer(ip), parameter :: nmaxbin = 100
@@ -481,7 +484,6 @@ CONTAINS
        do i = 1,MY_AGR%nbins_aggr
           j = min(i,npar)
           MY_AGR%diam(i) = work(j)
-          MY_AGR%diam(i) = MY_AGR%diam(i)*1e-6_rp  ! microns to m
        end do
        MY_AGR%diam_aggr = work(1)  ! aggregate diameter (1 class)
        !
@@ -494,6 +496,24 @@ CONTAINS
           MY_AGR%rho(i) = work(j)
        end do
        !
+       !*** If necessary, perturbate aggregate properties in ensemble runs
+       !
+       if(nens.gt.1) then
+          do i = 1,MY_AGR%nbins_aggr
+             MY_AGR%diam(i) = ensemble_perturbate_variable( ID_DIAMETER_AGGREGATES, &
+                                                            MY_AGR%diam(i), MY_ENS )
+             MY_AGR%rho (i) = ensemble_perturbate_variable( ID_DENSITY_AGGREGATES, &
+                                                            MY_AGR%rho (i), MY_ENS )
+          end do
+       end if
+       !
+       !*** Finally, convert diameter from microns to m
+       !
+       do i = 1,MY_AGR%nbins_aggr
+          MY_AGR%diam(i) = MY_AGR%diam(i)*1e-6_rp  ! microns to m
+       end do
+       MY_AGR%diam_aggr = MY_AGR%diam_aggr*1e-6_rp
+       !   
        select case(MY_AGR%aggregation_model)
        case('PERCENTAGE')
           !
@@ -606,7 +626,7 @@ CONTAINS
     integer(ip)            :: i,i1,i2,i3,i4
     real(rp)               :: file_version
     real(rp)               :: fc_old(nmaxbin)
-    real(rp)               :: fc_aggr,fc_aero
+    real(rp)               :: fc_aggr
     character(len=2)       :: ext
     character(len=s_file)  :: file_inp, file_tgsd, sblock, swork(2)
     character(len=s_name)  :: spe_name, type_dist
@@ -743,7 +763,7 @@ CONTAINS
          !
          MY_GRN%bin_type(is_bin:ie_bin) = TRIM(spe_name)
          MY_GRN%bin_cat (is_bin:ie_bin) = cat_code
-         MY_GRN%bin_spe (is_bin:ie_bin) = spe_code        
+         MY_GRN%bin_spe (is_bin:ie_bin) = spe_code
          MY_GRN%bin_rho (is_bin:ie_bin) = TGSD%bin_rho (1:TGSD%nbins)
          MY_GRN%bin_diam(is_bin:ie_bin) = TGSD%bin_diam(1:TGSD%nbins)
          MY_GRN%bin_sphe(is_bin:ie_bin) = TGSD%bin_sphe(1:TGSD%nbins)

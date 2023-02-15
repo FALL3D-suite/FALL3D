@@ -1122,7 +1122,7 @@ CONTAINS
   !
   !>   @brief Computes the decay of radionuclides
   !>   @details
-  !>   Allowed radionuclides: Cs135, Cs137, I131, Sr90 and Y90.
+  !>   Allowed radionuclides: Cs134, Cs137, I131, Sr90 and Y90.
   !>   @author A.Folch, A.Costa, G.Macedonio
   !
   subroutine phys_radionuclides(MY_TRA,MY_SPE,MY_TIME,MY_ERR)
@@ -1147,11 +1147,11 @@ CONTAINS
     !
     !*** Initializations
     !
-    dt = MY_TIME%gl_dt  ! Time step
     MY_ERR%flag    = 0
     MY_ERR%source  = 'phys_radionuclides'
     MY_ERR%message = ' '
-
+    !
+    dt = MY_TIME%gl_dt  ! Time step
     !
     ! Y90 is a child of Sr90.
     ! In this version of Fall3d each Sr90 class bin decays in the corresponding
@@ -1159,7 +1159,7 @@ CONTAINS
     ! This implies that the number of classes of Sr90 must be the same of the
     ! classes of Y90. Here we only check that the number of both classes is the same.
     ! It is responsability of the user to provide physically consistent classes.
-    ! 
+    !
 
     ! Count the number of Y90 and SR90 classes and evaluate the shift between
     ! the indices (ibin) of Sr90 and Y90 classes.
@@ -1167,27 +1167,25 @@ CONTAINS
     n_y90_classes  = 0
     n_sr90_classes = 0
     sr90_y90_shift = 0
+    !
     do ibin = 1,MY_TRA%MY_BIN%nbins
        if(MY_TRA%MY_BIN%bin_cat(ibin) == CAT_RADIONUCLIDE .and. &
-            MY_TRA%MY_BIN%bin_spe(ibin) == SPE_Y90) then
+          MY_TRA%MY_BIN%bin_spe(ibin) == SPE_Y90) then
           n_y90_classes = n_y90_classes + 1
           if(n_y90_classes == 1) sr90_y90_shift = sr90_y90_shift - ibin  ! child (-)
        end if
        if(MY_TRA%MY_BIN%bin_cat(ibin) == CAT_RADIONUCLIDE .and. &
-            MY_TRA%MY_BIN%bin_spe(ibin) == SPE_SR90) then
+          MY_TRA%MY_BIN%bin_spe(ibin) == SPE_SR90) then
           n_sr90_classes = n_sr90_classes + 1
           if(n_sr90_classes == 1) sr90_y90_shift = sr90_y90_shift + ibin ! Father (+)
        end if
     end do
-
     ! Check
     if(n_y90_classes /= n_sr90_classes) then
        MY_ERR%flag    = 1
        MY_ERR%message = 'The number of SR90 and Y90 classes must be equal.'
        return
     end if
-
-    !
     !
     !*** Computes radionuclides decay for all types
     !
@@ -1212,8 +1210,9 @@ CONTAINS
           end select
        end if
     end do
-
-    ! Loop on all the local cells (no need to exchange halos)
+    !
+    !*** Radionuclides decay in the atmosphere. Loop on all the local cells (no need to exchange halos)
+    !
     do ibin = 1,MY_TRA%MY_BIN%nbins
        if(MY_TRA%MY_BIN%bin_cat(ibin) == CAT_RADIONUCLIDE) then
           do i = my_ips_2h,my_ipe_2h
@@ -1223,7 +1222,7 @@ CONTAINS
                    ! Y90 also receives from Sr90
                    if(MY_TRA%MY_BIN%bin_spe(ibin) == SPE_Y90) then
                       MY_TRA%my_c(i,j,k,ibin)  = MY_TRA%my_c(i,j,k,ibin+sr90_y90_shift) * &
-                      (1.0_rp - radio_fact(ibin+sr90_y90_shift))
+                           (1.0_rp - radio_fact(ibin+sr90_y90_shift))
                    end if
                 end do
              end do
@@ -1231,7 +1230,25 @@ CONTAINS
        end if
     end do
     !
-    !*** Does not need to exchange halos
+    !*** Radionuclides decay in the deposit. Loop on all the local cells (no need to exchange halos)
+    !
+    do ibin = 1,MY_TRA%MY_BIN%nbins
+       if(MY_TRA%MY_BIN%bin_cat(ibin) == CAT_RADIONUCLIDE) then
+          do i = my_ips_2h,my_ipe_2h
+             do j = my_jps_2h,my_jpe_2h
+                MY_TRA%my_acum(i,j,ibin) = MY_TRA%my_acum(i,j,ibin)*radio_fact(ibin)
+                MY_TRA%my_awet(i,j,ibin) = MY_TRA%my_awet(i,j,ibin)*radio_fact(ibin)
+                ! Y90 also receives from Sr90
+                if(MY_TRA%MY_BIN%bin_spe(ibin) == SPE_Y90) then
+                   MY_TRA%my_acum(i,j,ibin)  = MY_TRA%my_acum(i,j,ibin+sr90_y90_shift) * &
+                                               (1.0_rp - radio_fact(ibin+sr90_y90_shift))
+                   MY_TRA%my_awet(i,j,ibin)  = MY_TRA%my_awet(i,j,ibin+sr90_y90_shift) * &
+                                               (1.0_rp - radio_fact(ibin+sr90_y90_shift))
+                end if
+             end do
+          end do
+       end if
+    end do
     !
     return
   end subroutine phys_radionuclides
@@ -1244,19 +1261,20 @@ CONTAINS
   !>   Computes wet deposition mechanisms according to Jung and Shao (2006)
   !>   @details
   !>   Wet deposition is assumed below the PBL only. This is done because there is no
-  !>   informtion about the height of the precipitation (only the total rate is known).
+  !>   information about the height of the precipitation (only the total rate is known).
   !>       dC/dt = -L*C = a*(P**b)*C   P in mm/h
   !>       a = 8.4d-5
   !>       b = 0.79
   !>       P precipitation rate in mmh-1
   !
-  subroutine phys_wet_deposition(MY_MOD,dt,my_pre,my_pblh,my_zc,dX3_p,my_awet,my_c,MY_ERR)
+  subroutine phys_wet_deposition(MY_MOD,dt,my_pre,my_pblh,my_hc,my_zc,dX3_p,my_awet,my_c,MY_ERR)
     implicit none
     !
     !>   @param MY_MOD    model physics related parameters
     !>   @param dt        integration time step
     !>   @param my_pre    precipitation rate          at mass points
     !>   @param my_pblh   boundary layer height       at mass points
+    !>   @param my_hc     topography   at my processor cell corners
     !>   @param my_zc     z-coordinate at my processor cell corners
     !>   @param dX3_p     dX3                         at mass points
     !>   @param my_awet   accumulated wet deposition  at mass points
@@ -1265,8 +1283,9 @@ CONTAINS
     !
     type(MODEL_PHYS),     intent(IN   ) :: MY_MOD
     real(rp),             intent(IN   ) :: dt
-    real(rp),             intent(IN   ) :: my_pre (my_ips:my_ipe,      my_jps:my_jpe)
+    real(rp),             intent(INOUT) :: my_pre (my_ips:my_ipe,      my_jps:my_jpe)
     real(rp),             intent(IN   ) :: my_pblh(my_ips:my_ipe,      my_jps:my_jpe)
+    real(rp),             intent(IN   ) :: my_hc  (my_ibs:my_ibe,      my_jbs:my_jbe)
     real(rp),             intent(IN   ) :: my_zc  (my_ibs:my_ibe,      my_jbs:my_jbe,      my_kbs:my_kbe)
     real(rp),             intent(IN   ) :: dX3_p  (my_kps_2h:my_kpe_2h)
     real(rp),             intent(INOUT) :: my_awet(my_ips_2h:my_ipe_2h,my_jps_2h:my_jpe_2h)
@@ -1274,7 +1293,7 @@ CONTAINS
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
     integer(ip) :: i,j,k
-    real(rp)    :: a,b,lambda,zp,pblh
+    real(rp)    :: a,b,lambda,zp,pblh,ho,zp1,zp2
     !
     !*** Initializations
     !
@@ -1290,12 +1309,17 @@ CONTAINS
     do j = my_jps,my_jpe
        do i = my_ips,my_ipe
           !
-          lambda = min(1.0_rp, dt*a*(my_pre(i,j)**b))
-          pblh   = my_pblh(i,j)
+          my_pre(i,j) = max(0.0_rp,my_pre(i,j))
+          lambda      = min(1.0_rp, dt*a*(my_pre(i,j)**b))
+          pblh        = my_pblh(i,j)
+          ho          = 0.25_rp*(my_hc(i,j)+my_hc(i+1,j)+my_hc(i,j+1)+my_hc(i+1,j+1)) ! topo at mass point
           !
           do k = my_kps,my_kpe
-             zp = 0.5_rp*(my_zc(i,j,k)+my_zc(i,j,k+1))    ! z-coordinate at mass point
-             if(zp.le.pblh) then
+             zp1 = 0.25_rp*(my_zc(i,j,k  ) + my_zc(i+1,j,k  ) + my_zc(i,j+1,k  ) + my_zc(i+1,j+1,k  ))  ! zp at mass point
+             zp2 = 0.25_rp*(my_zc(i,j,k+1) + my_zc(i+1,j,k+1) + my_zc(i,j+1,k+1) + my_zc(i+1,j+1,k+1))  ! zp at mass point
+             zp  = 0.5_rp*(zp1+zp2)    
+             !
+             if((ho+zp).le.pblh) then
                 my_awet(i,j) = my_awet(i,j) + dX3_p(k)*lambda*my_c(i,j,k)
                 my_c(i,j,k)  = my_c(i,j,k)*(1.0_rp-lambda)
                 !

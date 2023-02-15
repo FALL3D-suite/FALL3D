@@ -18,7 +18,7 @@
 # AC_PREREQ([2.63])
 #
 # Autoconf initialization [Package name], [version], [email for problems]
-AC_INIT([fall3d], [8.0.1])
+AC_INIT([fall3d], [8.1.1])
 #
 # Allows modification of the program file names (keep commented)
 #AC_CANONICAL_TARGET

@@ -1,0 +1,21 @@
+!---------------------------------------------------------|
+!                                                         |
+!  FALL3D dictionary for txt deposit points data          |
+!  NOTE: copy this template file and modify only the last |
+!        colum of the table at your own convenientce using|
+!        the following convention for CODE:               |
+!        CODE = 0  means FIELD is not in the file         |
+!        CODE = n  means FIELD is in the n-th column (n>1)| 
+!                  of the deposit txt file                |  
+!  NOTE: options for thickness units are cm or mm and are |
+!        converted to deposit load (kg/m2) assuming a     |
+!        deposit density of 1000 kg/m3                    |
+!---------------------------------------------------------|
+!  ID        | FIELD     |  TYPE        |  UNIT  |  CODE  |
+!---------------------------------------------------------|
+|  21        | label     |  optional    |        |  1     |
+|  10        | longitude |  mandatory   |        |  3     |
+|  11        | latitude  |  mandatory   |        |  2     |
+|  12        | load      |  optional    |  kg/m2 |  0     |
+|  13        | thickness |  optional    |  cm    |  4     |
+!---------------------------------------------------------|

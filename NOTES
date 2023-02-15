@@ -1,0 +1,43 @@
+-------------------------------
+Version      : 8.1.1
+Release date : 23 July 2021
+-------------------------------
+* Tasks PosVal added for validation of results
+* Correction of minor bugs
+
+-------------------------------
+Version      : 8.1.0
+Release date : 22 April 2020
+-------------------------------
+
+* Ensemble simulation
+* Tasks PosEns added to postprocess ensemble runs (probabilistic forecas)
+* Wet deposit enabled for radionuclide decay
+* Correction in the deposit for wet deposition (it now includes all parts; also in the tps files)
+
+-------------------------------
+Version      : 8.0.1
+Release date : 13 Feb 2020
+-------------------------------
+
+* Bug in data assimilation profiles
+* Bug in sources and tracking points when the domain crosses the meridian day
+* Complete version; all functionalities in Folch et al. (2019) active
+* Input file blocks completed, backwards compatibility will be kept until version 9.x
+* Bug in SetDbs for when using single precision
+* Output netCDF files follow Climate and Forecast (CF) Metadata Conventions
+* Global attribute run_start_time removed  
+
+-------------------------------
+Version      : 8.0.beta
+Release date : 29 Nov 2019
+-------------------------------
+
+* Preliminary and incomplete version, some functionalities still not active
+* Some changes in the blocks of the input file name.inp will exist in the final version release
+
+-------------------------------
+Version      : 8.0
+Release date : 20 Dec 2019
+-------------------------------
+

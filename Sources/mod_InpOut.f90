@@ -32,6 +32,7 @@ MODULE InpOut
   PUBLIC :: inpout_get_file_pts
   PUBLIC :: inpout_get_file_hyb
   PUBLIC :: inpout_sdecode
+  PUBLIC :: inpout_decode_timeunit
   PUBLIC :: stof
   PUBLIC :: stoi1
   PUBLIC :: upcase
@@ -40,6 +41,7 @@ MODULE InpOut
   !
   PRIVATE :: decod1
   PRIVATE :: stof1
+  PRIVATE :: replace_char
   !
   INTERFACE inpout_get_int
      MODULE PROCEDURE inpout_get_int_single
@@ -131,6 +133,10 @@ CONTAINS
        stask = 'SetSrc'
     case(TASK_RUN_FALL3D)
        stask = 'FALL3D'
+    case(TASK_POS_ENS)
+       stask = 'PosEns'
+    case(TASK_POS_VAL)
+       stask = 'PosVal'
     end select
     !
     open (lulog,file=TRIM(MY_FILES%file_log),status='unknown')
@@ -143,7 +149,7 @@ CONTAINS
          '  Version : ',a,'                                        ',/, &
          '  Task    : ',a,   '                                     ',/, &
          '                                                         ',/, &
-         '  Copyright (C) 2018 GNU General Public License version x',/, &
+         '  Copyright (C) 2018 GNU General Public License version 3',/, &
          '  See licence for details                                ',/, &
          '---------------------------------------------------------',/, &
          '  Run start time     : ',a ,/,&
@@ -234,6 +240,30 @@ CONTAINS
             '  Results      file  : ',a,/, &
             '  Restart      file  : ',a)
        !
+    case(TASK_POS_ENS)
+       !
+       write(lulog,7) TRIM(MY_FILES%file_inp), &
+                      TRIM(MY_FILES%file_log), &
+                      TRIM(MY_FILES%file_pos)
+7      format(/,&
+            '  INPUT FILES            '  ,/, &
+            '  Input          file  : ',a,/, &
+            '                         '  ,/, &
+            '  OUTPUT FILES           '  ,/, &
+            '  Log            file  : ',a,/, &
+            '  Results        file  : ',a)
+       !
+    case(TASK_POS_VAL)
+       !
+       write(lulog,8) TRIM(MY_FILES%file_inp), &
+                      TRIM(MY_FILES%file_log)
+8      format(/,&
+            '  INPUT FILES            '  ,/, &
+            '  Input          file  : ',a,/, &
+            '                         '  ,/, &
+            '  OUTPUT FILES           '  ,/, &
+            '  Log            file  : ',a)
+       !
     end select
     !
     return
@@ -281,6 +311,10 @@ CONTAINS
        stask = 'SetSrc'
     case(TASK_RUN_FALL3D)
        stask = 'FALL3D'
+    case(TASK_POS_ENS)
+       stask = 'PosEns'
+    case(TASK_POS_VAL)
+       stask = 'PosVal'
     end select
     !
     !*** Get system date and time from system clock
@@ -580,6 +614,16 @@ CONTAINS
        MY_FILES%file_rst  = TRIM(MY_FILES%problempath)//'/'//TRIM(MY_FILES%problemname)//'.YYYY-MM-DD-HH-MM.rst.nc'
        MY_FILES%file_gc   = TRIM(MY_FILES%problempath)//'/'//TRIM(MY_FILES%problemname)//'.gc.res'
        !
+    case(TASK_POS_ENS)
+       !
+       MY_FILES%file_log  = TRIM(MY_FILES%commonpath)//'/'//TRIM(MY_FILES%problemname)//'.PosEns.log'
+       MY_FILES%file_res  = TRIM(MY_FILES%problempath)//'/'//TRIM(MY_FILES%problemname)//'.res.nc'
+       MY_FILES%file_pos  = TRIM(MY_FILES%commonpath)//'/'//TRIM(MY_FILES%problemname)//'.ens.nc'
+       !
+    case(TASK_POS_VAL)
+       !
+       MY_FILES%file_log  = TRIM(MY_FILES%commonpath)//'/'//TRIM(MY_FILES%problemname)//'.PosVal.log'
+       !
     end select
     !
     return
@@ -595,10 +639,10 @@ CONTAINS
   subroutine inpout_print_greeting(npes_world, fname)
       implicit none
       !
-      !>   @param npes_world    total number of PEs
+      !>   @param npes_world    total number of procesors
       !>   @param fname         name of the input file
       !
-      integer(ip), intent(IN) :: npes_world
+      integer(ip),      intent(IN) :: npes_world
       character(len=*), intent(IN) :: fname
       !
       write(*,1) VERSION,TRIM(fname),npes_world,mproc,nens
@@ -617,17 +661,17 @@ CONTAINS
          '   Copyright: 2018 GNU General Public License version 3    ',/, &
          '                 (see licence for details)                 ',/, &
          '                                                           ',/, &
-         '  Version      : ',a,'                                     ',/, &
-         '  Input File   : ',a                                        ,/, &
-         '  Number of PEs: ',i4.4,'                                  ',/, &
-         '  Number of PEs in domain decomposition: ',i3.3,1x,'x',1x,i3.3,1x,'x',1x,i3.3,/, &
-         '  Number of FALL3D instances: ',i4.4,'                     ',/, &
+         '  Version               : ',a                               ,/, &
+         '  Input File            : ',a                               ,/, &
+         '  Number of processors  : ',i5.5                            ,/, &
+         '  Number of sub-domains : ',i5.5,' x ',i5.5,' x ',i5.5      ,/, &
+         '  Number of instances   : ',i5.5                            ,/, &
          '                                                           ',/, &
          '-----------------------------------------------------------'    &
         )
       !
       return
-  end subroutine inpout_print_greeting 
+  end subroutine inpout_print_greeting
   !
   !-----------------------------------
   !    subroutine inpout_print_args
@@ -641,47 +685,61 @@ CONTAINS
     !
     write(*,1) VERSION
     !
-1   format('------------------------------------------------------------------',/, &
-           '                           FALL3D suite                           ',/, &
-           '                                                                  ',/, &
-           '       Copyright: 2018 GNU General Public License version 3       ',/, &
-           '                    (see licence for details)                     ',/, &
-           '                                                                  ',/, &
-           '  version: ',a,'                                                  ',/, &
-           '                                                                  ',/, &
-           '  usage:                                                          ',/, &
-           '   Fall3d.x Task InputFile [NPX] [NPY] [NPZ]                      ',/, &
-           '                                                                  ',/, &
-           '  positional arguments:                                           ',/, &
-           '   Task: FALL3D task (SetTGSD, SetDBS, SetSRC, FALL3D, ALL)       ',/, &
-           '   InputFile: Parameter input file                                ',/, &
-           '                                                                  ',/, &
-           '  optional arguments:                                             ',/, &
-           '   NPX: length of decomposition along dimension x (default NPX=1) ',/, &
-           '   NPY: length of decomposition along dimension y (default NPY=1) ',/, &
-           '   NPZ: length of decomposition along dimension z (default NPZ=1) ',/, &
-           '                                                                  ',/, &
-           '  examples:                                                       ',/, &
-           '   1. Run SetTGSD utility                                         ',/, &
-           '   > Fall3d.x SetTGSD problemname.inp                             ',/, &
-           '                                                                  ',/, &
-           '   2. Run SetDBS utility                                          ',/, &
-           '   > Fall3d.x SetDBS problemname.inp [NPX NPY NPZ]                ',/, &
-           '                                                                  ',/, &
-           '   3. Run SetSRC utility                                          ',/, &
-           '   > Fall3d.x SetSRC problemname.inp [NPX NPY NPZ]                ',/, &
-           '                                                                  ',/, &
-           '   4. Run FALL3D solver                                           ',/, &
-           '   > Fall3d.x FALL3D problemname.inp [NPX NPY NPZ]                ',/, &
-           '                                                                  ',/, &
-           '   5. Run tasks 1-4 consecutively                                 ',/, &
-           '   > Fall3d.x ALL problemname.inp [NPX NPY NPZ]                   ',/, &
-           '                                                                  ',/, &
-           '  note:                                                           ',/, &
-           '   For parallel runs the total number of processors must be:      ',/, &
-           '                    NPX * NPY * NPZ                               ',/, &
-           '                                                                  ',/, &
-           '------------------------------------------------------------------')
+1   format('--------------------------------------------------------------------------',/, &
+           '                                                                          ',/, &
+           '                ______      _      _      ____  _____                     ',/, &
+           '               |  ____/\   | |    | |    |___ \|  __ \                    ',/, &
+           '               | |__ /  \  | |    | |      __) | |  | |                   ',/, &
+           '               |  __/ /\ \ | |    | |     |__ <| |  | |                   ',/, &
+           '               | | / ____ \| |____| |____ ___) | |__| |                   ',/, &
+           '               |_|/_/    \_\______|______|____/|_____/                    ',/, &
+           '                                                                          ',/, &
+           '                                                                          ',/, &
+           '       Copyright: 2018 GNU General Public License version 3               ',/, &
+           '                    (see licence for details)                             ',/, &
+           '                                                                          ',/, &
+           '  model version: ',a,'                                                    ',/, &
+           '                                                                          ',/, &
+           '  usage:                                                                  ',/, &
+           '   Fall3d.x Task InputFile [NPX] [NPY] [NPZ] [-nens SIZE]                 ',/, &
+           '                                                                          ',/, &
+           '  positional arguments:                                                   ',/, &
+           '   Task (single)   : SetTgsd, SetDbs, SetSrc, Fall3d, PosEns, PosVal      ',/, &
+           '   Task (multiple) : All (1-4 above)                                      ',/, &
+           '   InputFile       : Parameter input file                                 ',/, &
+           '                                                                          ',/, &
+           '  optional arguments:                                                     ',/, &
+           '   NPX        : processors (sub-domains) along x (default NPX =1 )        ',/, &
+           '   NPY        : processors (sub-domains) along y (default NPY =1 )        ',/, &
+           '   NPZ        : processors (sub-domains) along z (default NPZ =1 )        ',/, &
+           '   -nens SIZE : ensemble size                    (default SIZE=1 )        ',/, &
+           '                                                                          ',/, &
+           '  note:                                                                   ',/, &
+           '   For parallel runs it is required that  NPROC = NPX * NPY * NPZ * SIZE  ',/, &
+           '                                                                          ',/, &
+           '  examples:                                                               ',/, &
+           '   1. Run SetTgsd utility                                                 ',/, &
+           '   > Fall3d.x SetTgsd problemname.inp [-nens ENS_SIZE]                    ',/, &
+           '                                                                          ',/, &
+           '   2. Run SetDbs utility                                                  ',/, &
+           '   > Fall3d.x SetDbs problemname.inp [NPX NPY NPZ -nens ENS_SIZE]         ',/, &
+           '                                                                          ',/, &
+           '   3. Run SetSrc utility                                                  ',/, &
+           '   > Fall3d.x SetSrc problemname.inp [NPX NPY NPZ -nens ENS_SIZE]         ',/, &
+           '                                                                          ',/, &
+           '   4. Run Fall3d solver                                                   ',/, &
+           '   > Fall3d.x Fall3d problemname.inp [NPX NPY NPZ -nens ENS_SIZE]         ',/, &
+           '                                                                          ',/, &
+           '   5. Run PosEns utility                                                  ',/, &
+           '   > Fall3d.x PosEns problemname.inp [-nens ENS_SIZE]                     ',/, &
+           '                                                                          ',/, &
+           '   6. Run PosVal utility                                                  ',/, &
+           '   > Fall3d.x PosVal problemname.inp [NPX NPY]                            ',/, &
+           '                                                                          ',/, &
+           '   7. Run tasks 1-4 above consecutively                                   ',/, &
+           '   > Fall3d.x All problemname.inp [NPX NPY NPZ -nens ENS_SIZE]            ',/, &
+           '                                                                          ',/, &
+           '--------------------------------------------------------------------------')
     !
     return
   end subroutine inpout_print_args
@@ -1167,7 +1225,10 @@ CONTAINS
     integer(ip),       intent(INOUT) :: n
     type(ERROR_STATUS),intent(INOUT) :: MY_ERR
     !
-    real(rp) :: rvoid
+    character(len=s_long) :: card
+    character(len=s_long) :: words(nwormax)
+    integer(ip)           :: nword,npar
+    real(rp)              :: param(nparmax)
     !
     !*** Initializations
     !
@@ -1177,18 +1238,16 @@ CONTAINS
     open(99,FILE=TRIM(fname),status='old',err=100)
     n = 0
     do
-       read(99,*,end=10,err=101) rvoid    ! Read a real value
-       n = n + 1
+       read(99,'(a512)',END=10) card
+       call inpout_sdecode(card,words,param,nword,npar)
+       if(npar.gt.0) n = n + 1
     end do
 10  close(99)
     return
+    !
 100 MY_ERR%flag = -1
     MY_ERR%source  = 'inpout_get_file_nrows'
     MY_ERR%message = 'error opening file '//TRIM(fname)
-    return
-101 MY_ERR%flag = -1
-    MY_ERR%source  = 'inpout_get_file_nrows'
-    MY_ERR%message = 'error reading file '//TRIM(fname)
     return
     !
   end subroutine inpout_get_file_nrows
@@ -1479,6 +1538,150 @@ CONTAINS
     end do
     return
   end subroutine inpout_sdecode
+  !
+  !-----------------------------------
+  !    subroutine inpout_decode_timeunit
+  !-----------------------------------
+  !
+  !>   @brief
+  !>   Decode time units in netcdf file
+  !
+  subroutine inpout_decode_timeunit(timeunit_string,time_factor,time_ref,MY_ERR)
+      implicit none
+      !
+      !>   @param timeunit_string    time units attribute from a netcdf file
+      !>   @param time_factor        time factor required to convert to seconds
+      !>   @param time_ref           reference time
+      !>   @param MY_ERR             error handler
+      !
+      character(len=*),    intent(in)     :: timeunit_string
+      real(rp),            intent(out)    :: time_factor
+      type(DATETIME),      intent(out)    :: time_ref
+      type(ERROR_STATUS),  intent(INOUT)  :: MY_ERR
+      !
+      integer(ip)           :: istat
+      integer(ip)           :: i,istring
+      character(len=s_name) :: string_tmp,string_YYYYMMDD,string_HHMMSS
+      integer(ip)           :: parse_datetime(6)
+      !
+      MY_ERR%flag    = 0
+      MY_ERR%source  = 'inpout_decode_timeunit'
+      MY_ERR%message = ' '
+      !
+      if(timeunit_string.eq.'') then
+          MY_ERR%flag    = 1
+          MY_ERR%message = "not found a valid unit time"
+          return
+      end if
+      !
+      !*** Read UNITS substring in: UNITS since YYYY-MM-DD HH:MM:SS
+      !
+      istring    = index(timeunit_string,'since')-1
+      string_tmp = adjustl(trim(timeunit_string(1:istring)))
+      !
+      if(istring.gt.1) then
+          call upcase(string_tmp)
+      else
+          MY_ERR%flag    = 1
+          MY_ERR%message = "Expected format for time units: UNITS since YYYY-MM-DD HH:MM:SS"
+          return
+      end if
+      !
+      select case (TRIM(string_tmp))
+          case('SECONDS','SECOND')
+              time_factor = 1.0_rp
+          case('MINUTES','MINUTE')
+              time_factor = 60.0_rp
+          case('HOURS','HOUR')
+              time_factor = 3600.0_rp
+          case('DAYS','DAY')
+              time_factor = 86400.0_rp
+          case default
+              MY_ERR%flag    = 1
+              MY_ERR%message = 'not recognised unit time: ' // TRIM(string_tmp)
+              return
+      end select
+      !
+      !*** Read YYYY-MM-DD HH:MM:SS substring in: UNITS since YYYY-MM-DD HH:MM:SS
+      !
+      string_tmp = adjustl(trim(timeunit_string(istring+6:)))
+      call upcase(string_tmp)
+      call replace_char(string_tmp,'+.TZ')
+      !
+      !*** Read YYYY-MM-DD substring and update string_tmp
+      !
+      istring = index(string_tmp,' ')
+      if(istring.gt.1) then
+          string_YYYYMMDD = adjustl(trim(string_tmp(1:istring-1)))
+          string_tmp = adjustl(trim(string_tmp(istring:)))
+      else
+          MY_ERR%flag    = 1
+          MY_ERR%message = "Unable to read unit time in netcdf file"
+          return
+      end if
+      !
+      !*** Read HH:MM:SS substring 
+      !
+      istring = index(string_tmp,' ')
+      if(istring.gt.1) then
+          string_HHMMSS = adjustl(trim(string_tmp(1:istring-1)))
+      else
+          string_HHMMSS = ' '
+      end if
+      !
+      parse_datetime(:) = 0 !Default value
+      !
+      !*** Read YYYY-MM-DD (mandatory)
+      !
+      call replace_char(string_YYYYMMDD,'-')
+      do i=1,3
+        istring = index(string_YYYYMMDD,' ')
+        if(istring.le.1) then
+            istat = 1
+            exit
+        end if
+        read(string_YYYYMMDD(1:istring-1),*,iostat=istat) parse_datetime(i)
+        if(istat.ne.0) exit
+        string_YYYYMMDD = adjustl(trim(string_YYYYMMDD(istring:)))
+      end do
+      !
+      if(istat.ne.0) then
+        MY_ERR%flag    = 1
+        MY_ERR%message = "Unable to read unit time in netcdf file"
+        return
+      end if
+      !
+      !*** Read HH:MM:SS (optional)
+      !
+      call replace_char(string_HHMMSS,':')
+      do i=4,6
+        istring = index(string_HHMMSS,' ')
+        if(istring.le.1) exit
+        read(string_HHMMSS(1:istring-1),*,iostat=istat) parse_datetime(i)
+        if(istat.ne.0) then
+            parse_datetime(i) = 0
+            exit
+        end if
+        string_HHMMSS = adjustl(trim(string_HHMMSS(istring:)))
+      end do
+      !
+      time_ref = DATETIME(parse_datetime(1), &
+                          parse_datetime(2), &
+                          parse_datetime(3), &
+                          parse_datetime(4), &
+                          parse_datetime(5), &
+                          parse_datetime(6)  )
+      !
+      if(istat.ne.0) then
+        write(string_tmp,10) time_ref
+        call task_wriwarn(MY_ERR,"Unrecognised characters in netcdf time units. &
+                                  Assuming the reference time: "//string_tmp)
+      end if
+      !
+10 format(I4,2('-',I2.2),1x,I2.2,2(':',I2.2))
+      !
+      return
+  end subroutine inpout_decode_timeunit
   !
   !-----------------------------------
   !    function stof
@@ -1773,6 +1976,28 @@ CONTAINS
     !
     return
   end subroutine upcase
+  !
+  !
+  !
+  recursive subroutine replace_char(string,substring)
+    !***********************************************************************
+    !*
+    !*    This routine converts word to upper case
+    !*
+    !***********************************************************************
+    implicit none
+    !
+    character(len=*), intent(inout) :: string
+    character(len=*), intent(in)    :: substring
+    integer(ip)                     :: istring
+    !
+    istring = scan(string,substring)
+    if(istring.gt.0) then
+        string(istring:istring) = ' '
+        call replace_char(string,substring)
+    end if
+    return
+  end subroutine replace_char
   !
   !
   !

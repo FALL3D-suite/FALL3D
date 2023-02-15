@@ -7,7 +7,7 @@ Download ERA5 data in model levels required by FALL3D model.
 import sys
 import argparse
 import configparser
-from datetime import datetime 
+from datetime import datetime
 
 from fall3dutil.ecmwf import ERA5ml
 
@@ -53,7 +53,6 @@ def main():
     parser.add_argument('-v', '--verbose', help="increase output verbosity", action="store_true")
     parser.add_argument('date_start',      help='Initial date in format YYYYMMDD',                                                 type=date_type, metavar='Start_Date')
     parser.add_argument('date_end',        help='End date in format YYYYMMDD',                                                     type=date_type, metavar='End_Date')
-
     args = parser.parse_args()
 
     if args.area:
@@ -79,7 +78,7 @@ def main():
             args.output = args.output.strip() + '.nc'
     else:
         args.output = "{date1}-{date2}-ml.nc".format(date1 = args.date_start.strftime("%Y%m%d"), 
-                                                  date2 = args.date_end.strftime("%Y%m%d") ) 
+                                                     date2 = args.date_end.strftime(  "%Y%m%d") ) 
 
     request = ERA5ml(args)
     request.retrieve()

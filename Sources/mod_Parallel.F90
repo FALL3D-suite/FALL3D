@@ -12,11 +12,12 @@
 !**********************************************************************
 MODULE Parallel
   use KindType
-  implicit none
 #if defined WITH_MPI
-  include 'mpif.h'
+!  include 'mpif.h'
+   use mpi
 #endif
-  save
+  implicit none
+!  save
   !
   !   LIST OF PUBLIC VARIABLES
   !
@@ -28,10 +29,14 @@ MODULE Parallel
   integer(ip) :: npes_world      !< number of PEs in COMM_WORLD
   logical     :: master_world    !< if I am master in COMM_WORLD
   !
-  integer(ip) :: COMM_MODEL      !< MPI communicator for model tasks
+  integer(ip) :: COMM_MODEL      !< MPI communicator for model sub-domains
   integer(ip) :: mype_model      !< PE rank in COMM_MODEL
   integer(ip) :: npes_model      !< number of PEs in COMM_MODEL
   logical     :: master_model    !< if I am master in COMM_MODEL
+  !
+  integer(ip) :: COMM_COUPLE     !< MPI communicator for ensemble members
+  integer(ip) :: mype_couple     !< PE rank in COMM_COUPLE
+  integer(ip) :: npes_couple     !< number of PEs in COMM_COUPLE
   !
   integer(ip) :: task_id         !< identifier for model tasks (1...nens)
   !
@@ -65,13 +70,16 @@ MODULE Parallel
   !>   Parallel_sum ( array, group )  array reduction among processors of group (interfaced procedure)
   !
   INTERFACE parallel_sum
-     MODULE PROCEDURE parallel_sum_r1d, parallel_sum_r2d,parallel_sum_r3d, &
-          parallel_sum_r4d,parallel_sum_i1d, parallel_sum_i2d, &
-          parallel_sum_i3d, parallel_sum_i4d
+     MODULE PROCEDURE &
+             parallel_sum_r0d, parallel_sum_r1d, parallel_sum_r2d, &
+             parallel_sum_r3d, parallel_sum_r4d, parallel_sum_i0d, &
+             parallel_sum_i1d, parallel_sum_i2d, parallel_sum_i3d, &
+             parallel_sum_i4d
   END INTERFACE parallel_sum
-  PRIVATE :: parallel_sum_r1d, parallel_sum_r2d,parallel_sum_r3d, &
-       parallel_sum_r4d,parallel_sum_i1d, parallel_sum_i2d,parallel_sum_i3d, &
-       parallel_sum_i4d
+  PRIVATE :: parallel_sum_r0d, parallel_sum_r1d, parallel_sum_r2d, &
+             parallel_sum_r3d, parallel_sum_r4d, parallel_sum_i0d, &
+             parallel_sum_i1d, parallel_sum_i2d, parallel_sum_i3d, &
+             parallel_sum_i4d
   PRIVATE :: parallel_sum_real
   PRIVATE :: parallel_sum_integer
   !
@@ -169,13 +177,13 @@ CONTAINS
   subroutine parallel_init_model (nens, MY_ERR)
     implicit none
     !
-    !>  @param nens    number of members in the ensemble 
+    !>  @param nens    number of members in the ensemble
     !>  @param MY_ERR  error handler
     !
     integer(ip),        intent(IN)    :: nens
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
-    integer(ip) :: npes_model_local
+    integer(ip) :: npes_model_local, color_couple
     !
     npes_model_local = npes_world / nens
     task_id = mype_world/npes_model_local + 1
@@ -184,7 +192,7 @@ CONTAINS
     CALL MPI_COMM_SPLIT(COMM_WORLD, &
                         task_id,    &
                         mype_world, &
-                        COMM_MODEL, & 
+                        COMM_MODEL, &
                         MY_ERR%flag )
     !
     CALL MPI_COMM_SIZE(COMM_MODEL, npes_model, MY_ERR%flag)
@@ -195,13 +203,29 @@ CONTAINS
     else
        master_model = .false.
     end if
+    !
+    !*** Generate communicator between model and filter PEs
+    !
+    color_couple = mype_model + 1
+    CALL MPI_COMM_SPLIT(COMM_WORLD,   &
+                        color_couple, &
+                        mype_world,   &
+                        COMM_COUPLE,  &
+                        MY_ERR%flag )
+    !
+    CALL MPI_Comm_Size(COMM_COUPLE, npes_couple, MY_ERR%flag)
+    CALL MPI_Comm_Rank(COMM_COUPLE, mype_couple, MY_ERR%flag)
+    !
 #else
-    npes_model   = npes_world   
-    mype_model   = mype_world   
-    COMM_MODEL   = COMM_WORLD   
-    master_model = master_world  
+    npes_model   = npes_world
+    mype_model   = mype_world
+    COMM_MODEL   = COMM_WORLD
+    master_model = master_world
+    npes_couple  = npes_world
+    mype_couple  = mype_world
+    COMM_COUPLE  = COMM_WORLD
 #endif
-    !    
+    !
     return
   end subroutine parallel_init_model
   !
@@ -217,13 +241,26 @@ CONTAINS
     !
     !>  @param MY_ERR  error handler
     !
-    type(ERROR_STATUS) :: MY_ERR
+    type(ERROR_STATUS), intent(INOUT) :: MY_ERR
+    !
+    integer(ip) :: flag
+    !
+    flag = MY_ERR%flag
     !
 #if defined WITH_MPI
     call MPI_FINALIZE(MY_ERR%flag)
 #endif
-    !LAM: que pasa si no todos los procesos terminan con el mismo flag?
-    call exit(MY_ERR%flag)
+    !
+    !call exit(MY_ERR%flag)   ! exit is not callable
+    if(master_world) then
+        if(MY_ERR%flag.eq.0 .and. flag.eq.0) then
+            stop ! ' Normal termination'
+        else
+            stop ' Finished with errors: check log files'
+        end if
+    else
+        stop 
+    end if
     !
     return
   end subroutine parallel_hangup
@@ -596,6 +633,18 @@ CONTAINS
   !
   !
   !
+  SUBROUTINE parallel_sum_r0d( array, what_grp )
+    REAL   (rp) :: array
+    INTEGER(ip) :: what_grp
+    REAL   (rp) :: TMP(1)
+    TMP(1) = array
+    CALL parallel_sum_real( TMP, SIZE( TMP ), what_grp )
+    array = TMP(1)
+    RETURN
+  END SUBROUTINE parallel_sum_r0d
+  !
+  !
+  !
   SUBROUTINE parallel_sum_r1d( array, what_grp )
     REAL   (rp) :: array( : )
     INTEGER(ip) :: what_grp
@@ -632,8 +681,20 @@ CONTAINS
   !
   !
   !
+  SUBROUTINE parallel_sum_i0d( array, what_grp )
+    INTEGER(ip) :: array
+    INTEGER(ip) :: what_grp
+    INTEGER(ip) :: TMP(1)
+    TMP(1) = array
+    CALL parallel_sum_integer( TMP, SIZE( TMP ), what_grp )
+    array = TMP(1)
+    RETURN
+  END SUBROUTINE parallel_sum_i0d
+  !
+  !
+  !
   SUBROUTINE parallel_sum_i1d( array, what_grp )
-    INTEGER(ip) :: array( : )
+    INTEGER(ip) :: array(:)
     INTEGER(ip) :: what_grp
     CALL parallel_sum_integer( array, SIZE( array ), what_grp )
     RETURN

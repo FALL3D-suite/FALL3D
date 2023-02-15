@@ -402,7 +402,9 @@ CONTAINS
     end do
     !
     deallocate(ki )
-    call domain_swap_mass_points_2halo_x (my_c)
+    do ibin = 1,nbins
+       call domain_swap_mass_points_2halo_x (my_c(:,:,:,ibin))
+    end do
     !
     return
   end subroutine ADS_solve_along_x
@@ -590,7 +592,9 @@ CONTAINS
     end do
     !
     deallocate(ki )
-    !     call domain_swap_mass_points_2halo_y (my_c)
+    do ibin = 1,nbins
+       call domain_swap_mass_points_2halo_y (my_c(:,:,:,ibin))
+    end do
     !
     return
   end subroutine ADS_solve_along_y
@@ -797,7 +801,9 @@ CONTAINS
     end do
     !
     deallocate(ki )
-    !     call domain_swap_mass_points_2halo_z (my_c)
+    do ibin = 1,nbins
+       call domain_swap_mass_points_2halo_z (my_c(:,:,:,ibin))
+    end do
     !
     return
   end subroutine ADS_solve_along_z
