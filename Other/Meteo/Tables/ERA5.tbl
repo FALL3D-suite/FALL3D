@@ -1,0 +1,49 @@
+|-----------------------------------------------|
+|                                               |
+|     FALL3D dictionary for ERA5                |
+|                                               |
+|-----------------------------------------------|
+|  DIM_ID  |  DIM_TYPE   |  DIM_NAME            | 
+|-----------------------------------------------|
+|    1     |  DIM_LON    |  longitude           |
+|    2     |  DIM_LAT    |  latitude            |
+|    3     |  DIM_ZLEV   |  level               |
+|    4     |  DIM_TIME   |  time                |
+|    5     |  DIM_STRLEN |                      |
+|    6     |  DIM_XSTAGE |                      |
+|    7     |  DIM_YSTAGE |                      |
+|    8     |  DIM_ZSTAGE |                      |
+|    9     |  DIM_SOILAY |                      |
+|-----------------------------------------------|
+|  VAR_ID  |  VAR_TYPE   |  VAR_NAME            |
+|-----------------------------------------------|
+|    10    |  VAR_LON    |  longitude           |  longitude (degrees_east)
+|    11    |  VAR_LAT    |  latitude            |  latitude (degrees_north)
+|    12    |  VAR_ZLEV   |  level               |  pressure_level (millibars)
+|    13    |  VAR_TOPO   |  z_2                 |  geopotential (m2/s2)
+|    14    |  VAR_LMASK  |  lsm                 |  land-sea mask (0-1)
+|    15    |  VAR_LUSE   |  luse                |  land use
+|    16    |  VAR_Z0     |  z0                  |  surface roughness
+|    20    |  VAR_TIME   |  time                |  time (hs since 1900-01-01)
+|    21    |  VAR_PBLH   |  blh                 |  boundary layer height (m)
+|    22    |  VAR_UST    |  zust                |  friction velocity (m/s)
+|    23    |  VAR_SMOI   |  swvl1               |  soil moisture (m3/m3)
+|    24    |  VAR_PREC   |  tp                  |  total precipitation (m)
+|    25    |  VAR_ACCP   |  accp                |  accum. precipitation (mm)
+|    26    |  VAR_U10    |  u10                 |  10m U wind (m/s)
+|    27    |  VAR_V10    |  v10                 |  10m V wind (m/s)
+|    28    |  VAR_T2     |  t2m                 |  2-metre temperature (K)
+|    29    |  VAR_MON    |  mon                 |
+|    30    |  VAR_PSFC   |  sp                  |  surface pressure (Pa)
+|    40    |  VAR_HGT    |  z                   |  geopotential (m2/s2)
+|    41    |  VAR_P      |  p                   |
+|    42    |  VAR_T      |  t                   |  temperature (K)
+|    43    |  VAR_TP     |  ptemp               | 
+|    44    |  VAR_TV     |  tv                  |
+|    45    |  VAR_U      |  u                   |  U component of wind (m/s)
+|    46    |  VAR_V      |  v                   |  V component of wind (m/s)
+|    47    |  VAR_W      |  w                   |  Vertical velocity (Pa/s)
+|    48    |  VAR_RH     |  rh                  |
+|    49    |  VAR_QV     |  q                   |  specific humidity (kg/kg)
+|    50    |  VAR_RHO    |  rho                 |
+|-----------------------------------------------|

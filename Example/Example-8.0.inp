@@ -1,0 +1,424 @@
+!
+!-----------------------------------------------------
+!
+!   FALL3D : EXAMPLE INPUT FILE
+!   VERSION: 8.x
+!   NOTE   : This file has no backwards compatibility
+!            with versions 7.x or lower
+!
+!-----------------------------------------------------
+!
+ ----
+ CODE
+ ----
+   !
+   VERSION 8.0
+   !
+ --------
+ TIME_UTC
+ --------
+   !
+   !    YEAR                                : value (YYYY)
+   !    MONTH                               : value (MM)
+   !    DAY                                 : value (DD)
+   !    RUN_START_(HOURS_AFTER_00)          : value
+   !    RUN_END_(HOURS_AFTER_00)            : value
+   !    INITIAL_CONDITION           options : NONE / RESTART / INSERTION
+   !    RESTART_FILE                        : path to the restart           file (only used if INITIAL_CONDITION = RESTART  )
+   !
+   YEAR  = 2008
+   MONTH = 04
+   DAY   = 29
+   RUN_START_(HOURS_AFTER_00) = 0
+   RUN_END_(HOURS_AFTER_00)   = 10
+   INITIAL_CONDITION          = NONE
+   RESTART_FILE               = Example-8.0.rst.nc
+   !
+ --------------
+ INSERTION_DATA
+ --------------
+   !
+   !    INSERTION_FILE                    : path to the initial condition file (only used if INITIAL_CONDITION = INSERTION)
+   !    INSERTION_DICTIONARY_FILE         : Optional. Path to the insertion dictionary file. If not given, dafault value is used.
+   !    INSERTION_TIME_SLAB               : value. Time slab (in the netCDF file) at which data is inserted
+   !    INSERTED_TRACER           options : TEPHRA / DUST / RADIONUCLIDE / H2O / SO2
+   !    DIAMETER_CUT_OFF_(MIC)            : value, optional. If given, assimilate only for particles smaller than cut-off value
+   !
+   INSERTION_FILE             = Example-8.0.sat.nc
+   INSERTION_DICTIONARY_FILE  = Sat.tbl
+   INSERTION_TIME_SLAB        = 4
+   INSERTED_TRACER            = TEPHRA
+   DIAMETER_CUT_OFF_(MIC)     = 64
+   !
+ ----------
+ METEO_DATA
+ ----------
+   !
+   !    METEO_DATA_FORMAT             options : WRF/ GRIB2NC / GFS / ERA5 / ERA5ML
+   !    METEO_DATA_DICTIONARY_FILE            : Optional. Path to the meteo model dictionary file. If not given, dafault value is used.
+   !    METEO_DATA_FILE                       : path to the meteo model data file
+   !    METEO_LEVELS_FILE                     : path to the meteo model levels file. Only used if METEO_DATA_FORMAT = ERA5ML
+   !    DBS_BEGIN_METEO_DATA_(HOURS_AFTER_00) : value.
+   !    DBS_END_METEO_DATA_(HOURS_AFTER_00)   : value.
+   !    METEO_COUPLING_INTERVAL_(MIN)         : value. Time interval update of meteorological variables (does not apply to velocity)
+   !
+   METEO_DATA_FORMAT          = WRF
+   METEO_DATA_DICTIONARY_FILE = WRF.tbl
+   METEO_DATA_FILE            = Example-8.0.wrf.nc
+   METEO_LEVELS_FILE          = ERA5.hyb
+   !
+   DBS_BEGIN_METEO_DATA_(HOURS_AFTER_00) = 0
+   DBS_END_METEO_DATA_(HOURS_AFTER_00)   = 24
+   METEO_COUPLING_INTERVAL_(MIN)         = 60
+   !
+ ----
+ GRID
+ ----
+   !
+   !    HORIZONTAL_MAPPING options  : CARTESIAN / SPHERICAL / POLAR / MERCATOR
+   !    VERTICAL_MAPPING   options  : CARTESIAN / SIGMA_NO_DECAY / SIGMA_LINEAR_DECAY / SIGMA_EXPONENTIAL_DECAY
+   !    LONMIN                      : value. Longitude of the grid W side in the range (-180,180)
+   !    LONMAX                      : value. Longitude of the grid E side in the range (-180,180)
+   !    LATMIN                      : value. Latitude  of the grid S side in the range ( -90,90 )
+   !    LATMAX                      : value. Latitude  of the grid N side in the range ( -90,90 )
+   !    NX [RESOLUTION=value]       : value. Number of grid cells (mass points) along x.
+   !                                  If optional argument RESOLUTION exists then the value of NX is calculated
+   !    NY [RESOLUTION=value]       : value. Number of grid cells (mass points) along y
+   !                                  If optional argument RESOLUTION exists then the value of NY is calculated
+   !    NZ                          : value. Number of grid cells (mass points) along z
+   !    ZMAX_(M)                    : value. Top of the computational domain (in m)
+   !    SIGMA_VALUES (optional)     : values of sigma coordinate in the range (0,1) where sigma = X3/X3max. The number of values
+   !                                  has to be less or equal than NZ+1. If not present, uniform distribution is assumed.
+   !
+   HORIZONTAL_MAPPING = SPHERICAL
+   VERTICAL_MAPPING   = SIGMA_LINEAR_DECAY
+   LONMIN = 14.0
+   LONMAX = 16.0
+   LATMIN = 36.5
+   LATMAX = 38.5
+   NX = 50
+   NY = 50
+   NZ = 10
+   ZMAX_(M) = 10000
+   !SIGMA_VALUES = 0.0 0.01 0.025 0.05 0.1
+
+   !
+ -------
+ SPECIES
+ -------
+   !
+   !     Species of category PARTICLES
+   !     NOTE: only one type of PARTICLES species is allowed
+   !
+   !     TEPHRA    options :  ON / OFF
+   !     DUST      options :  ON / OFF
+   !
+   TEPHRA = On
+   DUST   = Off
+   !
+   !     Species of category AEROSOLS
+   !     NOTE: AEROSOLS can run independently or coupled with TEPHRA species.
+   !           IF TEPHRA = On it is assumed that the aerosol species are all of magmatic origin its mass fraction
+   !           is relative to tephra. If IF TEPHRA = Off then the mass fraction of aerosols must sum 1
+   !
+   !     H2O                  options : ON / OFF
+   !     SO2                  options : ON / OFF
+   !     MASS_FRACTION_(%)            : value
+   !
+   H2O    = On    MASS_FRACTION_(%) = 2.
+   SO2    = On    MASS_FRACTION_(%) = 1.
+   !
+   !     Species of category RADIONUCLIDES
+   !     NOTE: all species of RADIONUCLIDES can run simultaneously but are incompatible with a species of category PARTICLES. The
+   !     mass fraction of radionuclides must sum 1
+   !
+   !     CS134                options : ON / OFF
+   !     CS137                options : ON / OFF
+   !     I131                 options : ON / OFF
+   !     SR90                 options : ON / OFF
+   !     Y90                  options : ON / OFF
+   !     MASS_FRACTION_(%)            : value
+   !
+   CS134  = Off   MASS_FRACTION_(%) = 0.
+   CS137  = Off   MASS_FRACTION_(%) = 0.
+   I131   = Off   MASS_FRACTION_(%) = 0.
+   SR90   = Off   MASS_FRACTION_(%) = 0.
+   Y90    = Off   MASS_FRACTION_(%) = 0.
+   !
+ -------------
+ TEPHRA_TGSD
+ -------------
+   !
+   !   This block is read by task SetTgsd to generate tephra Total Grain Size Distributions (TGSD).
+   !   Note that the effective granulometry can change afterwards if aggrgeation is switched-on or if particle
+   !   cut-off (i.e. effective granulometry) are considered
+   !
+   !   NUMBER_OF_BINS        : value
+   !   FI_RANGE              : 2 values
+   !   DENSITY_RANGE         : 2 values (linear interpolation)
+   !   SPHERICITY_RANGE      : 2 values (linear interpolation)
+   !   DISTRIBUTION options  : GAUSSIAN / BIGAUSSIAN / WEIBULL / BIWEIBULL / CUSTOM / ESTIMATE
+   !   FI_MEAN               : value. A second value is used if DISTRIBUTION = BIGAUSSIAN
+   !   FI_DISP               : value. A second value is used if DISTRIBUTION = BIGAUSSIAN
+   !   FI_SCALE              : value. A second value is used if DISTRIBUTION = BIWEIBULL
+   !   W_SHAPE               : value. A second value is used if DISTRIBUTION = BIWEIBULL
+   !   MIXING_FACTOR         : value. Only used if DISTRIBUTION = BIGAUSSIAN/WIBEIBULL. Default value is 0.5
+   !   VISCOSITY_(PAS)       : value. Only used if DISTRIBUTION = ESTIMATE
+   !   HEIGHT_ABOVE_VENT_(M) : value. Only used if DISTRIBUTION = ESTIMATE
+   !
+   NUMBER_OF_BINS   = 6
+   FI_RANGE         = -2 8
+   DENSITY_RANGE    = 1200 2300
+   SPHERICITY_RANGE = 0.9  0.9
+   DISTRIBUTION     = ESTIMATE
+     !
+     IF_GAUSSIAN    FI_MEAN  = 2.5        FI_DISP = 1.5
+     IF_BIGAUSSIAN  FI_MEAN  = 0.25 0.75  FI_DISP = 1.44 1.46  MIXING_FACTOR = 0.5
+     IF_WEIBULL     FI_SCALE = 1.0        W_SHAPE = 1.0
+     IF_BIWEIBULL   FI_SCALE = 1.0  1.0   W_SHAPE = 1.0  1.0  MIXING_FACTOR = 0.5
+     IF_CUSTOM      FILE = my_file.tgsd
+     IF_ESTIMATE    VISCOSITY_(PAS) = 1d6  HEIGHT_ABOVE_VENT_(M) = 20000
+   !
+ -------------
+ CS137_TGSD
+ CS134_TGSD
+ I131_TGSD
+ SR90_TGSD
+ Y90_TGSD
+ -------------
+   !
+   !   This block is read by task SetTgsd to generate tephra Total Grain Size Distributions (TGSD).
+   !   Note that the effective granulometry can change afterwards if aggrgeation is switched-on or if particle
+   !   cut-off (i.e. effective granulometry) are considered
+   !
+   !   NUMBER_OF_BINS        : value
+   !   FI_RANGE              : 2 values
+   !   DENSITY_RANGE         : 2 values (linear interpolation)
+   !   SPHERICITY_RANGE      : 2 values (linear interpolation)
+   !   DISTRIBUTION options  : GAUSSIAN / BIGAUSSIAN / WEIBULL / BIWEIBULL / CUSTOM / ESTIMATE
+   !   FI_MEAN               : value. A second value is used if DISTRIBUTION = BIGAUSSIAN
+   !   FI_DISP               : value. A second value is used if DISTRIBUTION = BIGAUSSIAN
+   !   FI_SCALE              : value. A second value is used if DISTRIBUTION = BIWEIBULL
+   !   W_SHAPE               : value. A second value is used if DISTRIBUTION = BIWEIBULL
+   !   MIXING_FACTOR         : value. Only used if DISTRIBUTION = BIGAUSSIAN/BIWEIBULL. Default value is 0.5
+   !   VISCOSITY_(PAS)       : value. Only used if DISTRIBUTION = ESTIMATE
+   !   HEIGHT_ABOVE_VENT_(M) : value. Only used if DISTRIBUTION = ESTIMATE
+   !
+   NUMBER_OF_BINS   = 11
+   FI_RANGE         = -2 8
+   DENSITY_RANGE    = 1200 2300
+   SPHERICITY_RANGE = 0.9  0.9
+   DISTRIBUTION     = GAUSSIAN
+     !
+     IF_GAUSSIAN    FI_MEAN  = 2.5        FI_DISP = 1.5
+     IF_BIGAUSSIAN  FI_MEAN  = 0.25 0.75  FI_DISP = 1.44 1.46  MIXING_FACTOR = 0.5
+     IF_WEIBULL     FI_SCALE = 1.0        W_SHAPE = 1.0
+     IF_BIWEIBULL   FI_SCALE = 1.0  1.0   W_SHAPE = 1.0  1.0  MIXING_FACTOR = 0.5
+     IF_CUSTOM      FILE = my_file.tgsd
+     IF_ESTIMATE    VISCOSITY_(PAS) = 1d6  HEIGHT_ABOVE_VENT_(M) = 20000
+   !
+ ---------------------
+ PARTICLE_AGGREGATION
+  --------------------
+   !
+   !   PARTICLE_CUT_OFF          options : NONE / FI_LARGER_THAN  value / FI_LOWER_THAN  value / D_(MIC)_LARGER_THAN value / D_(MIC)_LOWER_THAN value
+   !   AGGREGATION_MODEL         options : NONE / PERCENTAGE / CORNELL / COSTA
+   !   NUMBER_OF_AGGREGATE_BINS          : value. Default value is 1. Neglegted if AGGREGATION_MODEL = COSTA
+   !   DIAMETER_AGGREGATES_(MIC)         : NUMBER_OF_AGGREGATE_BINS values
+   !   DENSITY_AGGREGATES_(KGM3)         : NUMBER_OF_AGGREGATE_BINS values
+   !   PERCENTAGE_(%)                    : NUMBER_OF_AGGREGATE_BINS values
+   !   VSET_FACTOR                       : value
+   !   FRACTAL_EXPONENT                  : value. Only used if AGGREGATION_MODEL = COSTA
+   !
+   PARTICLE_CUT_OFF          = NONE
+   AGGREGATION_MODEL         = NONE
+   NUMBER_OF_AGGREGATE_BINS  = 2
+   DIAMETER_AGGREGATES_(MIC) = 250. 100.
+   DENSITY_AGGREGATES_(KGM3) = 350. 250.
+   PERCENTAGE_(%)            = 20.   10.
+   VSET_FACTOR               = 0.5
+   FRACTAL_EXPONENT          = 2.99
+   !
+------
+SOURCE
+------
+   !
+   !   SOURCE_TYPE                          options : POINT / SUZUKI / TOP-HAT / PLUME / RESUSPENSION
+   !   SOURCE_START_(HOURS_AFTER_00) [file_name]    : ndt values (starting times of each source phase)
+   !   SOURCE_END_(HOURS_AFTER_00)                  : ndt values (ending   times of each source phase)
+   !                                                  NOTE: if optional argument file_name exists, then "start times","end times" and
+   !                                                  "source heights" read from the 3-column file_name
+   !   LON_VENT                                     : value. Source (vent) longitude
+   !   LAT_VENT                                     : value. Source (vent) latitude
+   !   VENT_HEIGHT_(M)                              : value. Source (vent) altitude (in m a.s.l.)
+   !   HEIGHT_ABOVE_VENT_(M)                        : ndt values
+   !   MASS_FLOW_RATE_(KGS)                 options : ndt values / ESTIMATE-MASTIN / ESTIMATE-WOODHOUSE / ESTIMATE-DEGRUYTER
+   !
+   !   ALFA_PLUME                                   : value (default 0.1). Only used if ESTIMATE-WOODHOUSE / ESTIMATE-DEGRUYTER to estimate MER from H
+   !   BETA_PLUME                                   : value (default 0.5). Only used if ESTIMATE-WOODHOUSE / ESTIMATE-DEGRUYTER to estimate MER from H
+   !   EXIT_TEMPERATURE_(K)                         : ndt values. Mixture temperature.  Only used if SOURCE_TYPE = PLUME or     to estimate MER from H
+   !   EXIT_WATER_FRACTION_(%)                      : ndt values. Total water fraction. Only used if SOURCE_TYPE = PLUME or     to estimate MER from H
+   !
+   !                                                 The following variables in IF_SUZUKI_SOURCE block are read only if SOURCE_TYPE = SUZUKI
+   !                                                 ---------------------------------------------------------------------------------------
+   !   A                                            : ndt values. A-Suzuki parameter
+   !   L                                            : ndt values. L-Suzuki parameter
+   !
+   !                                                 The following variables in IF_TOP-HAT_SOURCE block are read only if SOURCE_TYPE = HAT
+   !                                                 -------------------------------------------------------------------------------------
+   !   THICKNESS_(M)                                : ndt values. Hat thickness
+   !
+   !                                                 The following variables in IF_PLUME_SOURCE block are read only if SOURCE_TYPE = PLUME
+   !                                                 --------------------------------------------------------------------------------------
+   !   SOLVE_PLUME_FOR                      options : MFR / HEIGHT
+   !   MFR_SEARCH_RANGE                             : 2 values n1 and n2, where: 10**n1 < MFR < 10**n2. Only used SOLVE_PLUME_FOR = MFR
+   !   EXIT_VELOCIY_(MS)                            : ndt values
+   !   EXIT_GAS_WATER_TEMPERATURE_(K)               : ndt values. Optional. If not given, assumed equal to EXIT_TEMPERATURE_(K)
+   !   EXIT_LIQUID_WATER_TEMPERATURE_(K)            : ndt values. Optional. If not given, assumed equal to EXIT_TEMPERATURE_(K)
+   !   EXIT_SOLID_WATER_TEMPERATURE_(K)             : ndt values. Optional. If not given, assumed equal to EXIT_TEMPERATURE_(K)
+   !   EXIT_GAS_WATER_FRACTION_(%)                  : ndt values. Optional. If not given, assumed equal to EXIT_WATER_FRACTION_(%)
+   !   EXIT_LIQUID_WATER_FRACTION_(%)               : ndt values. Optional. If not given, assumed equal to 0
+   !   EXIT_SOLID_WATER_FRACTION_(%)                : ndt values. Optional. If not given, assumed equal to 0
+   !   WIND_COUPLING                        options : yes/no. If NO, Ua=0 is assumed
+   !   AIR_MOISTURE                         options : yes/no. If NO, wa=0 is assumed (dry entrained air only)
+   !   REENTRAINMENT                        options : yes/no. If NO, particle reentrainment is neglected (f=0)
+   !   LATENT_HEAT                          options : yes/no. If NO, latent heat contribution is neglected
+   !   BURSIK_FACTOR                                : value. Bursik factor xi. If not given, assumed equal to 0.1
+   !   Z_MIN_WIND                                   : value. Ignore wind entrainment below this zvalue (low jet region). If not given, assumed equal to 100
+   !   C_UMBRELLA                                   : value. Thickness of umbrella region relative to Hb (>1). If not given, assumed equal to 1.32
+   !   A_S                                  options : CONSTANT (value jet, value plume) / KAMINSKI-R / KAMINSKI-C / OLD
+   !   A_V                                  options : CONSTANT (value) / TATE
+   !
+   SOURCE_TYPE                   = point
+   SOURCE_START_(HOURS_AFTER_00) = 0
+   SOURCE_END_(HOURS_AFTER_00)   = 10
+   !
+   LON_VENT        = 15.0
+   LAT_VENT        = 37.75
+   VENT_HEIGHT_(M) = 3000.
+   !
+   HEIGHT_ABOVE_VENT_(M)         = 6000.
+   MASS_FLOW_RATE_(KGS)          = ESTIMATE-DEGRUYTER
+   ALFA_PLUME                    = 0.1
+   BETA_PLUME                    = 0.5
+   EXIT_TEMPERATURE_(K)          = 1200.
+   EXIT_WATER_FRACTION_(%)       = 0.
+   !
+   IF_SUZUKI_SOURCE
+      A = 4.
+      L = 5.
+   !
+   IF_TOP-HAT_SOURCE
+      THICKNESS_(M) = 2000. 2000.
+   !
+   IF_PLUME_SOURCE
+      SOLVE_PLUME_FOR                   = MFR
+      MFR_SEARCH_RANGE                  = 4.0  9.0
+      EXIT_VELOCITY_(MS)                = 180.
+      EXIT_GAS_WATER_TEMPERATURE_(K)    = 1000.
+      EXIT_LIQUID_WATER_TEMPERATURE_(K) = 1000.
+      EXIT_SOLID_WATER_TEMPERATURE_(K)  = 1000.
+      EXIT_GAS_WATER_FRACTION_(%)       = 5.
+      EXIT_LIQUID_WATER_FRACTION_(%)    = 0.
+      EXIT_SOLID_WATER_FRACTION_(%)     = 0.
+      WIND_COUPLING = yes
+      AIR_MOISTURE  = yes
+      LATENT_HEAT   = no
+      REENTRAINMENT = yes
+      BURSIK_FACTOR = 0.1
+      Z_MIN_WIND    = 100
+      C_UMBRELLA    = 1.2
+      A_S           = CONSTANT 0.075 0.12
+      A_V           = CONSTANT 0.3
+   !
+ -------------
+ MODEL_PHYSICS
+ -------------
+   !
+   !  LIMITER                               options  : MINMOD  / SUPERBEE / OSPRE
+   !  TIME_MARCHING                         options  : EULER / RUNGE-KUTTA
+   !  CFL_CRITERION                         options  : ONE_DIMENSIONAL / ALL_DIMENSIONS
+   !  CFL_SAFETY_FACTOR                              : value (default 0.9)
+   !
+   !  TERMINAL_VELOCITY_MODEL               options  : ARASTOOPOUR / GANSER / WILSON / DELLINO / PFEIFFER / DIOGUARDI2017 / DIOGUARDI2018
+   !  HORIZONTAL_TURBULENCE_MODEL           options  : CONSTANT = value / CMAQ
+   !  VERTICAL_TURBULENCE_MODEL             options  : CONSTANT = value / SIMILARITY
+   !  WET_DEPOSITION                        options  : YES/NO
+   !  DRY_DEPOSITION                        options  : YES/NO
+   !  GRAVITY_CURRENT                       options  : YES/NO. Activate GC  based on Suzuki & Koyaguchi (2009)
+   !  C_FLOW_RATE                                    : value. Only read if GRAVITY_CURRENT = YES (0.43d3 for tropical eruptions; 0.87d3 for mid-latitude and polar).
+   !  LAMBDA_GRAV                                    : value. Only read if GRAVITY_CURRENT = YES
+   !  K_ENTRAIN                                      : value. Only read if GRAVITY_CURRENT = YES
+   !  BRUNT_VAISALA                                  : value. Only read if GRAVITY_CURRENT = YES
+   !  GC_START_(HOURS_AFTER_00)                      : value. Only read if GRAVITY_CURRENT = YES. GC start time
+   !  GC_END_(HOURS_AFTER_00)                        : value. Only read if GRAVITY_CURRENT = YES. GC end   time
+   !
+   LIMITER                     = SUPERBEE
+   TIME_MARCHING               = EULER
+   CFL_CRITERION               = ALL_DIMENSIONS
+   CFL_SAFETY_FACTOR           = 0.9
+   !
+   TERMINAL_VELOCITY_MODEL     = GANSER
+   HORIZONTAL_TURBULENCE_MODEL constant = 0.0 ! CMAQ
+   VERTICAL_TURBULENCE_MODEL   constant = 0.0 ! SIMILARITY
+   WET_DEPOSITION              = no
+   DRY_DEPOSITION              = no
+   GRAVITY_CURRENT             = no
+   !
+   IF_GRAVITY_CURRENT
+      C_FLOW_RATE               = 0.87d3
+      LAMBDA_GRAV               = 0.2
+      K_ENTRAIN                 = 0.1
+      BRUNT_VAISALA             = 0.02
+      GC_START_(HOURS_AFTER_00) = 0
+      GC_END_(HOURS_AFTER_00)   = 3
+   !
+ -------------
+ MODEL_OUTPUT
+ -------------
+   !
+   !  PARALLEL_IO                        options  : YES/NO
+   !  LOG_FILE_LEVEL                     options  : NONE / NORMAL / FULL
+   !  RESTART_TIME_INTERVAL_(HOURS)      options  : NONE / END_ONLY / value
+   !  OUTPUT_INTERMEDIATE_FILES          options  : YES/NO. Outputs intermediate files (can be set to NO only for task ALL)
+   !  OUTPUT_TIME_START_(HOURS)                   : RUN_START / value
+   !  OUTPUT_TIME_INTERVAL_(HOURS)                : value
+   !  OUTPUT_3D_CONCENTRATION            options  : YES/NO. Outputs total concentration on sigma planes (summ over all bins of a given substance)
+   !  OUTPUT_3D_CONCENTRATION_BINS       options  : YES/NO. Outputs bin   concentration on sigma planes (          all bins of a given substance)
+   !  OUTPUT_COLUMN_LOAD                 options  : YES/NO. Outputs column  mass load                   (summ over all bins of a given substance)
+   !  OUTPUT_CLOUD_TOP                   options  : YES/NO. Outputs cloud top heigh
+   !  OUTPUT_GROUND_LOAD                 options  : YES/NO. Outputs deposit mass load                   (summ over all bins of a given substance)
+   !  OUTPUT_GROUND_LOAD_BINS            options  : YES/NO. Outputs deposit mass load                   (          all bins of a given substance)
+   !  OUTPUT_WET_DEPOSITION              options  : YES/NO. Outputs wet deposition mass                 (summ over all bins of a given substance)
+   !  TRACK_POINTS                       options  : YES/NO.
+   !  TRACK_POINTS_FILE                           : File with the list of tracked points
+   !  OUTPUT_CONCENTRATION_AT_XCUTS      options  : YES/NO. If yes, outputs cuts at specifyed X-values
+   !  OUTPUT_CONCENTRATION_AT_YCUTS      options  : YES/NO. If yes, outputs cuts at specifyed Y-values
+   !  OUTPUT_CONCENTRATION_AT_ZCUTS      options  : YES/NO. If yes, outputs cuts at specifyed Z-values
+   !  OUTPUT_CONCENTRATION_AT_FL         options  : YES/NO. If yes, outputs cuts at specifyed FLs
+   !
+   PARALLEL_IO                   = NO
+   LOG_FILE_LEVEL                = FULL
+   RESTART_TIME_INTERVAL_(HOURS) = END_ONLY
+   OUTPUT_INTERMEDIATE_FILES     = no
+   OUTPUT_TIME_START_(HOURS)     = RUN_START
+   OUTPUT_TIME_INTERVAL_(HOURS)  = 1.
+   OUTPUT_3D_CONCENTRATION       = no
+   OUTPUT_3D_CONCENTRATION_BINS  = no
+   OUTPUT_COLUMN_LOAD            = yes
+   OUTPUT_CLOUD_TOP              = yes
+   OUTPUT_GROUND_LOAD            = yes
+   OUTPUT_GROUND_LOAD_BINS       = no
+   OUTPUT_WET_DEPOSITION         = no
+   TRACK_POINTS                  = no
+   TRACK_POINTS_FILE             = my_file.pts
+   !
+   OUTPUT_CONCENTRATION_AT_XCUTS = no
+      X-VALUES  15
+   OUTPUT_CONCENTRATION_AT_YCUTS = no
+      Y-VALUES  37.5
+   OUTPUT_CONCENTRATION_AT_ZCUTS = no
+      Z-VALUES  5000 10000 15000
+   OUTPUT_CONCENTRATION_AT_FL    = yes
+      FL-VALUES  50 100 150 200 250 300 350 400
+

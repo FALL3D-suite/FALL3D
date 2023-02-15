@@ -1,0 +1,30 @@
+slsode.o : slsode.f 
+dlsode.o : dlsode.f 
+mod_ADS.o : mod_ADS.f90 mod_Domain.o mod_KindType.o 
+mod_Config.o : mod_Config.f90 
+mod_Coord.o : mod_Coord.f90 mod_KindType.o 
+mod_Dbs.o : mod_Dbs.f90 mod_Phys.o mod_Grid.o mod_Time.o mod_Maths.o mod_Domain.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_Domain.o : mod_Domain.F90 mod_Parallel.o mod_KindType.o 
+mod_F3D.o : mod_F3D.f90 mod_ADS.o mod_nc_IO.o mod_Src.o mod_Phys.o mod_Grid.o mod_Time.o mod_Parallel.o mod_KindType.o 
+mod_Grid.o : mod_Grid.f90 mod_Domain.o mod_InpOut.o mod_KindType.o 
+mod_Grn.o : mod_Grn.f90 mod_Phys.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_InpOut.o : mod_InpOut.f90 mod_Shared.o mod_KindType.o 
+mod_KindType.o : mod_KindType.F90 mod_Config.o 
+mod_Maths.o : mod_Maths.f90 mod_KindType.o 
+mod_Odepack.o : mod_Odepack.f90 
+mod_Parallel.o : mod_Parallel.F90 mod_KindType.o 
+mod_Phys.o : mod_Phys.f90 mod_Grid.o mod_Domain.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_PlumeBPT.o : mod_PlumeBPT.f90 mod_Odepack.o mod_Time.o mod_Phys.o mod_StdAtm.o mod_KindType.o 
+mod_Sat.o : mod_Sat.f90 mod_Time.o mod_Domain.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_Shared.o : mod_Shared.f90 mod_KindType.o 
+mod_Src.o : mod_Src.f90 mod_Phys.o mod_PlumeBPT.o mod_Coord.o mod_Time.o mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_StdAtm.o : mod_StdAtm.f90 mod_KindType.o 
+mod_Tgsd.o : mod_Tgsd.f90 mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_Time.o : mod_Time.f90 mod_Parallel.o mod_InpOut.o mod_KindType.o 
+mod_nc_IO.o : mod_nc_IO.F90 mod_Time.o mod_Parallel.o mod_Grid.o mod_Domain.o mod_KindType.o 
+task_Fall3d.o : task_Fall3d.f90 mod_Sat.o mod_Dbs.o mod_F3D.o mod_nc_IO.o mod_Parallel.o mod_Domain.o mod_Phys.o mod_Grid.o mod_Time.o mod_Grn.o mod_InpOut.o mod_Shared.o mod_KindType.o 
+task_SetDbs.o : task_SetDbs.f90 mod_nc_IO.o mod_Domain.o mod_Dbs.o mod_Grid.o mod_Time.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
+task_SetSrc.o : task_SetSrc.f90 mod_Time.o mod_Src.o mod_Grn.o mod_Parallel.o mod_InpOut.o mod_Shared.o mod_KindType.o 
+task_SetTgsd.o : task_SetTgsd.f90 mod_Grn.o mod_Tgsd.o mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 
+task_runend.o : task_runend.f90 mod_InpOut.o mod_Parallel.o mod_KindType.o 
+task_Manager.o : task_Manager.f90 mod_InpOut.o mod_Parallel.o mod_Shared.o mod_KindType.o 

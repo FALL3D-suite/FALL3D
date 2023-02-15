@@ -1,0 +1,21 @@
+
+MAC
+...
+
+source /Users/arnaufolch/anaconda/etc/profile.d/conda.csh
+conda activate fall3d_utils
+...
+conda deactivate
+
+
+ERA5
+----
+See: https://cds.climate.copernicus.eu/api-how-to
+
+1. Install the CDS API key
+2. Install the CDS API client
+3. Use the CDS API client for data access
+
+'python3.7  era5_pl.py   options' or 'python3.7 era5_ml.py options'
+'python3.7  era5_sfc.py  options'
+concatenate 'cdo merge 19910615-19910617-pl.nc 19910615-19910617-sfc.nc test.nc' 

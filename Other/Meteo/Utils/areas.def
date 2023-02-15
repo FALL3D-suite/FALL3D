@@ -1,0 +1,48 @@
+[default]
+lonmin = -180.0
+lonmax =  180.0
+latmin = -90.0
+latmax =  90.0
+
+[sh]
+lonmin = -180.0
+lonmax =  180.0
+latmin = -70.0
+latmax = -20.0
+
+[etna]
+lonmin = 13
+lonmax = 17
+latmin = 35
+latmax = 40
+
+[europe]
+lonmin = -50
+lonmax = 40
+latmin = 30
+latmax = 80
+
+[puyehue]
+lonmin = -90
+lonmax = -40
+latmin = -60
+latmax = -20
+
+[whakaari]
+lonmin = 170
+lonmax = 185
+latmin = -40
+latmax = -35
+
+[raikoke]
+lonmin = 150
+lonmax = 220
+latmin = 30
+latmax = 75
+
+[ulawun]
+lonmin = 146
+lonmax = 160
+latmin = -10
+latmax = 0
+

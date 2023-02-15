@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# Simple script for the configuration of Fall3d
+#
+
+usage() {
+    echo "Usage: build [-h] [par|ser] [r4|r8] [builddir]"
+    exit
+}
+
+# Name of the default build directory (set a name)
+BUILDDIR=binary
+
+# Default parallelism  (par|ser)
+PARALLELISM=par
+
+# Default precision (r4|r8)
+PRECISION=r8
+
+# Scan arguments
+if [ $# -gt 0 ]; then
+    for a in $*
+    do
+	case $a in
+	    par|ser) PARALLELISM=$a ;;
+	    r4|r8)   PRECISION=$a ;;
+	    -h)      usage ;;
+	    -*)      usage ;;
+	    *)       BUILDDIR=$a ;;
+	esac
+    done
+fi
+
+# Process arguments
+case $PARALLELISM in
+    par) CONF_PAR="--enable-parallel" ;;
+    ser) CONF_PAR="--disable-parallel" ;;
+esac
+
+case $PRECISION in
+    r4) CONF_PREC="--with-r4" ;;
+    r8) CONF_PREC= ;;
+esac
+
+# Set the source directory (where this script is)
+TMPDIR=$(dirname $0)
+SOURCEDIR=$(cd $TMPDIR && /bin/pwd)
+
+# Remove top-level configuration
+if [ -r $SOURCEDIR/Makefile ]; then
+    $(cd $SOURCEDIR && make distclean)
+fi
+
+# Create the build directory and configure
+mkdir -p $BUILDDIR
+cd $BUILDDIR
+
+# Configure
+$SOURCEDIR/configure $CONF_PREC $CONF_PAR
+
+# Make and install
+make install
+

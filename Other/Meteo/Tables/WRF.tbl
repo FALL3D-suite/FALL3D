@@ -1,0 +1,49 @@
+|--------------------------------------------|
+|                                            |
+|     FALL3D dictionary for WRF model        |
+|                                            |
+|--------------------------------------------|
+|  DIM_ID  |  DIM_TYPE   |  DIM_NAME         | 
+|--------------------------------------------|
+|    1     |  DIM_LON    |  west_east        |
+|    2     |  DIM_LAT    |  south_north      |
+|    3     |  DIM_ZLEV   |  bottom_top       |
+|    4     |  DIM_TIME   |  Time             |
+|    5     |  DIM_STRLEN |                   |
+|    6     |  DIM_XSTAGE |  west_east_stag   |
+|    7     |  DIM_YSTAGE |  south_north_stag |
+|    8     |  DIM_ZSTAGE |  bottom_top_stag  |
+|    9     |  DIM_SOILAY |  soil_layers_stag |
+|--------------------------------------------|
+|  VAR_ID  |  VAR_TYPE   |  VAR_NAME         |
+|--------------------------------------------|
+|    10    |  VAR_LON    |  XLONG            |
+|    11    |  VAR_LAT    |  XLAT             |
+|    12    |  VAR_ZLEV   |                   |
+|    13    |  VAR_TOPO   |  HGT              |
+|    14    |  VAR_LMASK  |  LANDMASK         |
+|    15    |  VAR_LUSE   |  LU_INDEX         |
+|    16    |  VAR_Z0     |  ZNT              |
+|    20    |  VAR_TIME   |  Times            |
+|    21    |  VAR_PBLH   |  PBLH             |
+|    22    |  VAR_UST    |  UST              |
+|    23    |  VAR_SMOI   |  SMOIS            |
+|    24    |  VAR_PREC   |  PRECIP_RATE      |
+|    25    |  VAR_ACCP   |  RAINNC           |
+|    26    |  VAR_U10    |  U10              |
+|    27    |  VAR_V10    |  V10              |
+|    28    |  VAR_T2     |  T2               |
+|    29    |  VAR_MON    |  mon              |
+|    30    |  VAR_PSFC   |  PSFC             |
+|    40    |  VAR_HGT    |  PHB              |
+|    41    |  VAR_P      |  P                |
+|    42    |  VAR_T      |  Temp             |
+|    43    |  VAR_TP     |  T                | Potential temperature
+|    44    |  VAR_TV     |  TV               |
+|    45    |  VAR_U      |  U                |
+|    46    |  VAR_V      |  V                |
+|    47    |  VAR_W      |  W                |
+|    48    |  VAR_RH     |  RH               |
+|    49    |  VAR_QV     |  QVAPOR           |
+|    50    |  VAR_RHO    |  RHO              |
+|--------------------------------------------|

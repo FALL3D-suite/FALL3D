@@ -1,0 +1,49 @@
+|-----------------------------------------------|
+|                                               |
+|     FALL3D dictionary for GFS model           |
+|                                               |
+|-----------------------------------------------|
+|  DIM_ID  |  DIM_TYPE   |  DIM_NAME            | 
+|-----------------------------------------------|
+|    1     |  DIM_LON    |  lon                 |
+|    2     |  DIM_LAT    |  lat                 |
+|    3     |  DIM_ZLEV   |  lev                 |
+|    4     |  DIM_TIME   |  time                |
+|    5     |  DIM_STRLEN |                      |
+|    6     |  DIM_XSTAGE |                      |
+|    7     |  DIM_YSTAGE |                      |
+|    8     |  DIM_ZSTAGE |                      |
+|    9     |  DIM_SOILAY |                      |
+|-----------------------------------------------|
+|  VAR_ID  |  VAR_TYPE   |  VAR_NAME            |
+|-----------------------------------------------|
+|    10    |  VAR_LON    |  lon                 |
+|    11    |  VAR_LAT    |  lat                 |
+|    12    |  VAR_ZLEV   |  lev                 |
+|    13    |  VAR_TOPO   |  hgt                 |
+|    14    |  VAR_LMASK  |  lnd                 |
+|    15    |  VAR_LUSE   |  luse                |
+|    16    |  VAR_Z0     |  z0                  |
+|    20    |  VAR_TIME   |  time                |
+|    21    |  VAR_PBLH   |  pblh                |
+|    22    |  VAR_UST    |  ust                 |
+|    23    |  VAR_SMOI   |  smois               |
+|    24    |  VAR_PREC   |  prate               |
+|    25    |  VAR_ACCP   |  accum_precip        |
+|    26    |  VAR_U10    |  u10                 |
+|    27    |  VAR_V10    |  v10                 |
+|    28    |  VAR_T2     |  t2                  |
+|    29    |  VAR_MON    |  mon                 |
+|    30    |  VAR_PSFC   |  psfc                |
+|    40    |  VAR_HGT    |  z                   |
+|    41    |  VAR_P      |  p                   |
+|    42    |  VAR_T      |  t                   |
+|    43    |  VAR_TP     |  tp                  | 
+|    44    |  VAR_TV     |  tv                  |
+|    45    |  VAR_U      |  u                   |
+|    46    |  VAR_V      |  v                   |
+|    47    |  VAR_W      |  w                   |
+|    48    |  VAR_RH     |  rh                  |
+|    49    |  VAR_QV     |  qv                  |
+|    50    |  VAR_RHO    |  rho                 |
+|-----------------------------------------------|
