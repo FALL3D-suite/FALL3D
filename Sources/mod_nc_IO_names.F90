@@ -44,6 +44,7 @@
   character(len=16)  :: cuty_nc_name       = 'con_xz'
   character(len=16)  :: cutz_nc_name       = 'con_xy'
   character(len=16)  :: fl_nc_name         = 'fl'
+  character(len=16)  :: sur_nc_name        = 'con_surface'
   character(len=16)  :: col_nc_name        = 'col_mass'
   character(len=16)  :: clh_nc_name        = 'cloud_top'
   character(len=16)  :: pmc_nc_name        = 'col_mass_pm'

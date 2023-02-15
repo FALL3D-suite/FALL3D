@@ -41,8 +41,13 @@ MODULE Ensemble
   !
   !*** Parameter for a truncated normal PDF in the range [-1,1]
   !
-  real(rp), parameter    :: NORM_MU      = 0.0_rp  ! Mean
-  real(rp), parameter    :: NORM_STD_INV = 2.5_rp  ! 1/Standard deviation
+  real(rp), private, parameter :: NORM_MU      = 0.0_rp  ! Mean
+  real(rp), private, parameter :: NORM_STD_INV = 2.5_rp  ! 1/Standard deviation
+  !
+  !*** Cummulative probabilities at a=-1 and b=1
+  !
+  real(rp), private :: cumm_a
+  real(rp), private :: cumm_b
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
@@ -1030,6 +1035,11 @@ CONTAINS
       X(1)   = -1.0_rp
       X(N+1) =  1.0_rp
       !
+      !*** Initialize module variables cumm proba at a=-1 and b=1
+      !
+      cumm_a = ensemble_cumm_norm(-1.0_rp)
+      cumm_b = ensemble_cumm_norm( 1.0_rp)
+      !
       !*** Perform a binary search to found inner intervals
       !
       do i=2,N
@@ -1155,19 +1165,7 @@ CONTAINS
       real(rp), intent(IN) :: x
       real(rp)             :: y
       !
-      ! Initialized variables are automatically saved
-      real(rp) :: coeff = -1.0_rp
-      !
-      real(rp), save :: cumm_a
-      real(rp), save :: cumm_b
-      !
-      if(coeff.lt.0) then
-          coeff  = NORM_STD_INV/sqrt(2.0_rp)
-          cumm_a = ensemble_cumm_norm(-1.0_rp)
-          cumm_b = ensemble_cumm_norm( 1.0_rp)
-      end if
-      !
-      y = 0.5_rp * ( 1.0_rp + erf((x-NORM_MU)*coeff) )
+      y = ensemble_cumm_norm(x)
       y = (y-cumm_a)/(cumm_b-cumm_a)
       !
       return
@@ -1187,12 +1185,7 @@ CONTAINS
       real(rp), intent(IN) :: x
       real(rp)             :: y
       !
-      ! Initialized variables are automatically saved
-      real(rp) :: coeff = -1.0_rp 
-      !
-      if(coeff.lt.0) then
-          coeff  = NORM_STD_INV/sqrt(2.0_rp)
-      end if
+      real(rp), parameter :: coeff = NORM_STD_INV/sqrt(2.0_rp)
       !
       y = 0.5_rp * ( 1.0_rp + erf((x-NORM_MU)*coeff) )
       !

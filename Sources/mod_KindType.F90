@@ -129,6 +129,7 @@ MODULE KindType
      character(s_file) :: file_pts     = '-'      !< Name of the pts   file
      character(s_file) :: file_res     = '-'      !< Name of the res   file
      character(s_file) :: file_rst     = '-'      !< Name of the rst   file
+     character(s_file) :: file_rst_in  = '-'      !< Name of the rst_in file
      character(s_file) :: file_sat     = '-'      !< Name of the sat   file
      character(s_file) :: file_dep     = '-'      !< Name of the dep   file
      character(s_file) :: file_pos     = '-'      !< Name of the pos   file
@@ -680,6 +681,7 @@ MODULE KindType
      logical  :: out_rst       = .false.   !< if .true. outputs restart file
      logical  :: out_con_total = .false.   !< if .true. outputs total concentration on sigma planes (sum over all bins of a given substance)
      logical  :: out_con_bins  = .false.   !< if .true. outputs bin   concentration on sigma planes (         all bins of a given substance)
+     logical  :: out_con_sur   = .false.   !< if .true. outputs concentration at surface            (sum over all bins of a given substance)
      logical  :: out_col_load  = .false.   !< if .true. outputs column  mass load                   (sum over all bins of a given substance)
      logical  :: out_cloud_top = .false.   !< if .true. outputs cloud top height
      logical  :: out_grn_total = .false.   !< if .true. outputs total deposit mass load             (sum over all bins of a given substance)

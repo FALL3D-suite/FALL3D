@@ -114,8 +114,19 @@ CONTAINS
     end select
     !
     if(MY_TIME%restart) then
-       call inpout_get_cha (file_inp, 'TIME_UTC','RESTART_FILE',MY_FILES%file_rst, 1, MY_ERR, .false.)
-       if(MY_ERR%flag.ne.0) MY_FILES%file_rst = '-'
+       call inpout_get_cha (file_inp, 'TIME_UTC','RESTART_FILE',MY_FILES%file_rst_in, 1, MY_ERR, .false.)
+       if(MY_ERR%flag.ne.0) MY_FILES%file_rst_in = '-'
+       !
+       if(nens.gt.1) then
+           call inpout_get_cha (file_inp, 'TIME_UTC','RESTART_ROOT_PATH',word, 1, MY_ERR, .false.)
+           if(MY_ERR%flag.eq.0) then
+               write(word, '(a,i4.4)') TRIM(word)//'/',task_id !Append subfolders 0001,...
+               MY_FILES%file_rst_in = trim(word)//'/'//TRIM(MY_FILES%file_rst_in)
+           else
+               call task_wriwarn(MY_ERR,"RESTART_ROOT_PATH undefined. Assuming &
+                                         a single restart file for the ensemble")
+            end if
+       end if
     end if
     !
     call inpout_get_rea (file_inp, 'TIME_UTC','RUN_END_(HOURS_AFTER_00)', MY_TIME%run_end, 1, MY_ERR)

@@ -1,4 +1,12 @@
 -------------------------------
+Version      : 8.1.2
+Release date : 
+-------------------------------
+
+* Added concentration at surface output
+* File extensions changed from f90 to F90 (except mod_Configure.f90.in)
+
+-------------------------------
 Version      : 8.1.1
 Release date : 23 July 2021
 -------------------------------
