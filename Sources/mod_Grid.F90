@@ -897,7 +897,7 @@ CONTAINS
     type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
-    integer(ip) :: i,j,k,ibin,kk
+    integer(ip) :: i,j,k,ibin
     real(rp)    :: Hm1,Hm2,Hm3,hx,hy,hz
     !
     !*** Initializations
@@ -1023,34 +1023,31 @@ CONTAINS
   !>   @brief
   !>   Gets the critical time integration step
   !
-  subroutine grid_get_time_step(my_dt,dt,my_u,my_v,my_w,my_k1,my_k2,my_k3,MY_GRID,MY_MOD,MY_ERR)
+  subroutine grid_get_time_step(my_u,my_v,my_w,MY_MET,MY_GRID,MY_MOD,MY_TRA,MY_TIME,MY_ERR)
     implicit none
     !
-    !>   @param my_dt   my processor (local) time step
-    !>   @param dt      global critical time step (minimum among all processors)
     !>   @param my_u    u-wind velocity at my processor cell cell boundaries (with 1 halo)
     !>   @param my_v    v-wind velocity at my processor cell cell boundaries (with 1 halo)
     !>   @param my_w    w-wind velocity at my processor cell cell boundaries (with 1 halo)
-    !>   @param my_k1   k1 (horizontal) diffusivity at my processor mass points (with 2 halo)
-    !>   @param my_k2   k2 (horizontal) diffusivity at my processor mass points (with 2 halo)
-    !>   @param my_k3   k3 (vertical)   diffusivity at my processor mass points (with 2 halo)
+    !>   @param MY_MET  variables related to meteorology in MY_GRID
     !>   @param MY_GRID grid structure already filled by subroutine grid_build_arakawa_c
     !>   @param MY_MOD  model physics related parameters
+    !>   @param MY_TRA  TRACERS structure
+    !>   @param MY_TIME   run time related parameters
     !>   @param MY_ERR  error handler
     !
-    real(rp),            intent(INOUT) :: my_dt
-    real(rp),            intent(INOUT) :: dt
-    real(rp),            intent(IN)    :: my_u  (my_ibs_1h:my_ibe_1h,my_jps   :my_jpe   ,my_kps   :my_kpe   )
-    real(rp),            intent(IN)    :: my_v  (my_ips   :my_ipe   ,my_jbs_1h:my_jbe_1h,my_kps   :my_kpe   )
-    real(rp),            intent(IN)    :: my_w  (my_ips   :my_ipe   ,my_jps   :my_jpe   ,my_kbs_1h:my_kbe_1h)
-    real(rp),            intent(IN)    :: my_k1 (my_ips_2h:my_ipe_2h,my_jps   :my_jpe   ,my_kps   :my_kpe   )
-    real(rp),            intent(IN)    :: my_k2 (my_ips   :my_ipe   ,my_jps_2h:my_jpe_2h,my_kps   :my_kpe   )
-    real(rp),            intent(IN)    :: my_k3 (my_ips   :my_ipe   ,my_jps   :my_jpe   ,my_kps_2h:my_kpe_2h)
+    real(rp),            intent(IN   ) :: my_u (my_ibs_1h:my_ibe_1h,my_jps:my_jpe,my_kps:my_kpe)
+    real(rp),            intent(IN   ) :: my_v (my_jbs_1h:my_jbe_1h,my_ips:my_ipe,my_kps:my_kpe)
+    real(rp),            intent(IN   ) :: my_w (my_kbs_1h:my_kbe_1h,my_ips:my_ipe,my_jps:my_jpe)
+    type(METEOROLOGY),   intent(IN   ) :: MY_MET
     type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     type(MODEL_PHYS),    intent(IN   ) :: MY_MOD
+    type(TRACERS),       intent(IN   ) :: MY_TRA
+    type(RUN_TIME),      intent(INOUT) :: MY_TIME
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
     integer(ip)           :: i,j,k
+    real(rp)              :: my_dt, dt, w_max
     real(rp)              :: dtinv,dt1,dt2,dt3,dx,dy,dz
     real(rp), allocatable :: dt_local(:)
     !
@@ -1060,39 +1057,42 @@ CONTAINS
     MY_ERR%source  = 'grid_get_time_step'
     MY_ERR%message = ' '
     !
+    ! Initialize
+    dt1 = 0.0_rp
+    dt2 = 0.0_rp
+    dt3 = 0.0_rp
+    !
     select case(MY_MOD%CFL_criterion)
     case(1)
        !
        !  MY_MOD%CFL_criterion =  1  (minimum of all dimensions)
        !
-       dt1 = 0.0_rp
        do i = my_ips,my_ipe
           dx = MY_GRID%dX1_p(i)
           do k = my_kps,my_kpe
              do j = my_jps,my_jpe
-                dtinv = 2.0_rp*my_k1(i,j,k)/(dx*dx)+abs(my_u(i,j,k))/dx
+                dtinv = 2.0_rp*MY_MET%my_k1(i,j,k)/(dx*dx)+abs(my_u(i,j,k))/dx
                 dt1   = max(dt1,dtinv)
              end do
           end do
        end do
        !
-       dt2 = 0.0_rp
        do j = my_jps,my_jpe
           dy = MY_GRID%dX2_p(j)
           do k = my_kps,my_kpe
              do i = my_ips,my_ipe
-                dtinv = 2.0_rp*my_k2(i,j,k)/(dy*dy)+abs(my_v(i,j,k))/dy
+                dtinv = 2.0_rp*MY_MET%my_k2(j,i,k)/(dy*dy)+abs(my_v(j,i,k))/dy
                 dt2   = max(dt2,dtinv)
              end do
           end do
        end do
        !
-       dt3 = 0.0_rp
        do k = my_kps,my_kpe
           dz = MY_GRID%dX3_p(k)
           do j = my_jps,my_jpe
              do i = my_ips,my_ipe
-                dtinv = 2.0_rp*my_k3(i,j,k)/(dz*dz)+abs(my_w(i,j,k))/dz
+                w_max = maxval(abs(my_w(k,i,j)-MY_TRA%my_vs(i,j,k,:)))
+                dtinv = 2.0_rp*MY_MET%my_k3(k,i,j)/(dz*dz)+w_max/dz
                 dt3   = max(dt3,dtinv)
              end do
           end do
@@ -1101,11 +1101,7 @@ CONTAINS
     case(2)
        !
        !  MY_MOD%CFL_criterion =  2  (all dimensions at the same time)
-       !
-       dt1 = 0.0_rp
-       dt2 = 0.0_rp
-       dt3 = 0.0_rp
-       !
+       !       !
        do k = my_kps,my_kpe
           dz = MY_GRID%dX3_p(k)
           do j = my_jps,my_jpe
@@ -1113,9 +1109,10 @@ CONTAINS
              do i = my_ips,my_ipe
                 dx = MY_GRID%dX1_p(i)
                 !
-                dtinv = 2.0_rp*my_k1(i,j,k)/(dx*dx)+abs(my_u(i,j,k))/dx + &
-                     2.0_rp*my_k2(i,j,k)/(dy*dy)+abs(my_v(i,j,k))/dy + &
-                     2.0_rp*my_k3(i,j,k)/(dz*dz)+abs(my_w(i,j,k))/dz
+                w_max = maxval(abs(my_w(k,i,j)-MY_TRA%my_vs(i,j,k,:)))
+                dtinv = 2.0_rp*MY_MET%my_k1(i,j,k)/(dx*dx)+abs(my_u(i,j,k))/dx + &
+                        2.0_rp*MY_MET%my_k2(j,i,k)/(dy*dy)+abs(my_v(j,i,k))/dy + &
+                        2.0_rp*MY_MET%my_k3(k,i,j)/(dz*dz)+w_max/dz
                 dt1   = max(dt1,dtinv)
              end do
           end do
@@ -1136,6 +1133,9 @@ CONTAINS
     dt_local(mype_model) = my_dt
     call parallel_sum(dt_local, COMM_MODEL)
     dt = minval(dt_local(:))
+    !
+    MY_TIME%my_dt = min(my_dt,MY_TIME%run_end)
+    MY_TIME%gl_dt = min(   dt,MY_TIME%run_end)
     !
     return
   end subroutine grid_get_time_step

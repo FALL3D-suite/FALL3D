@@ -6,14 +6,15 @@
 !>
 !***************************************************************
 MODULE Coord
-  use KindType
+  use KindType, only: ip, rp, error_status
   implicit none
   save
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
-  PUBLIC :: coord_ll2utm
-  PUBLIC :: coord_utm2ll
+  PUBLIC :: coord_ll2utm              ! Transform lat/lon to UTM
+  PUBLIC :: coord_utm2ll              ! Transform UTM to lat/lon
+  PUBLIC :: spherical_rotation        ! Rotate a point (lon/lat) about a pole
   !
   !    LIST OF PRIVATE ROUTINES IN THE MODULE
   !
@@ -116,6 +117,8 @@ MODULE Coord
   real(rp),    private, parameter :: LOWER_EPS_LIMIT = 1e-14_rp
   real(rp),    private, parameter :: M_PI   = 3.14159265358979323846_rp   ! pi
   real(rp),    private, parameter :: M_PI_2 = 1.57079632679489661923_rp   ! pi/2
+  real(rp),    private, parameter :: RAD2DEG = 180.0_rp/M_PI              ! Convert rad to degrees
+  real(rp),    private, parameter :: DEG2RAD = M_PI/180.0_rp              ! Convert degrees to radians
   !
   !
 CONTAINS
@@ -881,5 +884,123 @@ CONTAINS
   end function isdigit
   !
   !
+  ! SUBROUTINES FOR COORDINATE AND VECTOR ROTATIONS
+  !
+  !
+  subroutine l2c(lon, lat, x, y, z)
+    ! Transform geographical coordinates (lon, lat) to cartesian coordinates
+    ! Longitiude and latitude are in degrees
+    ! The vector (x,y,z) is normalized to one
+    !
+    ! Author: Giovanni Macedonio (Last upgrade 9-SEP-2021)
+    !
+    implicit none
+    real(rp), intent(in)  :: lon, lat
+    real(rp), intent(out) :: x, y, z
+    real(rp) :: r
+    r = cos(deg2rad*lat)
+    z = sin(deg2rad*lat)
+    x = r*cos(deg2rad*lon)
+    y = r*sin(deg2rad*lon)
+  end subroutine l2c
+
+  subroutine c2l(x, y, z, lon, lat)
+    ! Transform cartesian coordinates (x,y,z) to geographical coordinates (lon, lat)
+    ! The vector (x,y,z) must be normalized to one
+    ! Longitiude and latitude are in degrees
+    !
+    ! Author: Giovanni Macedonio (last upgrade 9-SEP-2021)
+    !
+    implicit none
+    real(rp), intent(in)  :: x, y, z
+    real(rp), intent(out) :: lon, lat
+
+    lat = rad2deg*asin(z)     ! Asin returns the angle in the range [-pi/2, pi/2]
+    lon = rad2deg*atan2(y,x)  ! Atan2 returns angles in the range [-pi, pi]
+  end subroutine c2l
+
+  subroutine cartesian_rotate3d(u, v, w, theta, x, y, z, xnew, ynew, znew, beta)
+    ! Rotates vector (x,y,z) around the axis (u,v,w) by an angle theta
+    ! Angle theta is in degrees, taken counterclockwise
+    ! The output vector (xnew,ynew,xnew) can share the same memory of the input vector
+    !
+    ! The optional output argument (beta) contains the rotation angle of a
+    ! vector tangent to the sphere initially located at (x,y,z)
+    !
+    ! NOTE: The input vector (x,y,z) and the rotation axis vector (u,v,w) must be
+    ! normalized to one
+    !
+    ! Author: Giovanni Macedonio (Last upgrade 15-JUL-2022)
+    !
+    implicit none
+    real(rp), intent(in)    :: u, v, w           ! Rotation axis (normalized to one)
+    real(rp), intent(in)    :: theta             ! Rotation angle (degrees)
+    real(rp), intent(inout) :: x, y, z           ! Point
+    real(rp), intent(inout) :: xnew, ynew, znew  ! Rotated point
+    real(rp), optional, intent(out) :: beta      ! Rotation angle of a tangent vector
+    real(rp) :: mat(3,3)
+    real(rp) :: angle, s, c, t, u2, v2, w2, xt, yt, zt, tlon, tlat, cosa
+    !
+    angle = deg2rad*theta     ! Transform angle in radians
+    cosa = x*u + y*v + z*w    ! Cos of angle between (x,y,z) and (u,v,w)
+    s = sin(angle)
+    c = cos(angle)
+    t = 1.0_rp - c
+    u2 = u**2
+    v2 = v**2
+    w2 = w**2
+    ! Set the rotation matrix
+    mat(1,1) = t*u2 + c
+    mat(1,2) = t*u*v - s*w
+    mat(1,3) = t*u*w + s*v
+    mat(2,1) = t*u*v + w*s
+    mat(2,2) = t*v2 + c
+    mat(2,3) = t*v*w - s*u
+    mat(3,1) = t*u*w - s*v
+    mat(3,2) = t*v*w + s*u
+    mat(3,3) = t*w2 + c
+    ! Multiply (rotate)
+    xt = mat(1,1)*x + mat(1,2)*y + mat(1,3)*z
+    yt = mat(2,1)*x + mat(2,2)*y + mat(2,3)*z
+    zt = mat(3,1)*x + mat(3,2)*y + mat(3,3)*z
+    ! Copy
+    xnew = xt
+    ynew = yt
+    znew = zt
+    ! Evaluate beta
+    if(present(beta)) beta = theta*cosa
+  end subroutine cartesian_rotate3d
+
+  subroutine spherical_rotation(lonpole,latpole,angle,oldlon,oldlat,newlon,newlat,beta)
+    ! Rotates a point with coordinates (oldlon,oldlat) about a pole
+    ! Angles are expressed in degrees
+    ! Note: oldlon/oldlat may share the same memory address of newlon/newlat
+    !
+    ! The optional output argument (beta) contains the rotation angle of a
+    ! vector tangent to the sphere initially located at (oldlon,oldlat)
+    !
+    ! Author: Giovanni Macedonio (Last upgrade 12-SEP-2021)
+    !
+    implicit none
+    real(rp), intent(in)    :: lonpole,latpole
+    real(rp), intent(in)    :: angle
+    real(rp), intent(inout) :: oldlon,oldlat
+    real(rp), intent(inout) :: newlon,newlat
+    real(rp), optional, intent(out) :: beta
+    real(rp) :: xp,yp,zp,x,y,z,locbeta
+    !
+    ! Convert rotation axis to cartesian
+    call l2c(lonpole, latpole, xp, yp, zp)
+    ! Convert point to cartesian
+    call l2c(oldlon, oldlat, x, y, z)
+    ! Rotate
+    call cartesian_rotate3d(xp, yp, zp, angle, x, y, z, x, y, z, locbeta)
+    ! Convert output to geographical coordinates
+    call c2l(x, y, z, newlon, newlat)
+    ! Returns beta (if present)
+    if(present(beta)) beta = locbeta
+    !
+  end subroutine spherical_rotation
+
   !
 END MODULE Coord

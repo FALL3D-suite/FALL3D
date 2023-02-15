@@ -139,12 +139,12 @@ MODULE nc_IO
   PUBLIC :: nc_IO_read_rst
   PUBLIC :: nc_IO_out_grid_ensemble
   !
-  INTERFACE nc_IO_out_variable 
+  INTERFACE nc_IO_out_variable
      MODULE PROCEDURE nc_IO_out_variable_3d,nc_IO_out_variable_4d,nc_IO_out_variable_5d
   END INTERFACE nc_IO_out_variable
   PRIVATE :: nc_IO_out_variable_3d,nc_IO_out_variable_4d,nc_IO_out_variable_5d
   !
-  INTERFACE nc_IO_read_variable 
+  INTERFACE nc_IO_read_variable
      MODULE PROCEDURE nc_IO_read_variable_3d,nc_IO_read_variable_4d
   END INTERFACE nc_IO_read_variable
   PRIVATE :: nc_IO_read_variable_3d,nc_IO_read_variable_4d
@@ -2812,7 +2812,7 @@ CONTAINS
           select case(cat_code)
           case(CAT_PARTICLE,CAT_AEROSOL)
              !
-             attr_units_vol = 'g/m3'  
+             attr_units_vol = 'g/m3'
              if(spe_code.eq.SPE_SO2) then
                 attr_units_col = 'DU'
              else
@@ -3435,7 +3435,7 @@ CONTAINS
     !*** Get wet deposition at corner points (my_awetc in kg/m2)
     !
     allocate(my_awetc(my_ibs:my_ibe,my_jbs:my_jbe,1:nbins))
-    do ib = 1,nbins    
+    do ib = 1,nbins
        call Grid_p2c_2D(MY_TRA%my_awet(:,:,ib),my_awetc(:,:,ib))
     end do
     !
@@ -4475,7 +4475,7 @@ CONTAINS
 12             format(&
                   '   (--)            (Bq/m2)      (mBq/m3)     (mBq/m3)     (mBq/m3)     (mBq/m3) ',/, &
                   '--------------------------------------------------------------------------------')
-               !              
+               !
              end select
           else
              open(90,file=TRIM(fname),status='old',position='append')
@@ -5251,7 +5251,7 @@ CONTAINS
        case(MAP_H_MERCATOR)
           istat = nf90_def_dim(ncID, x_nc_name, nbx , nx_ncID )
           istat = nf90_def_dim(ncID, y_nc_name, nby , ny_ncID )
-          ! 
+          !
        case default
           MY_ERR%flag    = 1
           MY_ERR%message = 'Incorrect horizontal mapping'
@@ -5308,7 +5308,7 @@ CONTAINS
           istat = nf90_put_att(ncID, lon_ncID, attr_cell_name,  MY_GRID%dlon)
           istat = nf90_put_att(ncID, lon_ncID, attr_projection_name,'spherical')
           istat = nf90_put_att(ncID, lon_ncID, attr_map_h_name, MY_GRID%map_h)
-          !    
+          !
           istat = nf90_def_var(ncID, lat_nc_name ,NF90_MYTYPE, (/ny_ncID/), lat_ncID)
           istat = nf90_put_att(ncID, lat_ncID, attr_long_name, 'latitude')
           istat = nf90_put_att(ncID, lat_ncID, attr_short_name,'latitude')
@@ -5341,7 +5341,7 @@ CONTAINS
           istat = nf90_put_att(ncID, th_con_ncID, attr_units_name,attr_units)
        end if
        !
-       if(MY_ENS%nth_col_mass.gt.0) then       
+       if(MY_ENS%nth_col_mass.gt.0) then
           attr_desc  = 'column mass theshold values for exceedance_probability'
           attr_units = 'g/m2'
           istat = nf90_def_var(ncID, th_col_mass_nc_name, NF90_FLOAT, (/nth_col_mass_ncID/), th_col_mass_ncID)
@@ -5349,7 +5349,7 @@ CONTAINS
           istat = nf90_put_att(ncID, th_col_mass_ncID, attr_units_name,attr_units)
        end if
        !
-       if(MY_ENS%nth_col_mass_DU.gt.0) then      
+       if(MY_ENS%nth_col_mass_DU.gt.0) then
           attr_desc  = 'column mass theshold values for exceedance_probability'
           attr_units = 'DU'
           istat = nf90_def_var(ncID, th_col_mass_DU_nc_name, NF90_FLOAT, (/nth_col_mass_DU_ncID/), th_col_mass_DU_ncID)
@@ -5357,7 +5357,7 @@ CONTAINS
           istat = nf90_put_att(ncID, th_col_mass_DU_ncID, attr_units_name,attr_units)
        end if
        !
-       if(MY_ENS%nth_grn_load.gt.0) then     
+       if(MY_ENS%nth_grn_load.gt.0) then
           attr_desc  = 'ground load theshold values for exceedance_probability'
           attr_units = 'kg/m2'
           istat = nf90_def_var(ncID, th_grn_load_nc_name, NF90_FLOAT, (/nth_grn_load_ncID/), th_grn_load_ncID)
@@ -5365,7 +5365,7 @@ CONTAINS
           istat = nf90_put_att(ncID, th_grn_load_ncID, attr_units_name,attr_units)
        end if
        !
-       if(MY_ENS%nval_per.gt.0) then     
+       if(MY_ENS%nval_per.gt.0) then
           attr_desc  = 'Probability of exceedence values (percentiles) for intensity_measure variables'
           attr_units = 'in %'
           istat = nf90_def_var(ncID, val_per_nc_name, NF90_FLOAT, (/nval_per_ncID/), val_per_ncID)
@@ -5475,13 +5475,13 @@ CONTAINS
                 attr_axis  = 'Y'
                 name_nc    = TRIM(sblock)//TRIM(c_total_nc_name)//TRIM(ens_prb_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,nfl_ncID,th_con_ncID,nt_ncID/), ens_prb_ncID)
-                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_axis_name, attr_axis)
              end if
              !
-             !  Intensity Measure 
+             !  Intensity Measure
              !
              if(MY_ENS%postprocess_percentiles.and.MY_ENS%nval_per.gt.0) then
                 attr_short = TRIM(sblock)//TRIM(c_total_nc_name)//TRIM(ens_per_nc_name)
@@ -5490,7 +5490,7 @@ CONTAINS
                 attr_axis  = 'X'
                 name_nc    = TRIM(sblock)//TRIM(c_total_nc_name)//TRIM(ens_per_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,nfl_ncID,nval_per_ncID,nt_ncID/), ens_per_ncID)
-                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_axis_name, attr_axis)
@@ -5588,7 +5588,7 @@ CONTAINS
                 name_nc    = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_prb_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,nth_col_mass_DU_ncID,nt_ncID/), &
                                      ens_prb_ncID)
-                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_axis_name, attr_axis)
@@ -5601,14 +5601,14 @@ CONTAINS
                 name_nc    = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_prb_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,nth_col_mass_ncID,nt_ncID/),&
                                      ens_prb_ncID)
-                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_axis_name, attr_axis)
              end if
              end if
              !
-             !  Intensity Measure 
+             !  Intensity Measure
              !
              if(MY_ENS%postprocess_percentiles) then
              if( (spe_code.eq.SPE_SO2).and.(MY_ENS%nval_per.gt.0) ) then
@@ -5619,7 +5619,7 @@ CONTAINS
                 name_nc    = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_per_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,nval_per_ncID,nt_ncID/), &
                                      ens_per_ncID)
-                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_axis_name, attr_axis)
@@ -5632,7 +5632,7 @@ CONTAINS
                 name_nc    = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_per_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,nval_per_ncID,nt_ncID/),&
                                      ens_per_ncID)
-                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_axis_name, attr_axis)
@@ -5709,7 +5709,7 @@ CONTAINS
                 attr_axis  = 'Y'
                 name_nc    = TRIM(sblock)//TRIM(grn_nc_name)//TRIM(ens_prb_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,th_grn_load_ncID,nt_ncID/),ens_prb_ncID)
-                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_prb_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_prb_ncID, attr_axis_name, attr_axis)
@@ -5724,7 +5724,7 @@ CONTAINS
                 attr_axis  = 'X'
                 name_nc    = TRIM(sblock)//TRIM(grn_nc_name)//TRIM(ens_per_nc_name)
                 istat = nf90_def_var(ncID, name_nc,NF90_MYTYPE, (/nx_ncID,ny_ncID,nval_per_ncID,nt_ncID/),ens_per_ncID)
-                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short) 
+                istat = nf90_put_att(ncID, ens_per_ncID, attr_short_name,attr_short)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_long_name, attr_desc)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_units_name,attr_units)
                 istat = nf90_put_att(ncID, ens_per_ncID, attr_axis_name, attr_axis)
@@ -5755,7 +5755,7 @@ CONTAINS
        if(MY_ENS%nth_col_mass.gt.0) &
           istat = nf90_put_var(ncID, th_col_mass_ncID,MY_ENS%th_col_mass,start=(/1/),count=(/MY_ENS%nth_col_mass/))
        if(MY_ENS%nth_col_mass_DU.gt.0) &
-          istat = nf90_put_var(ncID, th_col_mass_DU_ncID,MY_ENS%th_col_mass_DU,start=(/1/),count=(/MY_ENS%nth_col_mass_DU/))            
+          istat = nf90_put_var(ncID, th_col_mass_DU_ncID,MY_ENS%th_col_mass_DU,start=(/1/),count=(/MY_ENS%nth_col_mass_DU/))
        if(MY_ENS%nth_grn_load.gt.0) &
           istat = nf90_put_var(ncID, th_grn_load_ncID,MY_ENS%th_grn_load,start=(/1/),count=(/MY_ENS%nth_grn_load/))
        if(MY_ENS%nval_per.gt.0) &
@@ -5779,7 +5779,7 @@ CONTAINS
                             iyr,imo,idy,ihr,imi,ise,MY_ENS%pp_timesec(it),MY_ERR)
           call time_dateformat(iyr,imo,idy,ihr,imi,ise,2_ip,out_date,MY_ERR)
           istat = nf90_put_var(ncID,date_ncID,out_date,start=(/1,it/))
-       end do   
+       end do
        !
        !*** Close the file
        !
@@ -5899,16 +5899,16 @@ CONTAINS
     !
     return
   end subroutine nc_IO_out_variable_5d
-  ! 
+  !
   subroutine nc_IO_read_variable_3d(file_name, var_name, var, n1, n2, n3, MY_ERR)
     implicit none
     !
     character(s_file),  intent(IN   ) :: file_name
     character(len=* ),  intent(IN   ) :: var_name
-    real(rp),           intent(INOUT) :: var(n1,n2,n3)
     integer(ip),        intent(IN   ) :: n1
     integer(ip),        intent(IN   ) :: n2
     integer(ip),        intent(IN   ) :: n3
+    real(rp),           intent(INOUT) :: var(n1,n2,n3)
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
     integer(ip)  :: ncID,varID
@@ -5940,11 +5940,11 @@ CONTAINS
     !
     character(s_file),  intent(IN   ) :: file_name
     character(len=* ),  intent(IN   ) :: var_name
-    real(rp),           intent(INOUT) :: var(n1,n2,n3,n4)
     integer(ip),        intent(IN   ) :: n1
     integer(ip),        intent(IN   ) :: n2
     integer(ip),        intent(IN   ) :: n3
     integer(ip),        intent(IN   ) :: n4
+    real(rp),           intent(INOUT) :: var(n1,n2,n3,n4)
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
     integer(ip)  :: ncID,varID

@@ -11,6 +11,7 @@ MODULE Phys
   use Parallel
   use Domain
   use Grid
+  use Ensemble
   implicit none
   save
   !
@@ -52,6 +53,7 @@ MODULE Phys
   integer(ip), parameter :: MOD_CONSTANT      = 1
   integer(ip), parameter :: MOD_CMAQ          = 2
   integer(ip), parameter :: MOD_SIMILARITY    = 3
+  integer(ip), parameter :: MOD_RAMS          = 4
   !
   ! Limiters
   integer(ip), parameter :: LIMITER_MINMOD   = 1
@@ -89,15 +91,17 @@ CONTAINS
   !>   @brief
   !>   Reads the MODEL_PHYSICS block form the input file
   !
-  subroutine phys_read_inp_model(MY_FILES,MY_MOD,MY_ERR)
+  subroutine phys_read_inp_model(MY_FILES,MY_MOD,MY_ENS,MY_ERR)
     implicit none
     !
     !>   @param MY_FILES  list of files
     !>   @param MY_MOD    model physics related parameters
+    !>   @param MY_ENS    list of ensemble parameters
     !>   @param MY_ERR    error handler
     !
     type(FILE_LIST),   intent(INOUT) :: MY_FILES
     type(MODEL_PHYS),  intent(INOUT) :: MY_MOD
+    type(ENS_PARAMS),  intent(IN   ) :: MY_ENS
     type(ERROR_STATUS),intent(INOUT) :: MY_ERR
     !
     real(rp)              :: file_version
@@ -189,12 +193,24 @@ CONTAINS
     call inpout_get_cha (file_inp, 'MODEL_PHYSICS','HORIZONTAL_TURBULENCE_MODEL',word, 1, MY_ERR, .true.)
     if(MY_ERR%flag.ne.0) return
     select case(word)
+       !
     case('CONSTANT')
        MY_MOD%modkh = MOD_CONSTANT
        call inpout_get_rea (file_inp,'MODEL_PHYSICS','HORIZONTAL_TURBULENCE_MODEL',MY_MOD%kh0,1,MY_ERR)
-       if(MY_ERR%flag.ne.0) return
+       if(MY_ERR%flag /= 0) return
+       !
     case('CMAQ')
        MY_MOD%modkh = MOD_CMAQ
+       !
+    case('RAMS')
+       MY_MOD%modkh = MOD_RAMS
+       MY_MOD%RAMS_CS = 0.2275_rp   ! Default value
+       call inpout_get_rea(file_inp,'MODEL_PHYSICS','RAMS_CS',MY_MOD%RAMS_CS,1,MY_ERR)
+       if(MY_ERR%flag /= 0) then
+          MY_ERR%flag = 0  ! Reset error flag  and issue a warning
+          call task_wriwarn(MY_ERR, 'RAMS_CS parameter not specified. A value of 0.2275 is assumed')
+       end if
+       !
     case default
        MY_ERR%flag    = 1
        MY_ERR%message = 'incorrect horizontal turbulence model '
@@ -244,6 +260,7 @@ CONTAINS
        !
        call inpout_get_rea (file_inp,'IF_GRAVITY_CURRENT','C_FLOW_RATE',rvoid,1,MY_ERR)
        if(MY_ERR%flag.ne.0) then
+          ! Default value (used if C_FLOW_RATE is not provided)
           MY_MOD%MY_GC%c_flow_rate = 0.43e3_rp
        else
           MY_MOD%MY_GC%c_flow_rate = rvoid
@@ -251,6 +268,7 @@ CONTAINS
        !
        call inpout_get_rea (file_inp,'IF_GRAVITY_CURRENT','LAMBDA_GRAV',rvoid,1,MY_ERR)
        if(MY_ERR%flag.ne.0) then
+          ! Default value (used if LAMBDA_GRAV is not provided)
           MY_MOD%MY_GC%lambda = 0.2_rp
        else
           MY_MOD%MY_GC%lambda = rvoid
@@ -258,6 +276,7 @@ CONTAINS
        !
        call inpout_get_rea (file_inp,'IF_GRAVITY_CURRENT','K_ENTRAIN',rvoid,1,MY_ERR)
        if(MY_ERR%flag.ne.0) then
+          ! Default value (used if K_ENTRAIN is not provided)
           MY_MOD%MY_GC%k_entrain = 0.1_rp
        else
           MY_MOD%MY_GC%k_entrain = rvoid
@@ -265,6 +284,7 @@ CONTAINS
        !
        call inpout_get_rea (file_inp,'IF_GRAVITY_CURRENT','BRUNT_VAISALA',rvoid,1,MY_ERR)
        if(MY_ERR%flag.ne.0) then
+          ! Default value (used if BRUNT_VAISALA is not provided)
           MY_MOD%MY_GC%brunt_vaisala = 0.02_rp
        else
           MY_MOD%MY_GC%brunt_vaisala = rvoid
@@ -286,6 +306,22 @@ CONTAINS
           return
        else
           MY_MOD%MY_GC%end_time = rvoid*3600.0_rp  ! h --> s
+       end if
+       ! Gravity current minimum radius (if not set or value equal zero, then calculate)
+       call inpout_get_rea (file_inp,'IF_GRAVITY_CURRENT','MINIMUM_RADIUS',rvoid,1,MY_ERR)
+       if(MY_ERR%flag.ne.0) then
+          MY_MOD%MY_GC%input_min_radius = 0.0_rp  ! default (not given)
+       else
+          MY_MOD%MY_GC%input_min_radius = max(rvoid, 0.0_rp)
+       end if
+       !
+       !*** If necessary, perturbate start/end times
+       !
+       if(nens.gt.1) then
+          rvoid = MY_MOD%MY_GC%end_time - MY_MOD%MY_GC%start_time ! compute duration
+          rvoid = ensemble_perturbate_variable(ID_SOURCE_DURATION,rvoid,MY_ENS)
+          MY_MOD%MY_GC%start_time = ensemble_perturbate_variable(ID_SOURCE_START,MY_MOD%MY_GC%start_time,MY_ENS)
+          MY_MOD%MY_GC%end_time   = MY_MOD%MY_GC%start_time + rvoid
        end if
        !
        call inpout_get_rea (file_inp, 'SOURCE','LON_VENT',MY_MOD%MY_GC%lon, 1, MY_ERR)
@@ -343,16 +379,18 @@ CONTAINS
     call parallel_bcast(MY_MOD%CFL_safety_factor ,1,0)
     call parallel_bcast(MY_MOD%kh0               ,1,0)
     call parallel_bcast(MY_MOD%kv0               ,1,0)
+    call parallel_bcast(MY_MOD%RAMS_CS           ,1,0)
     !
     if(MY_MOD%gravity_current) then
-       call parallel_bcast(MY_MOD%MY_GC%c_flow_rate   ,1,0)
-       call parallel_bcast(MY_MOD%MY_GC%lambda        ,1,0)
-       call parallel_bcast(MY_MOD%MY_GC%k_entrain     ,1,0)
-       call parallel_bcast(MY_MOD%MY_GC%brunt_vaisala ,1,0)
-       call parallel_bcast(MY_MOD%MY_GC%start_time    ,1,0)
-       call parallel_bcast(MY_MOD%MY_GC%end_time      ,1,0)
-       call parallel_bcast(MY_MOD%MY_GC%lon           ,1,0)
-       call parallel_bcast(MY_MOD%MY_GC%lat           ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%c_flow_rate      ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%lambda           ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%k_entrain        ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%brunt_vaisala    ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%start_time       ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%end_time         ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%lon              ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%lat              ,1,0)
+       call parallel_bcast(MY_MOD%MY_GC%input_min_radius ,1,0)
     end if
     !
     return
@@ -396,7 +434,7 @@ CONTAINS
     !
     integer(ip) :: i,j,k
     real(rp)    :: dx,dy,dudx,dvdx,dudy,dvdy
-    real(rp)    :: alfa,kht,khn,khf,khn0,rkhmin,landac
+    real(rp)    :: alfa,kht,khn,khf,khn0,kmh,rkhmin,landac
     real(rp)    :: ust,mon,pblh,z,fih,fc,Ri,lc
     real(rp)    :: z1,z2,u1,u2,v1,v2,umod1,umod2,umod,Tv1,Tv2
     !
@@ -458,10 +496,60 @@ CONTAINS
                 kht = alfa*alfa*dx*dy*sqrt( (dudx-dvdy)**2 + (dvdx+dudy)**2 )
                 khn = khf*(Khn0/(MY_GRID%Hm1_p(j)*MY_GRID%dlon))*(Khn0/(MY_GRID%Hm2_p(j)*MY_GRID%dlat))
                 !
-                my_k1(i,j,k) = (1.0_rp/Kht) + (1.0_rp/Khn)
-                my_k1(i,j,k) = max(1.0_rp/my_k1(i,j,k),rkhmin)
+                if(kht < 1.0_rp .and. khn < 1.0_rp) then  ! Avoids division by zero
+                   my_k1(i,j,k) = rkhmin
+                else
+                   my_k1(i,j,k) = max(kht*khn/(kht+khn), rkhmin)
+                end if
                 my_k2(i,j,k) = my_k1(i,j,k)
                 !
+             end do
+          end do
+       end do
+       !
+       my_k1(my_ips_2h  ,:,:) = my_k1(my_ips,:,:)
+       my_k1(my_ips_2h+1,:,:) = my_k1(my_ips,:,:)
+       my_k1(my_ipe_2h  ,:,:) = my_k1(my_ipe,:,:)
+       my_k1(my_ipe_2h-1,:,:) = my_k1(my_ipe,:,:)
+       !
+       do k = my_kps,my_kpe
+          do j = my_jps,my_jpe
+             call domain_swap_mass_points_2halo_1dx(my_k1(:,j,k))
+          end do
+       end do
+       !
+       my_k2(:,my_jps_2h  ,:) = my_k2(:,my_jps,:)
+       my_k2(:,my_jps_2h+1,:) = my_k2(:,my_jps,:)
+       my_k2(:,my_jpe_2h  ,:) = my_k2(:,my_jpe,:)
+       my_k2(:,my_jpe_2h-1,:) = my_k2(:,my_jpe,:)
+       !
+       do k = my_kps,my_kpe
+          do i = my_ips,my_ipe
+             call domain_swap_mass_points_2halo_1dy(my_k2(i,:,k))
+          end do
+       end do
+       !
+    case (MOD_RAMS)
+       do k = my_kps, my_kpe
+          do j = my_jps, my_jpe
+             do i = my_ips, my_ipe
+                !
+                dx = MY_GRID%dX1_p(i)*MY_GRID%Hm1_p(j)
+                dy = MY_GRID%dX2_p(j)*MY_GRID%Hm2_p(j)
+                !
+                dudx = 0.5_rp*(my_uc(i+1,j  ,k) - my_uc(i,j,k) + my_uc(i+1,j+1,k) - my_uc(i  ,j+1,k))/dx
+                dvdx = 0.5_rp*(my_vc(i+1,j  ,k) - my_vc(i,j,k) + my_vc(i+1,j+1,k) - my_vc(i  ,j+1,k))/dx
+                dudy = 0.5_rp*(my_uc(i  ,j+1,k) - my_uc(i,j,k) + my_uc(i+1,j+1,k) - my_uc(i+1,j  ,k))/dy
+                dvdy = 0.5_rp*(my_vc(i  ,j+1,k) - my_vc(i,j,k) + my_vc(i+1,j+1,k) - my_vc(i+1,j  ,k))/dy
+                !
+                ! Parameter in RAMS formula
+                kmh   = 0.075_rp*((dx*dy)**(2.0_rp/3.0_rp))
+                my_k1(i,j,k) = MY_MOD%RAMS_CS**2*dx*dy*sqrt((dudy+dvdx)**2 + 2.0_rp*(dudx**2+dvdy**2))
+                !
+                !***               Here assume a Pr=1
+                !
+                my_k1(i,j,k) = max(my_k1(i,j,k), kmh, rkhmin)
+                my_k2(i,j,k) = my_k1(i,j,k)
              end do
           end do
        end do
@@ -1283,7 +1371,7 @@ CONTAINS
     !
     type(MODEL_PHYS),     intent(IN   ) :: MY_MOD
     real(rp),             intent(IN   ) :: dt
-    real(rp),             intent(INOUT) :: my_pre (my_ips:my_ipe,      my_jps:my_jpe)
+    real(rp),             intent(IN   ) :: my_pre (my_ips:my_ipe,      my_jps:my_jpe)
     real(rp),             intent(IN   ) :: my_pblh(my_ips:my_ipe,      my_jps:my_jpe)
     real(rp),             intent(IN   ) :: my_hc  (my_ibs:my_ibe,      my_jbs:my_jbe)
     real(rp),             intent(IN   ) :: my_zc  (my_ibs:my_ibe,      my_jbs:my_jbe,      my_kbs:my_kbe)
@@ -1309,7 +1397,8 @@ CONTAINS
     do j = my_jps,my_jpe
        do i = my_ips,my_ipe
           !
-          my_pre(i,j) = max(0.0_rp,my_pre(i,j))
+          !LAM: check posivity in SetDBS
+          !my_pre(i,j) = max(0.0_rp,my_pre(i,j))
           lambda      = min(1.0_rp, dt*a*(my_pre(i,j)**b))
           pblh        = my_pblh(i,j)
           ho          = 0.25_rp*(my_hc(i,j)+my_hc(i+1,j)+my_hc(i,j+1)+my_hc(i+1,j+1)) ! topo at mass point
@@ -1317,7 +1406,7 @@ CONTAINS
           do k = my_kps,my_kpe
              zp1 = 0.25_rp*(my_zc(i,j,k  ) + my_zc(i+1,j,k  ) + my_zc(i,j+1,k  ) + my_zc(i+1,j+1,k  ))  ! zp at mass point
              zp2 = 0.25_rp*(my_zc(i,j,k+1) + my_zc(i+1,j,k+1) + my_zc(i,j+1,k+1) + my_zc(i+1,j+1,k+1))  ! zp at mass point
-             zp  = 0.5_rp*(zp1+zp2)    
+             zp  = 0.5_rp*(zp1+zp2)
              !
              if((ho+zp).le.pblh) then
                 my_awet(i,j) = my_awet(i,j) + dX3_p(k)*lambda*my_c(i,j,k)
@@ -1597,8 +1686,11 @@ CONTAINS
     !
     real(rp), intent(IN   ) :: Tv1,Tv0,umod,z1,z0
     real(rp), intent(INOUT) :: Rib
+    real(rp) :: umod2
     !
-    Rib = GI*(z1-z0)*(Tv1-Tv0)/(umod*umod*0.5_rp*(Tv1+Tv0))   ! Richardson bulk
+    umod2 = max(umod*umod, 1e-18_rp)  ! @@@ Avoids divide by zero
+    !
+    Rib = GI*(z1-z0)*(Tv1-Tv0)/(umod2*0.5_rp*(Tv1+Tv0))   ! Richardson bulk
     !
     return
   end subroutine phys_get_Rib

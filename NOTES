@@ -1,10 +1,15 @@
 -------------------------------
-Version      : 8.1.2
-Release date : 
+Version      : 8.2.0
+Release date : 29 July 2022 
 -------------------------------
 
 * Added concentration at surface output
 * File extensions changed from f90 to F90 (except mod_Configure.f90.in)
+* Ported to accelerators using OpenACC (on branch master_gpu)
+* Gravity current bug corrected
+* Added wind rotation
+* Added RAMS diffusion model
+* Correction of minor bugs
 
 -------------------------------
 Version      : 8.1.1

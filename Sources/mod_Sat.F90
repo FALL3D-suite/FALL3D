@@ -197,7 +197,7 @@ CONTAINS
        MY_SAT_DATA%thick = ensemble_perturbate_variable( ID_CLOUD_THICKNESS, &
                                                          MY_SAT_DATA%thick,  &
                                                          MY_ENS )
-    end if 
+    end if
     !
     !*** Interpolate data imposing mass conservation
     !
@@ -295,7 +295,7 @@ CONTAINS
     !*** Set the (averaged) concentration. Note that concentration is already scaled (i.e. no
     !*** need to first divide and then multiply by map factors)
     !
-    MY_TRA%my_c(:,:,:,:) = 0.0_rp 
+    MY_TRA%my_c(:,:,:,:) = 0.0_rp
     !
     do iz = my_kps,my_kpe
     do iy = my_jps,my_jpe
@@ -385,7 +385,7 @@ CONTAINS
     type(ERROR_STATUS),    intent(INOUT) :: MY_ERR
     !
     integer(ip)                          :: ipoin,is
-    real(rp)                             :: xs,ys 
+    real(rp)                             :: xs,ys
     real(rp)                             :: lonmin,lonmax,latmin,latmax
     type(SAT_DATA)                       :: GL_SAT_DATA
     logical, allocatable                 :: obs_valid(:)
@@ -407,15 +407,15 @@ CONTAINS
     !LAM: It will not end all tasks (only the filter ones)
     !when data is assimilated. CORRECT IT!
     call parallel_bcast(MY_ERR%flag,1,0)
-    !The error could be related to no valid points detected. 
+    !The error could be related to no valid points detected.
     !What to do in this case?
     if(MY_ERR%flag.ne.0) call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
     !
     ! Allocate data in GL_SAT_DATA for non-master PEs and broadcast
     call sat_bcast_data(GL_SAT_INFO,GL_SAT_DATA,MY_ERR)
     !
-    MY_SAT_DATA%time    = GL_SAT_DATA%time 
-    MY_SAT_DATA%timesec = GL_SAT_DATA%timesec 
+    MY_SAT_DATA%time    = GL_SAT_DATA%time
+    MY_SAT_DATA%timesec = GL_SAT_DATA%timesec
     !
     allocate(obs_valid(GL_SAT_DATA%np))
     obs_valid(:) = .false.
@@ -428,13 +428,13 @@ CONTAINS
     ipoin = 0
     !
     ! loop over potential source points
-    count_my_obs: do is = 1,GL_SAT_DATA%np 
+    count_my_obs: do is = 1,GL_SAT_DATA%np
        !
        xs = GL_SAT_DATA%lon(is)
        ys = GL_SAT_DATA%lat(is)
        !
        !Check latitudes
-       if(ys.lt.latmin .or. ys.ge.latmax) cycle count_my_obs 
+       if(ys.lt.latmin .or. ys.ge.latmax) cycle count_my_obs
        !
        !Check longitudes (all in [-180,180))
        if(lonmin.lt.lonmax) then
@@ -474,7 +474,7 @@ CONTAINS
           if(obs_valid(is)) then
               ipoin = ipoin + 1
               MY_SAT_DATA%lon  (ipoin) = GL_SAT_DATA%lon  (is)
-              MY_SAT_DATA%lat  (ipoin) = GL_SAT_DATA%lat  (is) 
+              MY_SAT_DATA%lat  (ipoin) = GL_SAT_DATA%lat  (is)
               MY_SAT_DATA%area (ipoin) = GL_SAT_DATA%area (is)
           end if
         end do
@@ -561,7 +561,7 @@ CONTAINS
     MY_ERR%message = ' '
     !
     file_in = MY_FILES%file_sat
-    !    
+    !
     nt = GL_SAT_INFO%nt
     nx = GL_SAT_INFO%nx
     ny = GL_SAT_INFO%ny
@@ -634,12 +634,12 @@ CONTAINS
     select case(GL_SAT_INFO%tracer_code)
     case(SPE_SO2)
        where(GL_SAT_DATA2D%mass.ne.FillValue)
-           ! DU --> g/m2 --> kg/m2.  
-           ! Molecular mass SO2 = 64 gr/mol; 
+           ! DU --> g/m2 --> kg/m2.
+           ! Molecular mass SO2 = 64 gr/mol;
            ! Avogadro/1DU = 2.238e3_rp
            GL_SAT_DATA2D%mass = GL_SAT_DATA2D%mass * 64.0_rp / 2.238e3_rp / 1e3_rp
        elsewhere
-           GL_SAT_DATA2D%mass = GL_SAT_DATA2D%fill_value 
+           GL_SAT_DATA2D%mass = GL_SAT_DATA2D%fill_value
        endwhere
     case default
        where(GL_SAT_DATA2D%mass.ne.FillValue)
@@ -661,7 +661,7 @@ CONTAINS
   !-----------------------------------------
   !
   !>   @brief
-  !>   Master broadcasts the satellite gridded data 
+  !>   Master broadcasts the satellite gridded data
   !
   subroutine sat_bcast_sat_data2d(GL_SAT_INFO,GL_SAT_DATA2D,MY_ERR)
     implicit none
@@ -1006,11 +1006,10 @@ CONTAINS
     type(ERROR_STATUS),    intent(INOUT) :: MY_ERR
     !
     integer(ip)           :: istat,it,lulog
-    integer(ip)           :: ref_year,ref_month,ref_day,ref_hour,ref_min 
     integer(ip)           :: iyr,imo,idy,ihr,imi,ise
     integer(ip)           :: julday1,julday2
     real(rp)              :: time_lag
-    character(len=s_name) :: str,timeunit_string
+    character(len=s_name) :: timeunit_string
     character(len=24)     :: time_str1,time_str2
     real(rp)              :: time_factor
     type(DATETIME)        :: time_ref
@@ -1134,7 +1133,7 @@ CONTAINS
     !*** Convert timesec to seconds after 00:00 UTC
     !*** of FALL3D reference time (instead of time_ref)
     do it = 1,GL_SAT_INFO%nt
-       GL_SAT_INFO%timesec(it) = GL_SAT_INFO%timesec(it) - time_lag 
+       GL_SAT_INFO%timesec(it) = GL_SAT_INFO%timesec(it) - time_lag
     end do
     !
     !*** Read global attributes
@@ -1163,7 +1162,7 @@ CONTAINS
        else if(TRIM(GL_SAT_INFO%tracer_type).eq.'DUST') then
          GL_SAT_INFO%tracer_code = SPE_DUST
        else if(TRIM(GL_SAT_INFO%tracer_type).eq.'SO2') then
-         GL_SAT_INFO%tracer_code = SPE_SO2 
+         GL_SAT_INFO%tracer_code = SPE_SO2
        else if(TRIM(GL_SAT_INFO%tracer_type).eq.'H2O') then
          GL_SAT_INFO%tracer_code = SPE_H2O
        else
@@ -1275,12 +1274,12 @@ CONTAINS
     if(GL_SAT_INFO%include_zeros) then
         strong_filter = .False.
     else
-        ! Include only positive values 
+        ! Include only positive values
         strong_filter = .True.
     end if
     !
     file_in = MY_FILES%file_sat
-    !    
+    !
     it = GL_SAT_INFO%islab
     nx = GL_SAT_INFO%nx
     ny = GL_SAT_INFO%ny
@@ -1354,10 +1353,10 @@ CONTAINS
         !
         select case(GL_SAT_INFO%tracer_code)
         case(SPE_SO2)
-            ! Molecular mass SO2 = 64 gr/mol 
+            ! Molecular mass SO2 = 64 gr/mol
             ! Avogadro/1DU = 2.238e3_rp
             ! DU --> g/m2 --> kg/m2
-            sat_mass = sat_mass * 64.0_rp / 2.238e3_rp / 1e3_rp 
+            sat_mass = sat_mass * 64.0_rp / 2.238e3_rp / 1e3_rp
         case default
             ! g/m2 --> kg/m2
             sat_mass = sat_mass * 1E-3_rp
@@ -1439,7 +1438,7 @@ CONTAINS
     if(istat.eq.nf90_noerr) then
         where(sat_lat.eq.fill_value) sat_mask = 1_ip
     end if
-    !  
+    !
     ! Top height
     if(GL_SAT_INFO%mandatory(VAR_HTOP)) then
         allocate(sat_htop(nx,ny))
@@ -1464,7 +1463,7 @@ CONTAINS
         sat_htop  = sat_htop  * 1E3_rp
         !
     end if
-    !  
+    !
     ! Cloud thick
     if(GL_SAT_INFO%mandatory(VAR_THICK)) then
         allocate(sat_thick(nx,ny))
@@ -1489,7 +1488,7 @@ CONTAINS
         sat_thick = sat_thick * 1E3_rp
         !
     end if
-    !  
+    !
     ! Mass loading error
     if(GL_SAT_INFO%mandatory(VAR_ERROR)) then
         allocate(sat_error(nx,ny))
@@ -1512,10 +1511,10 @@ CONTAINS
         !
         select case(GL_SAT_INFO%tracer_code)
         case(SPE_SO2)
-            ! Molecular mass SO2 = 64 gr/mol 
+            ! Molecular mass SO2 = 64 gr/mol
             ! Avogadro/1DU = 2.238e3_rp
             ! DU --> g/m2 --> kg/m2
-            sat_error = sat_error * 64.0_rp / 2.238e3_rp / 1e3_rp 
+            sat_error = sat_error * 64.0_rp / 2.238e3_rp / 1e3_rp
         case default
             ! g/m2 --> kg/m2
             sat_error = sat_error * 1E-3_rp
@@ -1527,8 +1526,8 @@ CONTAINS
     !
     latmin = MY_GRID%latmin
     latmax = MY_GRID%latmax
-    lonmin = MY_GRID%lonmin 
-    lonmax = MY_GRID%lonmax 
+    lonmin = MY_GRID%lonmin
+    lonmax = MY_GRID%lonmax
     !
     ! Longitudes in the interval [-180,180)
     if(lonmin.ge.180.0_rp) lonmin = lonmin - 360.0
@@ -1670,8 +1669,8 @@ CONTAINS
            'SATELLITE DATA'                                             ,/, &
            '  Time slab          :  ',i9                                ,/, &
            '  Time data          :  ',I4,2('-',I2.2),1x,I2.2,2(':',I2.2),/, &
-           '  Filtered points    :  ',i9 )  
+           '  Filtered points    :  ',i9 )
     !
   end subroutine sat_get_data
-  ! 
+  !
 END MODULE Sat

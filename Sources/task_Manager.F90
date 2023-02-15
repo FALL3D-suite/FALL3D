@@ -139,7 +139,7 @@
     call get_command_argument (iargs,what)
     call upcase(what)
     if(what.eq.'-NENS') then
-        iargs = iargs + 1 
+        iargs = iargs + 1
         if(iargs.le.narg) then
             call get_command_argument (iargs,what)
             nens = INT(stof(what,LEN_TRIM(what)))

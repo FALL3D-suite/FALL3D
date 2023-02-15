@@ -58,7 +58,7 @@ subroutine task_SetDbs
   !
   !*** Master reads and broadcasts METEO_DATA block from input file
   !
-  if(master_model) call dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METPROFILES, MY_ERR)
+  if(master_model) call dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METMODEL, GL_METPROFILES, MY_ERR)
   !
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)

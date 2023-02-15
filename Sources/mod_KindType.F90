@@ -34,6 +34,7 @@ MODULE KindType
   integer(ip), parameter :: TASK_POS_ENS    = 6              !< PosEns   task flag
   integer(ip), parameter :: TASK_POS_VAL    = 7              !< Validate task flag
   !
+  integer(ip), parameter :: HARDWARE_TYPE    = 0             !< 0 General purpose, 1 NVIDIA GPU, 2 AMD GPU
   integer(ip), parameter :: LOG_LEVEL_NONE   = 0             !< log file level flag for none
   integer(ip), parameter :: LOG_LEVEL_NORMAL = 1             !< log file level flag for normal
   integer(ip), parameter :: LOG_LEVEL_FULL   = 2             !< log file level flag for full
@@ -408,6 +409,8 @@ MODULE KindType
      real(rp)    :: mass_flow_rate               !< current total MER
      real(rp)    :: h_tot                        !< current column heigh (top)
      real(rp)    :: vol_flow_rate                !< current volumetric flow rate
+     real(rp)    :: input_min_radius             !< input minimum radius
+     real(rp)    :: min_radius                   !< current minimum radius
      real(rp)    :: max_radius                   !< current maximum radius
      real(rp)    :: radius_grav                  !< current radius
      real(rp)    :: th_grav                      !< current thickness
@@ -432,6 +435,7 @@ MODULE KindType
      real(rp)    :: CFL_safety_factor            !< Courant-Friedrichs-Lewy (i.e. safety factor value <1)
      real(rp)    :: kh0                          !< horizontal diffusion default (constant) value
      real(rp)    :: kv0                          !< vertical   diffusion default (constant) value
+     real(rp)    :: rams_cs                      !< CS parameter for RAMS model
      real(rp)    :: wet_deposition_a = 8.4e-5_rp !< wet deposition a (default from Jung and Shao 2006)
      real(rp)    :: wet_deposition_b = 0.79_rp   !< wet deposition b (default from Jung and Shao 2006)
      real(rp)    :: dry_deposition_a(6,4)        !< dry deposition a (default from Feng et al.   2008)
@@ -589,6 +593,15 @@ MODULE KindType
      type(DATETIME), allocatable :: time(:)  !< time(nt)    met model time steps
      real(rp), allocatable :: timesec(:)     !< timesec(nt) met model time steps sec after 0000UTC
      !
+     ! Rotation of the meteo field about a pole
+     logical  :: rotate_meteo = .false.      !< Rotate the whole meteorological field
+     real(rp) :: rotation_latpole            !< Latitude of the meteo rotation pole
+     real(rp) :: rotation_lonpole            !< Longitude of the meteo rotation pole
+     real(rp) :: rotation_angle              !< Meteo rotation angle about the pole
+     ! Scale wind intensity
+     logical  :: scale_wind = .false.        !< Scale the wind velocity components
+     real(rp) :: scale_wind_factor           !< Scale wind factor
+     !
   end type METEO_MODEL
   !
   !>   type METEO_PROFILE: definition of all variables related to nt vertical profiles of meteo variables
@@ -706,7 +719,8 @@ MODULE KindType
      !
      logical     :: go_on          !< run     flag
      logical     :: restart        !< restart flag
-     logical     :: insertion      !< restart flag
+     logical     :: insertion      !< insertion flag
+     logical     :: update_step    !< update timestep flag
      !
      integer(ip) :: start_year     !< run start year
      integer(ip) :: start_month    !< run start month

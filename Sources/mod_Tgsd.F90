@@ -247,6 +247,18 @@ CONTAINS
        !
     end select
     !
+    !*** If necessary, perturbate fi_mean in ensemble runs (fine mode only)
+    !
+    if(nens.gt.1) then
+       if(MY_TGSD%ng.eq.2) then
+           MY_TGSD%fimean(2) = ensemble_perturbate_variable( ID_FI_MEAN, &
+                                                             MY_TGSD%fimean(2), MY_ENS )
+       else
+           MY_TGSD%fimean(1) = ensemble_perturbate_variable( ID_FI_MEAN, &
+                                                             MY_TGSD%fimean(1), MY_ENS )
+       end if
+    end if
+    !
     call inpout_get_int (file_inp, sblock,'NUMBER_OF_BINS', MY_TGSD%nbins, 1, MY_ERR)
     if(MY_ERR%flag.ne.0) return
     !

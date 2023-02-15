@@ -11,7 +11,7 @@
   !
   use KindType
   use Shared,   only: MY_FILES, MY_ERR, MY_ENS, nens
-  use Parallel 
+  use Parallel
   use InpOut
   use Ensemble
   implicit none
@@ -42,7 +42,7 @@
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_ENS, MY_FILES, MY_ERR)
   !
   !*** If necessary create folders for all ensemble members
-  ! 
+  !
   if(master_model) call EXECUTE_COMMAND_LINE('mkdir -p '//MY_FILES%problempath, EXITSTAT=MY_ERR%flag)
   !
   allocate(ierror(0:npes_world))
@@ -122,7 +122,7 @@
          write(MY_FILES%lulog,30) iens,(random(iens,iper),iper=1,nper)
       end do
   end if
-  !      
+  !
 20 format(/, &
           '  RANDOM_NUMBERS_FROM_FILE:   ',L2,/,/, &
           '  ENSEMBLE_MEMBER  ',*(a16),/, &

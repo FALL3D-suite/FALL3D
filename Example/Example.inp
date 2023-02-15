@@ -12,7 +12,7 @@
  CODE
  ----
    !
-   VERSION 8.1
+   VERSION 8.2.0
    !
  --------
  TIME_UTC
@@ -461,8 +461,9 @@ SOURCE
    !  CFL_SAFETY_FACTOR                              : value (default 0.9)
    !
    !  TERMINAL_VELOCITY_MODEL               options  : ARASTOOPOUR / GANSER / WILSON / DELLINO / PFEIFFER / DIOGUARDI2017 / DIOGUARDI2018
-   !  HORIZONTAL_TURBULENCE_MODEL           options  : CONSTANT = value / CMAQ
+   !  HORIZONTAL_TURBULENCE_MODEL           options  : CONSTANT = value / CMAQ / RAMS
    !  VERTICAL_TURBULENCE_MODEL             options  : CONSTANT = value / SIMILARITY
+   !  RAMS_CS                                        : value. Only used if HORIZONTAL_TURBULENCE_MODEL = RAMS 
    !  WET_DEPOSITION                        options  : YES/NO
    !  DRY_DEPOSITION                        options  : YES/NO
    !  GRAVITY_CURRENT                       options  : YES/NO. Activate GC  based on Suzuki & Koyaguchi (2009)
@@ -479,8 +480,9 @@ SOURCE
    CFL_SAFETY_FACTOR           = 0.9
    !
    TERMINAL_VELOCITY_MODEL     = GANSER
-   HORIZONTAL_TURBULENCE_MODEL CMAQ
+   HORIZONTAL_TURBULENCE_MODEL = CMAQ
    VERTICAL_TURBULENCE_MODEL   constant = 0.0 ! SIMILARITY
+   RAMS_CS                     = 0.2275
    WET_DEPOSITION              = no
    DRY_DEPOSITION              = no
    GRAVITY_CURRENT             = no

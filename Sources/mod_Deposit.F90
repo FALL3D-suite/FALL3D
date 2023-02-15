@@ -17,9 +17,9 @@ MODULE Deposit
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
   PUBLIC :: deposit_get_depdata
-  PUBLIC :: deposit_bcast_depdata 
+  PUBLIC :: deposit_bcast_depdata
   PUBLIC :: deposit_get_ptsdata
-  PUBLIC :: deposit_bcast_ptsdata 
+  PUBLIC :: deposit_bcast_ptsdata
   !
   !    LIST OF PRIVATE ROUTINES IN THE MODULE
   !
@@ -121,7 +121,7 @@ CONTAINS
     MY_ERR%flag    = 0
     MY_ERR%source  = 'deposit_get_depdata'
     MY_ERR%message = ' '
-    !  
+    !
     !*** Define dictionary
     !
     if(MY_FILES%file_tbl_dep.eq.'-') then
@@ -179,7 +179,7 @@ CONTAINS
        else if(TRIM(GL_DEP_DATA%tracer_type).eq.'DUST') then
          GL_DEP_DATA%tracer_code = SPE_DUST
        else if(TRIM(GL_DEP_DATA%tracer_type).eq.'SO2') then
-         GL_DEP_DATA%tracer_code = SPE_SO2 
+         GL_DEP_DATA%tracer_code = SPE_SO2
        else if(TRIM(GL_DEP_DATA%tracer_type).eq.'H2O') then
          GL_DEP_DATA%tracer_code = SPE_H2O
        else
@@ -270,7 +270,7 @@ CONTAINS
     else
        GL_DEP_DATA%EXISTS(VAR_MASK) = .false.
        GL_DEP_DATA%mask = 0.0_rp
-    end if    
+    end if
     !
     !*** Close the file
     !
@@ -314,7 +314,7 @@ CONTAINS
     !
     type(DEP_DATA),      intent(INOUT) :: GL_DEP_DATA
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
-    !   
+    !
     integer(ip) :: npoin
     !
     !*** Initializations
@@ -384,7 +384,7 @@ CONTAINS
     cm_to_mm             = .false.
     proceed              = .true.
     !
-    GL_DEP_PTS%tracer_type = 'TEPHRA' 
+    GL_DEP_PTS%tracer_type = 'TEPHRA'
     GL_DEP_PTS%tracer_code = SPE_TEPHRA
     !
     !*** First decode the dictionary table
@@ -393,7 +393,7 @@ CONTAINS
     open(90,FILE=TRIM(fname),STATUS='old',ERR=101)
     !
     ncol = 0           ! number of expected columns
-    do 
+    do
        read(90,'(a512)',END=100) card
        call inpout_sdecode(card,words,param,nword,npar)
        if(npar.gt.0) then
@@ -409,7 +409,7 @@ CONTAINS
        end if
     end do
 100 close(90)
-    ! 
+    !
     !*** Read the pts file
     !
     fname = MY_FILES%file_dep
@@ -434,13 +434,13 @@ CONTAINS
     !
     ipts = 0
     open(90,FILE=TRIM(fname),STATUS='old',ERR=101)
-    do 
+    do
        read(90,'(a512)',END=200) card
        call inpout_sdecode(card,words,param,nword,npar)
        !
        if(npar.gt.0) then         ! decode this line
           proceed = .true.
-          if(nword.eq.1) then 
+          if(nword.eq.1) then
              label_is_string = .true.
              if(npar.ne.ncol-1) proceed = .false.
           else
@@ -469,7 +469,7 @@ CONTAINS
              if(GL_DEP_PTS%EXISTS(VAR_LOAD )) GL_DEP_PTS%mass (ipts) = param(CODE(VAR_LOAD ))
              if(GL_DEP_PTS%EXISTS(VAR_THICK)) GL_DEP_PTS%thick(ipts) = param(CODE(VAR_THICK))
           end select
-          !  
+          !
           !*** convert units if necessary
           !
           if(cm_to_mm) GL_DEP_PTS%thick(ipts) = 10.0_rp*GL_DEP_PTS%thick(ipts)  ! thick in mm
@@ -536,7 +536,7 @@ CONTAINS
     !
     type(DEP_PTS),      intent(INOUT) :: GL_DEP_PTS
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
-    !   
+    !
     integer(ip) :: npoin,i
     !
     !*** Initializations
@@ -570,12 +570,12 @@ CONTAINS
     return
   end subroutine deposit_bcast_ptsdata
   !
-  ! 
+  !
   !
   !        MODULE PRIVATE ROUTINES
   !
   !
-  ! 
+  !
   !-----------------------------------------
   !    subroutine dep_set_dictionary
   !-----------------------------------------

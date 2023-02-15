@@ -21,7 +21,7 @@ endif
 # Parallel version
 if WITH_MPI
   AM_FCFLAGS += -DWITH_MPI
-  COMPILER=$(MPIF90)
+  COMPILER=$(MPIFORT)
 else
   COMPILER=$(FC)
 endif

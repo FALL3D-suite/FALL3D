@@ -8,7 +8,7 @@ EXTRA_DIST  = AUTHOR LICENSE Example Other build
 EXTRA_DIST += Manual/Makefile Manual/fall3d.doxygen.config
 #
 # Set flags for aclocal (specifies the macro searching path)
-# ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I m4
 
 # Remove these files with 'make clean'
 CLEANFILES = *~

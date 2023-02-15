@@ -1,6 +1,6 @@
 !***********************************************************************
 !>
-!> Module for Validation operations 
+!> Module for Validation operations
 !> @author
 !> Arnau Folch
 !>
@@ -34,10 +34,10 @@ MODULE Validation
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
-  PUBLIC :: validation_read_inp 
+  PUBLIC :: validation_read_inp
   PUBLIC :: validation_bcast_inp_params
-  PUBLIC :: validation_read_res_params 
-  PUBLIC :: validation_bcast_res_params 
+  PUBLIC :: validation_read_res_params
+  PUBLIC :: validation_bcast_res_params
   PUBLIC :: validation_interpolate_sat_obs
   PUBLIC :: validation_interpolate_dep_obs
   PUBLIC :: validation_interpolate_dep_pts
@@ -148,14 +148,14 @@ MODULE Validation
     !
     logical :: metric_histogram           !< type of metric
     logical :: metric_categoric           !< type of metric
-    logical :: metric_brier               !< type of metric 
+    logical :: metric_brier               !< type of metric
     logical :: metric_quantitative_grid   !< type of metric
     logical :: metric_quantitative_pts    !< type of metric
     !
     character(s_file) :: var_name         !< current validated variable
     character(s_file) :: obs_name         !< current observatio type
     !
-    integer(ip) :: nth                    !< number of thresholds 
+    integer(ip) :: nth                    !< number of thresholds
     integer(ip) :: nens                   !< number of ensembles
     !
     real(rp) :: GFMS                      !< Generalised Figure Merit of Space        (GFMS)
@@ -166,12 +166,12 @@ MODULE Validation
     real(rp) :: BS                        !< Brier score                              (BS  )
     real(rp) :: NRMSE                     !< Normalized Root mean square error        (NRMSE)
     !
-    integer(ip), allocatable :: histogram(:) 
-    real(rp),    allocatable :: threshold(:) 
+    integer(ip), allocatable :: histogram(:)
+    real(rp),    allocatable :: threshold(:)
   end type VAL_PARAMS
   !
 CONTAINS
-  ! 
+  !
   !
   !-----------------------------------------
   !    subroutine validation_read_inp
@@ -194,7 +194,6 @@ CONTAINS
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
     real(rp)               :: file_version
-    real(rp)               :: rvoid
     character(len=s_file)  :: file_inp, word
     !
     !*** Initializations
@@ -232,7 +231,7 @@ CONTAINS
         MY_OBS%type = OBS_TYPE_VAA
         MY_ERR%flag    = 1
         MY_ERR%message = 'Type of observation not implemented yet'
-        return       
+        return
     case('DEPOSIT_CONTOURS')
         MY_OBS%type = OBS_TYPE_DEPOSIT_CONTOURS
     case('DEPOSIT_POINTS')
@@ -258,7 +257,7 @@ CONTAINS
     !
     call inpout_get_cha (file_inp,'MODEL_VALIDATION','OBSERVATIONS_DICTIONARY_FILE',word,1,MY_ERR,.false.)
     if(MY_ERR%flag.eq.0) then
-       MY_OBS%file_tbl = TRIM(word) 
+       MY_OBS%file_tbl = TRIM(word)
     else
        MY_OBS%file_tbl= '-'
        MY_ERR%flag = 0
@@ -280,17 +279,17 @@ CONTAINS
     select case(MY_OBS%type)
     case(OBS_TYPE_SATELLITE_RETRIEVAL, OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_VAA)
         !
-        call inpout_get_rea (file_inp,'IF_OBSERVATIONS_TYPE_SATELLITE','COLUMN_MASS_OBSERVATION_THRESHOLD_(G/M2)',& 
+        call inpout_get_rea (file_inp,'IF_OBSERVATIONS_TYPE_SATELLITE','COLUMN_MASS_OBSERVATION_THRESHOLD_(G/M2)',&
                              MY_OBS%col_mass_obs_threshold,1,MY_ERR)
         if(MY_ERR%flag.ne.0) MY_OBS%col_mass_obs_threshold = 0.1_rp
         !
-        call inpout_get_rea (file_inp,'IF_OBSERVATIONS_TYPE_SATELLITE','COLUMN_MASS_OBSERVATION_THRESHOLD_(DU)',& 
+        call inpout_get_rea (file_inp,'IF_OBSERVATIONS_TYPE_SATELLITE','COLUMN_MASS_OBSERVATION_THRESHOLD_(DU)',&
                              MY_OBS%col_mass_obs_threshold_DU,1,MY_ERR)
         if(MY_ERR%flag.ne.0) MY_OBS%col_mass_obs_threshold_DU = 1.0_rp
         !
     case(OBS_TYPE_DEPOSIT_CONTOURS,OBS_TYPE_DEPOSIT_POINTS)
-        !         
-        call inpout_get_rea (file_inp,'IF_OBSERVATIONS_TYPE_DEPOSIT','GROUND_LOAD_OBSERVATION_THRESHOLD_(KG/M2)',& 
+        !
+        call inpout_get_rea (file_inp,'IF_OBSERVATIONS_TYPE_DEPOSIT','GROUND_LOAD_OBSERVATION_THRESHOLD_(KG/M2)',&
                              MY_OBS%grn_load_obs_threshold,1,MY_ERR)
         if(MY_ERR%flag.ne.0) MY_OBS%grn_load_obs_threshold = 0.1_rp
         !
@@ -299,7 +298,7 @@ CONTAINS
     !*** Convert thresholds to IS units (to be consistent with subsequent conversion of observations and variables)
     !
     MY_OBS%col_mass_obs_threshold    = MY_OBS%col_mass_obs_threshold * 1e-3_rp                          ! g/m2 --> kg/m2
-    MY_OBS%col_mass_obs_threshold_DU = MY_OBS%col_mass_obs_threshold_DU * 64.0_rp / 2.238e3_rp / 1e3_rp ! DU --> g/m2 --> kg/m2  
+    MY_OBS%col_mass_obs_threshold_DU = MY_OBS%col_mass_obs_threshold_DU * 64.0_rp / 2.238e3_rp / 1e3_rp ! DU --> g/m2 --> kg/m2
     !
     return
   end subroutine validation_read_inp
@@ -359,7 +358,7 @@ CONTAINS
     type(RES_PARAMS),     intent(INOUT) :: MY_RES
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
-    character(len=s_file) :: file_inp,word 
+    character(len=s_file) :: file_inp,word
     character(len=24)     :: time_str
     integer(ip)           :: istat, lulog, i,j
     integer(ip)           :: ncID, dimID, varID
@@ -393,7 +392,7 @@ CONTAINS
     else
        MY_RES%nens = 1
        MY_RES%type = RES_TYPE_SINGLE_RUN
-    end if    
+    end if
     !
     !*** Read dimensions
     !
@@ -546,9 +545,9 @@ CONTAINS
            colat           = (90.0_rp- MY_RES%lat_p(j))*PI/180.0_rp   ! colatitude in rad
            MY_RES%Hm1_p(j) = sin(colat)
         end do
-        ! 
+        !
      case(MAP_H_POLAR, MAP_H_MERCATOR)
-        ! 
+        !
         MY_ERR%flag    = 1
         MY_ERR%message = 'Mapping not implemented yet'
         return
@@ -628,7 +627,7 @@ CONTAINS
     !
     MY_RES%th_con        (:) = MY_RES%th_con(:)         * 1e-6_rp                          ! mg/m3 --> kg/m3
     MY_RES%th_col_mass   (:) = MY_RES%th_col_mass(:)    * 1e-3_rp                          ! g/m2  --> kg/m2
-    MY_RES%th_col_mass_DU(:) = MY_RES%th_col_mass_DU(:) * 64.0_rp / 2.238e3_rp / 1e3_rp    ! DU    --> g/m2 --> kg/m2  
+    MY_RES%th_col_mass_DU(:) = MY_RES%th_col_mass_DU(:) * 64.0_rp / 2.238e3_rp / 1e3_rp    ! DU    --> g/m2 --> kg/m2
     !
     return
   end subroutine validation_read_res_params
@@ -788,9 +787,9 @@ CONTAINS
     !
     call maths_set_lnodsQ1(OBS_MESH,MY_ERR)
     !
-    !*** Loop over all my_mass_points    
+    !*** Loop over all my_mass_points
     !
-    do i = my_ips,my_ipe 
+    do i = my_ips,my_ipe
     do j = my_jps,my_jpe
        !
        lon(1) = MY_RES%lon_p(i)
@@ -816,7 +815,7 @@ CONTAINS
           myshape(4) = (1.0_rp+t-s-st)*0.25_rp                           !  1     2
           !
           do it = 1,MY_OBS%nt
-             !                                      
+             !
              if( (GL_SAT_DATA2D%mass(ix  ,iy  ,it).eq.GL_SAT_DATA2D%fill_value).or.  &      ! Check if some FillValue exists
                  (GL_SAT_DATA2D%mass(ix+1,iy  ,it).eq.GL_SAT_DATA2D%fill_value).or.  &
                  (GL_SAT_DATA2D%mass(ix+1,iy+1,it).eq.GL_SAT_DATA2D%fill_value).or.  &
@@ -826,7 +825,7 @@ CONTAINS
                 MY_OBS%mass(i,j,it) = myshape(1)*GL_SAT_DATA2D%mass(ix  ,iy  ,it) + &
                                       myshape(2)*GL_SAT_DATA2D%mass(ix+1,iy  ,it) + &
                                       myshape(3)*GL_SAT_DATA2D%mass(ix+1,iy+1,it) + &
-                                      myshape(4)*GL_SAT_DATA2D%mass(ix  ,iy+1,it) 
+                                      myshape(4)*GL_SAT_DATA2D%mass(ix  ,iy+1,it)
              end if
              !
              if( (GL_SAT_DATA2D%mask(ix  ,iy  ,it).eq.GL_SAT_DATA2D%fill_value).or.  &      ! Check if some FillValue exists
@@ -855,14 +854,14 @@ CONTAINS
     !
     MY_ERR%flag    = 0
     MY_ERR%source  = 'validation_interpolate_sat_obs'
-    MY_ERR%message = ' '   
+    MY_ERR%message = ' '
     !
     !*** Print to log file
     !
     my_npoin      = 0
     my_npoin_obs  = 0
     my_npoin_mask = 0
-    do i = my_ips,my_ipe 
+    do i = my_ips,my_ipe
     do j = my_jps,my_jpe
        my_npoin = my_npoin + 1
        if(ANY(MY_OBS%mass(i,j,:).gt.0.0_rp)) my_npoin_obs  = my_npoin_obs  + 1
@@ -887,7 +886,7 @@ CONTAINS
          '    INTERPOLATION OF SATELLITE OBSERVATIONS         ',/,   &
          '                                                    ',/,   &
          '----------------------------------------------------',/,   &
-         '  Number of 2D FALL3D grid points         : ',i9          ,/,   &       
+         '  Number of 2D FALL3D grid points         : ',i9          ,/,   &
          '  Number of points with mass observations : ',i9,' (',f7.2,' %)',/, &
          '  Number of points with detection mask    : ',i9,' (',f7.2,' %)')
     !
@@ -896,7 +895,7 @@ CONTAINS
     select case(MY_OBS%type)
     case(OBS_TYPE_SATELLITE_DETECTION)
        MY_OBS%var(:,:,:) = MY_OBS%mask(:,:,:)
-    case(OBS_TYPE_SATELLITE_RETRIEVAL)  
+    case(OBS_TYPE_SATELLITE_RETRIEVAL)
        MY_OBS%var(:,:,:) = MY_OBS%mass(:,:,:)
     end select
     !
@@ -982,9 +981,9 @@ CONTAINS
     !
     call maths_set_lnodsQ1(OBS_MESH,MY_ERR)
     !
-    !*** Loop over all my_mass_points    
+    !*** Loop over all my_mass_points
     !
-    do i = my_ips,my_ipe 
+    do i = my_ips,my_ipe
     do j = my_jps,my_jpe
        !
        lon(1) = MY_RES%lon_p(i)
@@ -1010,7 +1009,7 @@ CONTAINS
           myshape(4) = (1.0_rp+t-s-st)*0.25_rp                           !  1     2
           !
           do it = 1,MY_OBS%nt
-             !                                      
+             !
              if( (GL_DEP_DATA%mass(ix  ,iy  ).eq.GL_DEP_DATA%fill_value).or.  &      ! Check if some FillValue exists
                  (GL_DEP_DATA%mass(ix+1,iy  ).eq.GL_DEP_DATA%fill_value).or.  &
                  (GL_DEP_DATA%mass(ix+1,iy+1).eq.GL_DEP_DATA%fill_value).or.  &
@@ -1020,7 +1019,7 @@ CONTAINS
                 MY_OBS%mass(i,j,it) = myshape(1)*GL_DEP_DATA%mass(ix  ,iy  ) + &
                                       myshape(2)*GL_DEP_DATA%mass(ix+1,iy  ) + &
                                       myshape(3)*GL_DEP_DATA%mass(ix+1,iy+1) + &
-                                      myshape(4)*GL_DEP_DATA%mass(ix  ,iy+1) 
+                                      myshape(4)*GL_DEP_DATA%mass(ix  ,iy+1)
              end if
              !
              if( (GL_DEP_DATA%mask(ix  ,iy  ).eq.GL_DEP_DATA%fill_value).or.  &      ! Check if some FillValue exists
@@ -1049,14 +1048,14 @@ CONTAINS
     !
     MY_ERR%flag    = 0
     MY_ERR%source  = 'validation_interpolate_dep_obs'
-    MY_ERR%message = ' '   
+    MY_ERR%message = ' '
     !
     !*** Print to log file
     !
     my_npoin      = 0
     my_npoin_obs  = 0
     my_npoin_mask = 0
-    do i = my_ips,my_ipe 
+    do i = my_ips,my_ipe
     do j = my_jps,my_jpe
        my_npoin = my_npoin + 1
        if(ANY(MY_OBS%mass(i,j,:).gt.0.0_rp)) my_npoin_obs  = my_npoin_obs  + 1
@@ -1081,7 +1080,7 @@ CONTAINS
          '      INTERPOLATION OF DEPOSIT OBSERVATIONS         ',/,   &
          '                                                    ',/,   &
          '----------------------------------------------------',/,   &
-         '  Number of 2D FALL3D grid points         : ',i9          ,/,   &       
+         '  Number of 2D FALL3D grid points         : ',i9          ,/,   &
          '  Number of points with mass observations : ',i9,' (',f7.2,' %)',/, &
          '  Number of points with detection mask    : ',i9,' (',f7.2,' %)')
     !
@@ -1090,7 +1089,7 @@ CONTAINS
     select case(MY_OBS%type)
     case(OBS_TYPE_DEPOSIT_CONTOURS)
        MY_OBS%var(:,:,:) = MY_OBS%mask(:,:,:)
-   ! case(OBS_TYPE_DEPOSIT)  
+   ! case(OBS_TYPE_DEPOSIT)
    !    MY_OBS%var(:,:,:) = MY_OBS%mass(:,:,:)
     end select
     !
@@ -1119,7 +1118,6 @@ CONTAINS
     type(DEP_PTS),        intent(IN   ) :: GL_DEP_PTS
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
-    type(Q1_GRID) :: OBS_MESH
     integer(ip)   :: ipts,ix,iy,my_npoin,gl_npoin(1),lulog
     real(rp)      :: xp,yp,s,t
     real(rp)      :: my_lonmin,my_lonmax,my_latmin,my_latmax,glonmin,glatmin
@@ -1152,14 +1150,14 @@ CONTAINS
     allocate(MY_OBS%jpts(MY_OBS%npts))
     allocate(MY_OBS%spts(MY_OBS%npts))
     allocate(MY_OBS%tpts(MY_OBS%npts))
-    !  
+    !
     MY_OBS%ipts(:) = 0   ! not in my domain
     MY_OBS%jpts(:) = 0
     MY_OBS%spts(:) = 0.0_rp
     MY_OBS%tpts(:) = 0.0_rp
     !
     !*** Get grid and subdomain limits
-    ! 
+    !
     my_lonmin = MY_RES%lon_c(my_ibs)
     my_lonmax = MY_RES%lon_c(my_ibe)
     my_latmin = MY_RES%lat_c(my_jbs)
@@ -1236,7 +1234,7 @@ CONTAINS
          '      INTERPOLATION OF DEPOSIT POINTS               ',/,   &
          '                                                    ',/,   &
          '----------------------------------------------------',/,   &
-         '  Number of points in the model domain    : ',i9,' (',f7.2,' %)')  
+         '  Number of points in the model domain    : ',i9,' (',f7.2,' %)')
     !
     !*** Finally load the observed variable
     !
@@ -1244,7 +1242,7 @@ CONTAINS
     case(OBS_TYPE_DEPOSIT_POINTS)
        MY_OBS%var_pts(:,:) = MY_OBS%mass_pts(:,:)
     end select
-    ! 
+    !
     return
   end subroutine validation_interpolate_dep_pts
   !
@@ -1270,9 +1268,8 @@ CONTAINS
     !
     logical           :: found
     character(len=24) :: time_str_obs,time_str_mod1,time_str_mod2
-    integer(ip)       :: obs_julian, res_julian,it_o,it_m
+    integer(ip)       :: it_o,it_m
     integer(ip)       :: iyr,imo,idy,ihr,imi,ise,lulog
-    real(rp)          :: time_lag
     !
     !*** Initializations
     !
@@ -1280,7 +1277,7 @@ CONTAINS
     MY_ERR%source  = 'validation_get_time_factors'
     MY_ERR%message = ' '
     !
-    lulog = MY_FILES%lulog     
+    lulog = MY_FILES%lulog
     !
     !*** Find factors
     !
@@ -1307,13 +1304,13 @@ CONTAINS
   10      format(/,&
                  '  Observations at    :',a,/, &
                  '  Model results      : not found')
-       else 
+       else
           found = .false.
           it_m  = 0
           do while(.not.found)
              it_m = it_m + 1
              if( (MY_OBS%timesec(it_o).ge.MY_RES%timesec(it_m  )).and. &
-                 (MY_OBS%timesec(it_o).le.MY_RES%timesec(it_m+1)) ) then         
+                 (MY_OBS%timesec(it_o).le.MY_RES%timesec(it_m+1)) ) then
                found = .true.
                MY_OBS%it_m(it_o) = it_m
                MY_OBS%st_m(it_o) = (MY_OBS%timesec(it_o)-MY_RES%timesec(it_m))/ &
@@ -1350,7 +1347,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_time_factors
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_type_grid
   !-----------------------------------------
@@ -1373,7 +1370,7 @@ CONTAINS
     type(VAL_PARAMS),     intent(INOUT) :: MY_VAL
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
-    character(len=s_file)  :: file_inp,name_nc,var_name
+    character(len=s_file)  :: name_nc,var_name
     logical                :: var_exists
     integer(ip)            :: lulog,ispe,it,ith
     !
@@ -1386,15 +1383,15 @@ CONTAINS
     lulog = MY_FILES%lulog
     !
     !*** Decide which model variable has to be read
-    ! 
+    !
     select case(MY_OBS%type)
     case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL)
        var_name = TRIM(col_nc_name)
     case(OBS_TYPE_DEPOSIT_CONTOURS)
        var_name = TRIM(grn_nc_name)
-    end select 
+    end select
     !
-    !*** Loop over species (currently limited to one option only)  
+    !*** Loop over species (currently limited to one option only)
     !
     do ispe = 1,nspe_max
        if(MY_OBS%tracer_code.ne.ispe) cycle
@@ -1419,7 +1416,7 @@ CONTAINS
              MY_VAL%var_name         = TRIM(col_nc_name)
           case(OBS_TYPE_DEPOSIT_CONTOURS)
              MY_VAL%var_name         = TRIM(grn_nc_name)
-          end select 
+          end select
           MY_VAL%metric_histogram    = .false.
           MY_VAL%metric_categoric    = .true.
           MY_VAL%metric_brier        = .false.
@@ -1433,37 +1430,37 @@ CONTAINS
           case(OBS_TYPE_DEPOSIT_CONTOURS)
              MY_VAL%metric_quantitative_grid = .false.
              MY_VAL%metric_quantitative_pts  = .false.
-          end select 
+          end select
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
-          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)  
+          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)
           call validation_get_my_results_grid(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var(my_ips:my_ipe,my_jps:my_jpe,MY_OBS%nt,MY_RES%nth)
-          !    
+          !
           if(var_exists) then
              !
              !  get contours
              !
-             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              do ith = 1,MY_RES%nth
-                do it  = 1,MY_OBS%nt 
-                   if(MY_OBS%it_m(it).lt.0) cycle  
+                do it  = 1,MY_OBS%nt
+                   if(MY_OBS%it_m(it).lt.0) cycle
                    call validation_get_prob_con(MY_VAL%threshold(ith),MY_RES%var (:,:,it,ith),MY_RES%prob(:,:,it,ith))
                    select case(MY_OBS%type)
-                   case(OBS_TYPE_SATELLITE_DETECTION) 
+                   case(OBS_TYPE_SATELLITE_DETECTION)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
                    case(OBS_TYPE_SATELLITE_RETRIEVAL)
                       call validation_get_prob_con(MY_VAL%threshold(ith),MY_OBS%mass(:,:,it    ),MY_OBS%prob(:,:,it,ith))
                    case(OBS_TYPE_DEPOSIT_CONTOURS)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
-                   end select 
+                   end select
                 end do
              end do
-             ! 
+             !
              call validation_get_metrics(MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR) ! Compute and output metrics
              !
-          end if ! if(var_exists) 
+          end if ! if(var_exists)
           !
        case(RES_TYPE_ENSEMBLE_RUN)
           !
@@ -1476,25 +1473,25 @@ CONTAINS
           MY_VAL%metric_quantitative_pts  = .false.
           select case(MY_OBS%type)
           case(OBS_TYPE_SATELLITE_DETECTION)
-             MY_VAL%metric_histogram    = .false.  
+             MY_VAL%metric_histogram    = .false.
           case(OBS_TYPE_SATELLITE_RETRIEVAL)
-             MY_VAL%metric_histogram    = .true.  
+             MY_VAL%metric_histogram    = .true.
           case(OBS_TYPE_DEPOSIT_CONTOURS)
-             MY_VAL%metric_histogram    = .false.  
-          end select 
+             MY_VAL%metric_histogram    = .false.
+          end select
           MY_RES%nth      = MY_RES%nens
           MY_VAL%nens     = MY_RES%nens
           !
           if(MY_VAL%metric_histogram) then
              name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)
              call validation_get_my_results_grid(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var(my_ips:my_ipe,my_jps:my_jpe,MY_OBS%nt,MY_RES%nth)
-             !    
+             !
              if(var_exists) then
                 call validation_get_histogram_grid(MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR) ! Compute and output ensemble histogram
              end if
           end if
           !
-          !*** 2. Metrics for ensemble_mean 
+          !*** 2. Metrics for ensemble_mean
           !
           MY_VAL%var_name            = 'ensemble_mean'
           MY_VAL%metric_histogram    = .false.
@@ -1510,39 +1507,39 @@ CONTAINS
           case(OBS_TYPE_DEPOSIT_CONTOURS)
              MY_VAL%metric_quantitative_grid = .false.
              MY_VAL%metric_quantitative_pts  = .false.
-          end select 
+          end select
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
-          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_mean_nc_name)  
+          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_mean_nc_name)
           call validation_get_my_results_grid(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var(my_ips:my_ipe,my_jps:my_jpe,MY_OBS%nt,MY_RES%nth)
-          !    
+          !
           if(var_exists) then
              !
              !  get contours
              !
-             call validation_allocate(MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate(MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              do ith = 1,MY_RES%nth
-                do it  = 1,MY_OBS%nt 
-                   if(MY_OBS%it_m(it).lt.0) cycle  
+                do it  = 1,MY_OBS%nt
+                   if(MY_OBS%it_m(it).lt.0) cycle
                    call validation_get_prob_con(MY_VAL%threshold(ith),MY_RES%var (:,:,it,ith),MY_RES%prob(:,:,it,ith))
                    select case(MY_OBS%type)
-                   case(OBS_TYPE_SATELLITE_DETECTION) 
+                   case(OBS_TYPE_SATELLITE_DETECTION)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
                    case(OBS_TYPE_SATELLITE_RETRIEVAL)
                       call validation_get_prob_con(MY_VAL%threshold(ith),MY_OBS%mass(:,:,it    ),MY_OBS%prob(:,:,it,ith))
                    case(OBS_TYPE_DEPOSIT_CONTOURS)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
-                   end select 
+                   end select
                 end do
              end do
-             ! 
+             !
              call validation_get_metrics(MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR) ! Compute and output metrics
              !
-          end if ! if(var_exists) 
+          end if ! if(var_exists)
           !
-          !*** 3. Metrics for ensemble_logmean 
+          !*** 3. Metrics for ensemble_logmean
           !
           MY_VAL%var_name            = 'ensemble_logmean'
           MY_VAL%metric_histogram    = .false.
@@ -1558,39 +1555,39 @@ CONTAINS
           case(OBS_TYPE_DEPOSIT_CONTOURS)
              MY_VAL%metric_quantitative_grid = .false.
              MY_VAL%metric_quantitative_pts  = .false.
-          end select 
+          end select
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
-          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_logmean_nc_name)  
+          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_logmean_nc_name)
           call validation_get_my_results_grid(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var(my_ips:my_ipe,my_jps:my_jpe,MY_OBS%nt,MY_RES%nth)
-          !    
+          !
           if(var_exists) then
              !
              !  get contours
              !
-             call validation_allocate(MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate(MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              do ith = 1,MY_RES%nth
-                do it  = 1,MY_OBS%nt 
-                   if(MY_OBS%it_m(it).lt.0) cycle  
+                do it  = 1,MY_OBS%nt
+                   if(MY_OBS%it_m(it).lt.0) cycle
                    call validation_get_prob_con(MY_VAL%threshold(ith),MY_RES%var (:,:,it,ith),MY_RES%prob(:,:,it,ith))
                    select case(MY_OBS%type)
-                   case(OBS_TYPE_SATELLITE_DETECTION) 
+                   case(OBS_TYPE_SATELLITE_DETECTION)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
                    case(OBS_TYPE_SATELLITE_RETRIEVAL)
                       call validation_get_prob_con(MY_VAL%threshold(ith),MY_OBS%mass(:,:,it    ),MY_OBS%prob(:,:,it,ith))
                    case(OBS_TYPE_DEPOSIT_CONTOURS)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
-                   end select 
+                   end select
                 end do
              end do
-             ! 
+             !
              call validation_get_metrics(MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR) ! Compute and output metrics
              !
-          end if ! if(var_exists) 
+          end if ! if(var_exists)
           !
-          !*** 4. Metrics for ensemble_median 
+          !*** 4. Metrics for ensemble_median
           !
           MY_VAL%var_name            = 'ensemble_median'
           MY_VAL%metric_histogram    = .false.
@@ -1606,7 +1603,7 @@ CONTAINS
           case(OBS_TYPE_DEPOSIT_CONTOURS)
              MY_VAL%metric_quantitative_grid = .false.
              MY_VAL%metric_quantitative_pts  = .false.
-          end select 
+          end select
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
@@ -1617,28 +1614,28 @@ CONTAINS
              !
              !  get contours
              !
-             call validation_allocate(MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate(MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              do ith = 1,MY_RES%nth
-                do it  = 1,MY_OBS%nt 
-                   if(MY_OBS%it_m(it).lt.0) cycle  
+                do it  = 1,MY_OBS%nt
+                   if(MY_OBS%it_m(it).lt.0) cycle
                    call validation_get_prob_con(MY_VAL%threshold(ith),MY_RES%var (:,:,it,ith),MY_RES%prob(:,:,it,ith))
                    select case(MY_OBS%type)
-                   case(OBS_TYPE_SATELLITE_DETECTION) 
+                   case(OBS_TYPE_SATELLITE_DETECTION)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
                    case(OBS_TYPE_SATELLITE_RETRIEVAL)
                       call validation_get_prob_con(MY_VAL%threshold(ith),MY_OBS%mass(:,:,it    ),MY_OBS%prob(:,:,it,ith))
                    case(OBS_TYPE_DEPOSIT_CONTOURS)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
-                   end select 
+                   end select
                 end do
              end do
-             ! 
+             !
              call validation_get_metrics(MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR) ! Compute and output metrics metrics
              !
-          end if ! if(var_exists) 
+          end if ! if(var_exists)
           !
-          !*** 5. Metrics for probabilities 
+          !*** 5. Metrics for probabilities
           !
           MY_VAL%var_name                 = 'ensemble_prob'
           MY_VAL%metric_histogram         = .false.
@@ -1659,7 +1656,7 @@ CONTAINS
           case(OBS_TYPE_DEPOSIT_CONTOURS)
               MY_RES%nth = MY_RES%nth_grn_load
               MY_VAL%nth = MY_RES%nth_grn_load
-          end select     
+          end select
           !
           name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_prb_nc_name)
           call validation_get_my_results_grid(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists,.false.)
@@ -1670,34 +1667,34 @@ CONTAINS
              !
              !  get contours
              !
-             call validation_allocate(MY_OBS,MY_RES,MY_VAL) 
-             call validation_res_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate(MY_OBS,MY_RES,MY_VAL)
+             call validation_res_thresholds(MY_OBS,MY_RES,MY_VAL)
              do ith = 1,MY_RES%nth
-                do it  = 1,MY_OBS%nt 
-                   if(MY_OBS%it_m(it).lt.0) cycle  
-                   MY_RES%prob(:,:,it,ith) = MY_RES%var (:,:,it,ith) 
+                do it  = 1,MY_OBS%nt
+                   if(MY_OBS%it_m(it).lt.0) cycle
+                   MY_RES%prob(:,:,it,ith) = MY_RES%var (:,:,it,ith)
                    select case(MY_OBS%type)
-                   case(OBS_TYPE_SATELLITE_DETECTION) 
+                   case(OBS_TYPE_SATELLITE_DETECTION)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
                    case(OBS_TYPE_SATELLITE_RETRIEVAL)
                       call validation_get_prob_con(MY_VAL%threshold(ith),MY_OBS%mass(:,:,it    ),MY_OBS%prob(:,:,it,ith))
                    case(OBS_TYPE_DEPOSIT_CONTOURS)
                       MY_OBS%prob(:,:,it,ith) = MY_OBS%mask(:,:,it)
-                   end select 
+                   end select
                 end do
              end do
-             ! 
+             !
              call validation_get_metrics(MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR) ! Compute and output metrics metrics
              !
-          end if ! if(var_exists) 
+          end if ! if(var_exists)
           !
        end select
        !
-    end do  
+    end do
     !
     return
   end subroutine validation_type_grid
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_type_pts
   !-----------------------------------------
@@ -1720,7 +1717,7 @@ CONTAINS
     type(VAL_PARAMS),     intent(INOUT) :: MY_VAL
     type(ERROR_STATUS),   intent(INOUT) :: MY_ERR
     !
-    character(len=s_file)  :: file_inp,name_nc,var_name
+    character(len=s_file)  :: name_nc,var_name
     logical                :: var_exists
     integer(ip)            :: lulog,ispe
     !
@@ -1734,7 +1731,7 @@ CONTAINS
     !
     var_name = TRIM(grn_nc_name) ! model variable to be read
     !
-    !*** Loop over species (currently limited to one option only)  
+    !*** Loop over species (currently limited to one option only)
     !
     do ispe = 1,nspe_max
        if(MY_OBS%tracer_code.ne.ispe) cycle
@@ -1754,7 +1751,7 @@ CONTAINS
           !
           !*** 1. Metrics for deterministic grn_load
           !
-          MY_VAL%var_name                 = TRIM(grn_nc_name) 
+          MY_VAL%var_name                 = TRIM(grn_nc_name)
           MY_VAL%metric_histogram         = .false.
           MY_VAL%metric_categoric         = .false.
           MY_VAL%metric_brier             = .false.
@@ -1763,12 +1760,12 @@ CONTAINS
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
-          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)  
+          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)
           call validation_get_my_results_pts(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var_pts(MY_OBS%npts,MY_OBS%nt)
           !
           if(var_exists) then
-             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              call validation_get_metrics   (MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR)  ! Compute and output metrics
           end if
           !
@@ -1788,13 +1785,13 @@ CONTAINS
           if(MY_VAL%metric_histogram) then
              name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)
              call validation_get_my_results_pts(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var_pts(MY_OBS%npts,MY_OBS%nt,MY_RES%nth)
-             !    
+             !
              if(var_exists) then
                 call validation_get_histogram_pts(MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR) ! Compute and output ensemble histogram
              end if
           end if
           !
-          !*** 2. Metrics for ensemble_mean 
+          !*** 2. Metrics for ensemble_mean
           !
           MY_VAL%var_name                 = 'ensemble_mean'
           MY_VAL%metric_histogram         = .false.
@@ -1805,16 +1802,16 @@ CONTAINS
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
-          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_mean_nc_name)  
+          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_mean_nc_name)
           call validation_get_my_results_pts(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var_pts(MY_OBS%npts,MY_OBS%nt,MY_RES%nth)
           !
           if(var_exists) then
-             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              call validation_get_metrics   (MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR)  ! Compute and output metrics
           end if
           !
-          !*** 3. Metrics for ensemble_logmean 
+          !*** 3. Metrics for ensemble_logmean
           !
           MY_VAL%var_name                 = 'ensemble_logmean'
           MY_VAL%metric_histogram         = .false.
@@ -1825,16 +1822,16 @@ CONTAINS
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
-          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_logmean_nc_name)  
+          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_logmean_nc_name)
           call validation_get_my_results_pts(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var_pts(MY_OBS%npts,MY_OBS%nt)
           !
           if(var_exists) then
-             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              call validation_get_metrics   (MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR)  ! Compute and output metrics
           end if
           !
-          !*** 4. Metrics for ensemble_median  
+          !*** 4. Metrics for ensemble_median
           !
           MY_VAL%var_name                 = 'ensemble_median'
           MY_VAL%metric_histogram         = .false.
@@ -1845,25 +1842,25 @@ CONTAINS
           MY_RES%nth = 1
           MY_VAL%nth = 1
           !
-          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_median_nc_name)  
+          name_nc = TRIM(SPE_TAG(ispe))//TRIM(var_name)//TRIM(ens_median_nc_name)
           call validation_get_my_results_pts(name_nc,MY_FILES,MY_RES,MY_OBS,MY_ERR,var_exists)   ! read results in MY_RES%var_pts(MY_OBS%npts,MY_OBS%nt)
           !
           if(var_exists) then
-             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)  
-             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL) 
+             call validation_allocate      (MY_OBS,MY_RES,MY_VAL)
+             call validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
              call validation_get_metrics   (MY_FILES,MY_OBS,MY_RES,MY_VAL,MY_ERR)  ! Compute and output metrics
           end if
           !
        end select
        !
-    end do  
+    end do
     !
     return
   end subroutine validation_type_pts
   !
   !
   !   PRIVATE ROUTINES
-  ! 
+  !
   !-------------------------------------
   !    subroutine validation_get_metrics
   !-------------------------------------
@@ -1900,7 +1897,7 @@ CONTAINS
     lures = 90
     !
     select case(MY_OBS%type)
-    case(OBS_TYPE_SATELLITE_DETECTION) 
+    case(OBS_TYPE_SATELLITE_DETECTION)
          MY_VAL%obs_name ='sat_det'
     case(OBS_TYPE_SATELLITE_RETRIEVAL)
          MY_VAL%obs_name ='sat_ret'
@@ -1916,7 +1913,7 @@ CONTAINS
     !
     file_name = TRIM(MY_FILES%commonpath)//'/'//TRIM(MY_FILES%problemname)//'.val.'// &
                 TRIM(MY_VAL%obs_name)//'.vs.'//TRIM(MY_VAL%var_name)//'.res'
-    if(master_model) then 
+    if(master_model) then
        call inpout_open_file(lures, file_name, MY_ERR)
        write(lures,10) TRIM(MY_VAL%var_name),SPE_TAG(MY_OBS%tracer_code),TRIM(MY_VAL%obs_name)
 10     format('!                              '  ,/,&
@@ -1924,16 +1921,16 @@ CONTAINS
               '!                              ')
     end if
     !
-    !*** Computes metrics 
+    !*** Computes metrics
     !
-    do ith = 1,MY_VAL%nth 
+    do ith = 1,MY_VAL%nth
        !
        if(master_model) write(lures,20) MY_VAL%threshold(ith)
 20     format('!                        '  ,/,&
               '! Threshold: ',e10.3,'     GFMS    GFAR    GPPV    GPOD    GCCM    BS     NRMSE ',/,&
               '! ------------------------------------------------------------------------------')
        !
-       do it  = 1,MY_OBS%nt  
+       do it  = 1,MY_OBS%nt
           if(MY_OBS%it_m(it).lt.0) cycle
           !
           !*** 1. Categoric metrics (only for contours)
@@ -1973,7 +1970,7 @@ CONTAINS
              !
              call validation_get_Brier_score(MY_RES%prob(:,:,it,ith),MY_OBS%prob(:,:,it,ith),MY_RES%Hm1_p,MY_VAL%BS)
              !
-          case(.false.)         
+          case(.false.)
              MY_VAL%BS   = -1.0_rp
           end select
           !
@@ -1982,12 +1979,12 @@ CONTAINS
           MY_VAL%NRMSE = -1.0_rp
           if(MY_VAL%metric_quantitative_grid) then
              !
-             call validation_get_NRMSE_grid(MY_RES%var(:,:,it,ith),MY_OBS%mass(:,:,it),MY_VAL%NRMSE)  
+             call validation_get_NRMSE_grid(MY_RES%var(:,:,it,ith),MY_OBS%mass(:,:,it),MY_VAL%NRMSE)
              !
           end if
           if(MY_VAL%metric_quantitative_pts) then
              !
-             call validation_get_NRMSE_pts(MY_OBS%npts,MY_RES%var_pts(:,it,ith),MY_OBS%var_pts(:,it),MY_VAL%NRMSE)  
+             call validation_get_NRMSE_pts(MY_OBS%npts,MY_RES%var_pts(:,it,ith),MY_OBS%var_pts(:,it),MY_VAL%NRMSE)
              !
           end if
           !
@@ -2013,13 +2010,13 @@ CONTAINS
  60         format(2(2x,f7.2))
           end if
           !
-       end do  ! it  = 1,MY_OBS%nt  
-    end do     ! ith = 1,MY_VAL%nth 
+       end do  ! it  = 1,MY_OBS%nt
+    end do     ! ith = 1,MY_VAL%nth
     !
     if(master_model) close(lures)
     return
   end subroutine validation_get_metrics
-  ! 
+  !
   !--------------------------------------------
   !    subroutine validation_get_histogram_grid
   !--------------------------------------------
@@ -2070,7 +2067,7 @@ CONTAINS
     allocate(rank_e (nens))
     !
     select case(MY_OBS%type)
-    case(OBS_TYPE_SATELLITE_DETECTION) 
+    case(OBS_TYPE_SATELLITE_DETECTION)
          MY_VAL%obs_name ='sat_det'
     case(OBS_TYPE_SATELLITE_RETRIEVAL)
          MY_VAL%obs_name ='sat_ret'
@@ -2087,7 +2084,7 @@ CONTAINS
     file_name = TRIM(MY_FILES%commonpath)//'/'//TRIM(MY_FILES%problemname)//'.val.'// &
                 TRIM(MY_VAL%obs_name)//'.vs.'//TRIM(MY_VAL%var_name)//'.res'
 
-    if(master_model) then 
+    if(master_model) then
        call inpout_open_file(lures, file_name, MY_ERR)
        write(lures,10) TRIM(MY_VAL%var_name),SPE_TAG(MY_OBS%tracer_code),TRIM(MY_VAL%obs_name)
 10     format('!                              '  ,/,&
@@ -2097,7 +2094,7 @@ CONTAINS
     !
     !*** Loop over observation time steps and points
     !
-    do it  = 1,MY_OBS%nt  
+    do it  = 1,MY_OBS%nt
        if(MY_OBS%it_m(it).le.0) cycle
        !
        do ix = my_ips,my_ipe
@@ -2105,7 +2102,7 @@ CONTAINS
           !
           if(MY_OBS%mass(ix,iy,it).gt.EPSILON) then
              !
-             !*** Sort ensemble member results by increasing order 
+             !*** Sort ensemble member results by increasing order
              !
              index_e(:) = index_o(:)
              rank_e (:) = MY_RES%var(ix,iy,it,:)
@@ -2154,7 +2151,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_histogram_grid
-  ! 
+  !
   !--------------------------------------------
   !    subroutine validation_get_histogram_pts
   !--------------------------------------------
@@ -2204,7 +2201,7 @@ CONTAINS
     allocate(rank_e (nens))
     !
     select case(MY_OBS%type)
-    case(OBS_TYPE_SATELLITE_DETECTION) 
+    case(OBS_TYPE_SATELLITE_DETECTION)
          MY_VAL%obs_name ='sat_det'
     case(OBS_TYPE_SATELLITE_RETRIEVAL)
          MY_VAL%obs_name ='sat_ret'
@@ -2221,7 +2218,7 @@ CONTAINS
     file_name = TRIM(MY_FILES%commonpath)//'/'//TRIM(MY_FILES%problemname)//'.val.'// &
                 TRIM(MY_VAL%obs_name)//'.vs.'//TRIM(MY_VAL%var_name)//'.res'
 
-    if(master_model) then 
+    if(master_model) then
        call inpout_open_file(lures, file_name, MY_ERR)
        write(lures,10) TRIM(MY_VAL%var_name),SPE_TAG(MY_OBS%tracer_code),TRIM(MY_VAL%obs_name)
 10     format('!                              '  ,/,&
@@ -2231,14 +2228,14 @@ CONTAINS
     !
     !*** Loop over observation time steps and points
     !
-    do it  = 1,MY_OBS%nt  
+    do it  = 1,MY_OBS%nt
        if(MY_OBS%it_m(it).le.0) cycle
        !
        do ipoin = 1,MY_OBS%npts
           !
           if(MY_OBS%mass_pts(ipoin,it).gt.0.0_rp) then
              !
-             !*** Sort ensemble member results by increasing order 
+             !*** Sort ensemble member results by increasing order
              !
              index_e(:) = index_o(:)
              rank_e (:) = MY_RES%var_pts(ipoin,it,:)
@@ -2278,7 +2275,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_histogram_pts
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_allocate
   !-----------------------------------------
@@ -2311,13 +2308,13 @@ CONTAINS
     !
     return
   end subroutine validation_allocate
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_obs_thresholds
   !-----------------------------------------
   !
   !>   @brief
-  !>   Sets observation thresholds for validation 
+  !>   Sets observation thresholds for validation
   !
   subroutine validation_obs_thresholds(MY_OBS,MY_RES,MY_VAL)
     implicit none
@@ -2335,26 +2332,26 @@ CONTAINS
     do ith = 1,MY_RES%nth
        select case(MY_OBS%type)
        case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL)
-         select case(MY_OBS%tracer_code)  
+         select case(MY_OBS%tracer_code)
          case(SPE_SO2)
             MY_VAL%threshold(ith) = MY_OBS%col_mass_obs_threshold_DU
          case default
             MY_VAL%threshold(ith) = MY_OBS%col_mass_obs_threshold
          end select
        case(OBS_TYPE_DEPOSIT_CONTOURS,OBS_TYPE_DEPOSIT_POINTS)
-            MY_VAL%threshold(ith) = MY_OBS%grn_load_obs_threshold    
-       end select 
-    end do  
+            MY_VAL%threshold(ith) = MY_OBS%grn_load_obs_threshold
+       end select
+    end do
     !
     return
   end subroutine validation_obs_thresholds
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_res_thresholds
   !-----------------------------------------
   !
   !>   @brief
-  !>   Sets results (model) thresholds for validation 
+  !>   Sets results (model) thresholds for validation
   !
   subroutine validation_res_thresholds(MY_OBS,MY_RES,MY_VAL)
     implicit none
@@ -2372,7 +2369,7 @@ CONTAINS
     do ith = 1,MY_RES%nth
        select case(MY_OBS%type)
        case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL)
-         select case(MY_OBS%tracer_code)  
+         select case(MY_OBS%tracer_code)
          case(SPE_SO2)
             MY_VAL%threshold(ith) = MY_RES%th_col_mass_DU(ith)
          case default
@@ -2380,8 +2377,8 @@ CONTAINS
          end select
        case(OBS_TYPE_DEPOSIT_CONTOURS,OBS_TYPE_DEPOSIT_POINTS)
             MY_VAL%threshold(ith) = MY_RES%th_grn_load(ith)
-       end select 
-    end do  
+       end select
+    end do
     !
     return
   end subroutine validation_res_thresholds
@@ -2447,14 +2444,14 @@ CONTAINS
        if(istat.eq.0) then
           var_exists = .true.
           istat = nf90_inquire_variable(ncID, varID, ndims=ndims)
-       end if    
+       end if
        istat = nf90_close(ncID)
        write(lulog,10) TRIM(var_name),var_exists
  10    format('  Reading results for variable : ',a,/,&
-              '                variable found : ',l)
+              '                variable found : ',l1)
     end if
     call parallel_bcast(var_exists,1,0)
-    if(.not.var_exists) return 
+    if(.not.var_exists) return
     !
     !*** Master reads the global results
     !
@@ -2470,7 +2467,7 @@ CONTAINS
       end if
     end if
     !
-    !*** Broadcast of results and interpolation 
+    !*** Broadcast of results and interpolation
     !
     if(master_model) then
       allocate(gl_work2(nbx,nby   ))
@@ -2517,15 +2514,15 @@ CONTAINS
     if(convert_units) then
        select case(MY_OBS%type)
        case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL)
-            select case(MY_OBS%tracer_code)  
+            select case(MY_OBS%tracer_code)
             case(SPE_SO2)
-               MY_RES%var = MY_RES%var * 64.0_rp / 2.238e3_rp / 1e3_rp ! DU --> g/m2 --> kg/m2  
+               MY_RES%var = MY_RES%var * 64.0_rp / 2.238e3_rp / 1e3_rp ! DU --> g/m2 --> kg/m2
             case default
                MY_RES%var = MY_RES%var * 1e-3_rp ! g/m2 --> kg/m2
             end select
        case(OBS_TYPE_DEPOSIT_CONTOURS)
            ! already in kg/m2
-       end select 
+       end select
     end if
     !
     return
@@ -2586,14 +2583,14 @@ CONTAINS
        if(istat.eq.0) then
           var_exists = .true.
           istat = nf90_inquire_variable(ncID, varID, ndims=ndims)
-       end if    
+       end if
        istat = nf90_close(ncID)
        write(lulog,10) TRIM(var_name),var_exists
  10    format('  Reading results for variable : ',a,/,&
-              '                variable found : ',l)
+              '                variable found : ',l1)
     end if
     call parallel_bcast(var_exists,1,0)
-    if(.not.var_exists) return 
+    if(.not.var_exists) return
     !
     !*** Master reads the global results
     !
@@ -2609,7 +2606,7 @@ CONTAINS
       end if
     end if
     !
-    !*** Broadcast of results and interpolation 
+    !*** Broadcast of results and interpolation
     !
     if(master_model) then
       allocate(gl_work2(nbx,nby   ))
@@ -2643,7 +2640,7 @@ CONTAINS
                 my_shape(1) = (1.0_rp-t-s+st)*0.25_rp                   !  4      3
                 my_shape(2) = (1.0_rp-t+s-st)*0.25_rp                   !
                 my_shape(3) = (1.0_rp+t+s+st)*0.25_rp                   !
-                my_shape(4) = (1.0_rp+t-s-st)*0.25_rp                   !  1      2    
+                my_shape(4) = (1.0_rp+t-s-st)*0.25_rp                   !  1      2
                 !
                 var1 = my_shape(1)*my_work4(ix  ,iy  ,it_m  ,ith) + &
                        my_shape(2)*my_work4(ix+1,iy  ,it_m  ,ith) + &
@@ -2667,7 +2664,7 @@ CONTAINS
      !
      return
   end subroutine validation_get_my_results_pts
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_get_prob_con
   !-----------------------------------------
@@ -2693,7 +2690,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_prob_con
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_get_GFMS
   !-----------------------------------------
@@ -2714,8 +2711,8 @@ CONTAINS
     my_num = 0.0_rp
     my_den = 0.0_rp
     !
-    do j = my_jps,my_jpe  ! Loop over all my_mass_points   
-    do i = my_ips,my_ipe   
+    do j = my_jps,my_jpe  ! Loop over all my_mass_points
+    do i = my_ips,my_ipe
        my_num = my_num + Hm1(j)*P_m(i,j)*P_o(i,j)
        my_den = my_den + Hm1(j)*P_m(i,j)*P_o(i,j)
        if(P_o(i,j).eq.0.0_rp) my_den = my_den + Hm1(j)*P_m(i,j)
@@ -2733,7 +2730,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_GFMS
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_get_GFAR
   !-----------------------------------------
@@ -2754,12 +2751,12 @@ CONTAINS
     my_num = 0.0_rp
     my_den = 0.0_rp
     !
-    do j = my_jps,my_jpe  ! Loop over all my_mass_points   
+    do j = my_jps,my_jpe  ! Loop over all my_mass_points
     do i = my_ips,my_ipe
        if(P_o(i,j).eq.0.0_rp) then
           my_num = my_num + Hm1(j)*P_m(i,j)
           my_den = my_den + Hm1(j)*P_m(i,j)
-       end if  
+       end if
        my_den = my_den + Hm1(j)*P_m(i,j)*P_o(i,j)
     end do
     end do
@@ -2774,7 +2771,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_GFAR
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_get_GPOD
   !-----------------------------------------
@@ -2795,8 +2792,8 @@ CONTAINS
     my_num = 0.0_rp
     my_den = 0.0_rp
     !
-    do j = my_jps,my_jpe  ! Loop over all my_mass_points   
-    do i = my_ips,my_ipe   
+    do j = my_jps,my_jpe  ! Loop over all my_mass_points
+    do i = my_ips,my_ipe
        my_num = my_num + Hm1(j)*P_m(i,j)*P_o(i,j)
        my_den = my_den + Hm1(j)*P_m(i,j)*P_o(i,j)
        if(P_m(i,j).eq.0.0_rp) my_den = my_den + Hm1(j)*P_o(i,j)
@@ -2813,7 +2810,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_GPOD
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_get_Brier_score
   !-----------------------------------------
@@ -2834,7 +2831,7 @@ CONTAINS
     my_num = 0.0_rp
     my_den = 0.0_rp
     !
-    do j = my_jps,my_jpe  ! Loop over all my_mass_points   
+    do j = my_jps,my_jpe  ! Loop over all my_mass_points
     do i = my_ips,my_ipe
        if(P_o(i,j).gt.0.0_rp) then
           my_num = my_num + Hm1(j)*(P_m(i,j)-P_o(i,j))*(P_m(i,j)-P_o(i,j))
@@ -2853,7 +2850,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_Brier_score
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_get_NRMSE_grid
   !-----------------------------------------
@@ -2875,8 +2872,8 @@ CONTAINS
     my_Omax = maxval(O(:,:))
     my_Omin = minval(O(:,:))
     !
-    do j = my_jps,my_jpe  ! Loop over all my_mass_points   
-    do i = my_ips,my_ipe  
+    do j = my_jps,my_jpe  ! Loop over all my_mass_points
+    do i = my_ips,my_ipe
        if(O(i,j).gt.0.0_rp) then
           my_n   = my_n   + 1
           my_num = my_num + (M(i,j)-O(i,j))*(M(i,j)-O(i,j))
@@ -2897,7 +2894,7 @@ CONTAINS
     !
     return
   end subroutine validation_get_NRMSE_grid
-  ! 
+  !
   !-----------------------------------------
   !    subroutine validation_get_NRMSE_pts
   !-----------------------------------------
@@ -2922,7 +2919,7 @@ CONTAINS
     !
     do i = 1,npts
        if(O(i).gt.0.0_rp) then
-          gl_n   = gl_n   + 1 
+          gl_n   = gl_n   + 1
           gl_num = gl_num + (M(i)-O(i))*(M(i)-O(i))
        end if
     end do

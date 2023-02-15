@@ -85,7 +85,7 @@ CONTAINS
     !
     character(len=8)  :: sdate
     character(len=10) :: stime,stask
-    character(len=24) :: str
+    character(len=24) :: str,shard
     integer(ip)       :: lulog
     integer(ip)       :: iyr,imo,idy,ihr,imi,ise
     !
@@ -139,15 +139,25 @@ CONTAINS
        stask = 'PosVal'
     end select
     !
+    select case(HARDWARE_TYPE)
+    case(0)
+       shard = 'General Purpose (CPU)'
+    case(1)
+       shard = 'NVIDIA GPU'
+    case(2)
+       shard = 'AMD GPU'
+    end select
+    !
     open (lulog,file=TRIM(MY_FILES%file_log),status='unknown')
-    write(lulog,1) VERSION,stask,str,rp,  &
+    write(lulog,1) VERSION,stask,shard,str,rp,  &
          mproc(1)*mproc(2)*mproc(3), &
          mproc(1),mproc(2),mproc(3)
     !
 1   format('---------------------------------------------------------',/, &
          '                      FALL3D suite                       ',/, &
-         '  Version : ',a,'                                        ',/, &
-         '  Task    : ',a,   '                                     ',/, &
+         '  Version  : ',a,'                                       ',/, &
+         '  Task     : ',a,'                                       ',/, &
+         '  Hardware : ',a,'                                       ',/, &
          '                                                         ',/, &
          '  Copyright (C) 2018 GNU General Public License version 3',/, &
          '  See licence for details                                ',/, &
@@ -266,6 +276,7 @@ CONTAINS
        !
     end select
     !
+    flush(lulog)
     return
   end subroutine inpout_open_log_file
   !
@@ -644,8 +655,18 @@ CONTAINS
       !
       integer(ip),      intent(IN) :: npes_world
       character(len=*), intent(IN) :: fname
+      character(len=24)            :: shard
       !
-      write(*,1) VERSION,TRIM(fname),npes_world,mproc,nens
+      select case(HARDWARE_TYPE)
+      case(0)
+       shard = 'General Purpose (CPU)'
+      case(1)
+       shard = 'NVIDIA GPU'
+      case(2)
+       shard = 'AMD GPU'
+      end select
+      !
+      write(*,1) VERSION,shard,TRIM(fname),npes_world,mproc,nens
 1 format('-----------------------------------------------------------',/, &
          '                                                           ',/, &
          '           ______      _      _      ____  _____           ',/, &
@@ -662,6 +683,7 @@ CONTAINS
          '                 (see licence for details)                 ',/, &
          '                                                           ',/, &
          '  Version               : ',a                               ,/, &
+         '  Hardware              : ',a                               ,/, &
          '  Input File            : ',a                               ,/, &
          '  Number of processors  : ',i5.5                            ,/, &
          '  Number of sub-domains : ',i5.5,' x ',i5.5,' x ',i5.5      ,/, &
@@ -1620,7 +1642,7 @@ CONTAINS
           return
       end if
       !
-      !*** Read HH:MM:SS substring 
+      !*** Read HH:MM:SS substring
       !
       istring = index(string_tmp,' ')
       if(istring.gt.1) then
@@ -1675,7 +1697,7 @@ CONTAINS
       if(istat.ne.0) then
         write(string_tmp,10) time_ref
         call task_wriwarn(MY_ERR,"Unrecognised characters in netcdf time units. &
-                                  Assuming the reference time: "//string_tmp)
+                                  &Assuming the reference time: "//string_tmp)
       end if
       !
 10 format(I4,2('-',I2.2),1x,I2.2,2(':',I2.2))

@@ -28,6 +28,10 @@ subroutine task_Fall3d
   logical  :: sourcetime,meteotime
   real(rp), allocatable :: my_hc  (:,:)
   !
+  ! Class GL_METMODEL is needed by dbs_read_inp_meteo
+  ! It is used by task_SetDbs, not used here
+  type(METEO_MODEL) :: GL_METMODEL
+  !
   !*** Initializations
   !
   MY_ERR%nwarn = 0
@@ -79,7 +83,7 @@ subroutine task_Fall3d
      !
   else
      !
-     if(master_model) call dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METPROFILES, MY_ERR)
+     if(master_model) call dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METMODEL, GL_METPROFILES, MY_ERR)
      call parallel_bcast(MY_ERR%flag,1,0)
      if(MY_ERR%flag.ne.0) call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
      !
@@ -109,7 +113,7 @@ subroutine task_Fall3d
      !
   else
      !
-     if(master_model) call phys_read_inp_model(MY_FILES, MY_MOD, MY_ERR)
+     if(master_model) call phys_read_inp_model(MY_FILES, MY_MOD, MY_ENS, MY_ERR)
      call parallel_bcast(MY_ERR%flag,1,0)
      if(MY_ERR%flag.ne.0) call task_runend(TASK_RUN_FALL3D, MY_FILES, MY_ERR)
      !

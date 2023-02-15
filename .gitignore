@@ -3,6 +3,10 @@
 *.mod
 *~
 
+# Files in the branch GPU
+Sources/*_gpu.F90
+Sources/*_gpu.f90
+
 # Temporary object folders
 obj4
 obj8

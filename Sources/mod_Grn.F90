@@ -513,7 +513,7 @@ CONTAINS
           MY_AGR%diam(i) = MY_AGR%diam(i)*1e-6_rp  ! microns to m
        end do
        MY_AGR%diam_aggr = MY_AGR%diam_aggr*1e-6_rp
-       !   
+       !
        select case(MY_AGR%aggregation_model)
        case('PERCENTAGE')
           !

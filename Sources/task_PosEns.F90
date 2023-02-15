@@ -12,7 +12,7 @@
   use KindType, only: TASK_POS_ENS
   use Shared,   only: MY_FILES, MY_ERR, MY_SPE, MY_OUT, MY_TIME, MY_GRID, MY_ENS, nens
   use Domain,   only: gl_nbx,gl_nby
-  use Parallel 
+  use Parallel
   use InpOut
   use Grn
   use nc_IO_names
@@ -133,7 +133,7 @@
   call postp_read_dimension(file_res, tim_nc_name, nt, MY_ERR)  ! nt can be different across ensemble members
   if(MY_ERR%flag.ne.0) call task_runend(TASK_POS_ENS, MY_FILES, MY_ERR)
   !
-  !*** master_model reads coordinate variables (including necessary attributes) 
+  !*** master_model reads coordinate variables (including necessary attributes)
   !
   if(master_model) then
      !
@@ -218,12 +218,12 @@
   MY_ENS%pp_nt = 1
   if(MY_TIME%time+MY_OUT%dt.ge.min_time) min_time = min(MY_TIME%time,min_time)  ! corrects initial dt shift in output
   go_on = .true.
-  do while(go_on) 
+  do while(go_on)
      MY_TIME%time = MY_TIME%time + MY_OUT%dt
      if( (MY_TIME%time          .le.MY_TIME%run_end).and. &
-         (MY_TIME%time+MY_OUT%dt.ge.min_time       )) then  
+         (MY_TIME%time+MY_OUT%dt.ge.min_time       )) then
           MY_ENS%pp_nt = MY_ENS%pp_nt + 1
-          min_time     = min(MY_TIME%time,min_time)  
+          min_time     = min(MY_TIME%time,min_time)
      else if (MY_TIME%time.gt.MY_TIME%run_end) then
           if(MY_ENS%pp_nt.eq.1) MY_ENS%pp_nt = MY_ENS%pp_nt + 1  ! include end
           go_on = .false.
@@ -245,8 +245,8 @@
      call postp_interpolate_time(nt, timesec, MY_ENS%pp_timesec(it), pp_it(it), pp_s(it), MY_ERR)
   end do
   !
-  !*** Creates output file 
-  !  
+  !*** Creates output file
+  !
   if(master_world) call nc_IO_out_grid_ensemble(MY_FILES,MY_ENS,MY_GRID,MY_SPE,MY_TIME,MY_OUT,MY_ERR)
   call parallel_bcast(MY_ERR%flag,1_ip,0_ip,COMM_WORLD)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_POS_ENS, MY_FILES, MY_ERR)
@@ -271,7 +271,7 @@
          end if
          !
          !  each master_model reads member results
-         ! 
+         !
          allocate(work4(nx,ny,nfl,nt))
          name_nc = TRIM(sblock)//TRIM(fl_nc_name)
          call postp_read_variable(file_res, name_nc, nx,ny,nfl,nt, work4, MY_ERR)
@@ -299,7 +299,7 @@
                call parallel_wait( irhand )
                res_ens_5(:,:,:,iens,:) = work4(:,:,:,:)
             else if(task_id.eq.iens) then
-               call parallel_isend(res_ens_4(1,1,1,1), dim, 0_ip, 0_ip, ishand, COMM_WORLD)      
+               call parallel_isend(res_ens_4(1,1,1,1), dim, 0_ip, 0_ip, ishand, COMM_WORLD)
                call parallel_wait( ishand )
             end if
          end do
@@ -307,7 +307,7 @@
          !
          !*** master_world takes the lead of all remaining work
          !
-         if(master_world) then         
+         if(master_world) then
             !
             ! outputs ensemble member results
             !
@@ -361,7 +361,7 @@
                deallocate(work4)
                !
                name_nc = TRIM(sblock)//TRIM(c_total_nc_name)//TRIM(ens_std_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%pp_nt, res_ens_4, MY_ERR) 
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%pp_nt, res_ens_4, MY_ERR)
             end if
             !
             ! computes and outputs ensemble median
@@ -371,7 +371,7 @@
                do ifl = 1,nfl
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_5(ix,iy,ifl,:,it) 
+                  ens_rank(:) = res_ens_5(ix,iy,ifl,:,it)
                   call postp_rank_vector(nens, ens_rank, ens_index, EPSILON, MY_ERR)
                   res_ens_4(ix,iy,ifl,it) = ens_rank(int(nens/2))
                end do
@@ -380,8 +380,8 @@
                end do
                !
                name_nc = TRIM(sblock)//TRIM(c_total_nc_name)//TRIM(ens_median_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%pp_nt, res_ens_4, MY_ERR) 
-            end if         
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%pp_nt, res_ens_4, MY_ERR)
+            end if
             !
             ! computes and outputs exceedance_probability
             !
@@ -391,14 +391,14 @@
                do ifl = 1,nfl
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_5(ix,iy,ifl,:,it) 
+                  ens_rank(:) = res_ens_5(ix,iy,ifl,:,it)
                   !
                   do ith = 1,MY_ENS%nth_con  ! concentration thresholds
                      n = 0
                      do iens = 1,nens
                         if(ens_rank(iens).ge.MY_ENS%th_con(ith)) n = n + 1
-                     end do           
-                     res_prb_5(ix,iy,ifl,ith,it) = 100.0_rp*n/nens    
+                     end do
+                     res_prb_5(ix,iy,ifl,ith,it) = 100.0_rp*n/nens
                   end do
                end do
                end do
@@ -406,7 +406,7 @@
                end do
                !
                name_nc = TRIM(sblock)//TRIM(c_total_nc_name)//TRIM(ens_prb_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%nth_con,MY_ENS%pp_nt, res_prb_5, MY_ERR) 
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%nth_con,MY_ENS%pp_nt, res_prb_5, MY_ERR)
                deallocate(res_prb_5)
             end if
             !
@@ -418,14 +418,14 @@
                do ifl = 1,nfl
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_5(ix,iy,ifl,:,it) 
+                  ens_rank(:) = res_ens_5(ix,iy,ifl,:,it)
                   call postp_rank_vector(nens, ens_rank, ens_index, EPSILON, MY_ERR)
                   !
                   do ith = 1,MY_ENS%nval_per
                      n = int(MY_ENS%val_per(ith)/100.0_rp*nens)
                      n = max(n,1)
                      n = min(n,nens)
-                     res_prb_5(ix,iy,ifl,ith,it) = ens_rank(n) 
+                     res_prb_5(ix,iy,ifl,ith,it) = ens_rank(n)
                   end do
                end do
                end do
@@ -433,11 +433,11 @@
                end do
                !
                name_nc = TRIM(sblock)//TRIM(c_total_nc_name)//TRIM(ens_per_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%nval_per,MY_ENS%pp_nt, res_prb_5, MY_ERR) 
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,nfl,MY_ENS%nval_per,MY_ENS%pp_nt, res_prb_5, MY_ERR)
                deallocate(res_prb_5)
             end if
             !
-         end if !  if(master_world)      
+         end if !  if(master_world)
          !
          !*** deallocates
          !
@@ -446,7 +446,7 @@
             deallocate(res_ens_5)
          end if
          !
-      end if ! if(MY_OUT%MY_CUTS%nfl.gt.0) 
+      end if ! if(MY_OUT%MY_CUTS%nfl.gt.0)
       !
       !*** 2. COL_MASS
       !
@@ -460,7 +460,7 @@
          end if
          !
          !  each master_model reads member results
-         ! 
+         !
          allocate(work3(nx,ny,nt))
          name_nc = TRIM(sblock)//TRIM(col_nc_name)
          call postp_read_variable(file_res, name_nc, nx,ny,nt, work3, MY_ERR)
@@ -471,13 +471,13 @@
             jt = pp_it(it)
             s  = pp_s(it)
             res_ens_3(:,:,it) = s*work3(:,:,jt) + (1.0_rp-s)*work3(:,:,jt+1)
-            res_ens_3(:,:,it) = max(res_ens_3(:,:,it),0.0_rp) 
+            res_ens_3(:,:,it) = max(res_ens_3(:,:,it),0.0_rp)
          end do
          deallocate(work3)
          !
          !  master_world gathers all member results at the postprocess time instants
          !
-         if(master_world) then 
+         if(master_world) then
            allocate(work3(nx,ny,MY_ENS%pp_nt))
            res_ens_4(:,:,1,:) = res_ens_3(:,:,:)
          end if
@@ -488,7 +488,7 @@
                call parallel_wait( irhand )
                res_ens_4(:,:,iens,:) = work3(:,:,:)
             else if(task_id.eq.iens) then
-               call parallel_isend(res_ens_3(1,1,1), dim, 0_ip, 0_ip, ishand, COMM_WORLD)      
+               call parallel_isend(res_ens_3(1,1,1), dim, 0_ip, 0_ip, ishand, COMM_WORLD)
                call parallel_wait( ishand )
             end if
          end do
@@ -496,7 +496,7 @@
          !
          !*** master_world takes the lead of all remaining work
          !
-         if(master_world) then         
+         if(master_world) then
             !
             ! outputs ensemble member results
             !
@@ -550,7 +550,7 @@
                deallocate(work3)
                !
                name_nc = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_std_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR) 
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR)
             end if
             !
             ! computes and outputs ensemble median
@@ -559,7 +559,7 @@
                do it  = 1,MY_ENS%pp_nt
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_4(ix,iy,:,it) 
+                  ens_rank(:) = res_ens_4(ix,iy,:,it)
                   call postp_rank_vector(nens, ens_rank, ens_index, EPSILON, MY_ERR)
                   res_ens_3(ix,iy,it) = ens_rank(nens/2)
                end do
@@ -567,8 +567,8 @@
                end do
                !
                name_nc = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_median_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR) 
-            end if         
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR)
+            end if
             !
             ! computes and outputs exceedance_probability
             !
@@ -578,21 +578,21 @@
                do it  = 1,MY_ENS%pp_nt
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_4(ix,iy,:,it) 
+                  ens_rank(:) = res_ens_4(ix,iy,:,it)
                   !
                   do ith = 1,MY_ENS%nth_col_mass_DU  ! col mass thresholds (in DU)
                      n = 0
                      do iens = 1,nens
                         if(ens_rank(iens).ge.MY_ENS%th_col_mass_DU(ith)) n = n + 1
-                     end do           
-                     res_prb_4(ix,iy,ith,it) = 100.0_rp*n/nens    
+                     end do
+                     res_prb_4(ix,iy,ith,it) = 100.0_rp*n/nens
                   end do
                end do
                end do
                end do
                !
                name_nc = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_prb_nc_name)
-               call nc_IO_out_variable(file_pos,name_nc,nx,ny,MY_ENS%nth_col_mass_DU,MY_ENS%pp_nt,res_prb_4,MY_ERR) 
+               call nc_IO_out_variable(file_pos,name_nc,nx,ny,MY_ENS%nth_col_mass_DU,MY_ENS%pp_nt,res_prb_4,MY_ERR)
                deallocate(res_prb_4)
                !
             else if( (spe_code.ne.SPE_SO2).and.(MY_ENS%nth_col_mass.gt.0) ) then
@@ -600,24 +600,24 @@
                do it  = 1,MY_ENS%pp_nt
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_4(ix,iy,:,it) 
+                  ens_rank(:) = res_ens_4(ix,iy,:,it)
                   !
                   do ith = 1,MY_ENS%nth_col_mass  ! col mass thresholds (in DU)
                      n = 0
                      do iens = 1,nens
                         if(ens_rank(iens).ge.MY_ENS%th_col_mass(ith)) n = n + 1
-                     end do           
-                     res_prb_4(ix,iy,ith,it) = 100.0_rp*n/nens    
+                     end do
+                     res_prb_4(ix,iy,ith,it) = 100.0_rp*n/nens
                   end do
                end do
                end do
                end do
                !
                name_nc = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_prb_nc_name)
-               call nc_IO_out_variable(file_pos,name_nc,nx,ny,MY_ENS%nth_col_mass,MY_ENS%pp_nt,res_prb_4,MY_ERR) 
+               call nc_IO_out_variable(file_pos,name_nc,nx,ny,MY_ENS%nth_col_mass,MY_ENS%pp_nt,res_prb_4,MY_ERR)
                deallocate(res_prb_4)
             end if
-            end if 
+            end if
             !
             ! computes and outputs intensity measure (percentiles)
             !
@@ -626,25 +626,25 @@
                do it  = 1,MY_ENS%pp_nt
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_4(ix,iy,:,it) 
+                  ens_rank(:) = res_ens_4(ix,iy,:,it)
                   call postp_rank_vector(nens, ens_rank, ens_index, EPSILON, MY_ERR)
                   !
                   do ith = 1,MY_ENS%nval_per
                      n = int(MY_ENS%val_per(ith)/100.0_rp*nens)
                      n = max(n,1)
                      n = min(n,nens)
-                     res_prb_4(ix,iy,ith,it) = ens_rank(n) 
+                     res_prb_4(ix,iy,ith,it) = ens_rank(n)
                   end do
                end do
                end do
                end do
                !
                name_nc = TRIM(sblock)//TRIM(col_nc_name)//TRIM(ens_per_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%nval_per,MY_ENS%pp_nt, res_prb_4, MY_ERR) 
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%nval_per,MY_ENS%pp_nt, res_prb_4, MY_ERR)
                deallocate(res_prb_4)
             end if
            !
-         end if !  if(master_world)            
+         end if !  if(master_world)
          !
          !*** deallocates
          !
@@ -653,7 +653,7 @@
             deallocate(res_ens_4)
          end if
          !
-      end if ! if(MY_OUT%out_col_load) 
+      end if ! if(MY_OUT%out_col_load)
       !
       !*** 3. GRN_LOAD
       !
@@ -667,7 +667,7 @@
          end if
          !
          !  each master_model reads member results
-         ! 
+         !
          allocate(work3(nx,ny,nt))
          name_nc = TRIM(sblock)//TRIM(grn_nc_name)
          call postp_read_variable(file_res, name_nc, nx,ny,nt, work3, MY_ERR)
@@ -695,7 +695,7 @@
                call parallel_wait( irhand )
                res_ens_4(:,:,iens,:) = work3(:,:,:)
             else if(task_id.eq.iens) then
-               call parallel_isend(res_ens_3(1,1,1), dim, 0_ip, 0_ip, ishand, COMM_WORLD)      
+               call parallel_isend(res_ens_3(1,1,1), dim, 0_ip, 0_ip, ishand, COMM_WORLD)
                call parallel_wait( ishand )
             end if
          end do
@@ -703,7 +703,7 @@
          !
          !*** master_world takes the lead of all remaining work
          !
-         if(master_world) then         
+         if(master_world) then
             !
             ! outputs ensemble member results
             !
@@ -712,7 +712,7 @@
                call nc_IO_out_variable(file_pos, name_nc, nx,ny,nens,MY_ENS%pp_nt, res_ens_4, MY_ERR)
             end if
             !
-            ! computes and outputs ensemble mean 
+            ! computes and outputs ensemble mean
             !
             if(MY_ENS%postprocess_mean) then
                res_ens_3 = 0.0_rp
@@ -725,7 +725,7 @@
                call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR)
             end if
             !
-            ! computes and outputs ensemble log mean 
+            ! computes and outputs ensemble log mean
             !
             if(MY_ENS%postprocess_logmean) then
                res_ens_3 = 0.0_rp
@@ -757,7 +757,7 @@
                deallocate(work3)
                !
                name_nc = TRIM(sblock)//TRIM(grn_nc_name)//TRIM(ens_std_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR) 
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR)
             end if
             !
             ! computes and outputs ensemble median
@@ -766,7 +766,7 @@
                do it  = 1,MY_ENS%pp_nt
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_4(ix,iy,:,it) 
+                  ens_rank(:) = res_ens_4(ix,iy,:,it)
                   call postp_rank_vector(nens, ens_rank, ens_index, EPSILON, MY_ERR)
                   res_ens_3(ix,iy,it) = ens_rank(nens/2)
                end do
@@ -774,8 +774,8 @@
                end do
                !
                name_nc = TRIM(sblock)//TRIM(grn_nc_name)//TRIM(ens_median_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR) 
-            end if         
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%pp_nt, res_ens_3, MY_ERR)
+            end if
             !
             ! computes and outputs exceedance_probability
             !
@@ -784,21 +784,21 @@
               do it  = 1,MY_ENS%pp_nt
               do iy  = 1,ny
               do ix  = 1,nx
-                 ens_rank(:) = res_ens_4(ix,iy,:,it) 
+                 ens_rank(:) = res_ens_4(ix,iy,:,it)
                  !
-                 do ith = 1,MY_ENS%nth_grn_load   ! ground load thresholds 
+                 do ith = 1,MY_ENS%nth_grn_load   ! ground load thresholds
                     n = 0
                     do iens = 1,nens
                        if(ens_rank(iens).ge.MY_ENS%th_grn_load(ith)) n = n + 1
-                    end do           
-                    res_prb_4(ix,iy,ith,it) = 100.0_rp*n/nens    
+                    end do
+                    res_prb_4(ix,iy,ith,it) = 100.0_rp*n/nens
                  end do
               end do
               end do
               end do
               !
               name_nc = TRIM(sblock)//TRIM(grn_nc_name)//TRIM(ens_prb_nc_name)
-              call nc_IO_out_variable(file_pos,name_nc,nx,ny,MY_ENS%nth_grn_load,MY_ENS%pp_nt,res_prb_4,MY_ERR) 
+              call nc_IO_out_variable(file_pos,name_nc,nx,ny,MY_ENS%nth_grn_load,MY_ENS%pp_nt,res_prb_4,MY_ERR)
               deallocate(res_prb_4)
             end if
             !
@@ -809,25 +809,25 @@
                do it  = 1,MY_ENS%pp_nt
                do iy  = 1,ny
                do ix  = 1,nx
-                  ens_rank(:) = res_ens_4(ix,iy,:,it) 
+                  ens_rank(:) = res_ens_4(ix,iy,:,it)
                   call postp_rank_vector(nens, ens_rank, ens_index, EPSILON, MY_ERR)
                   !
                   do ith = 1,MY_ENS%nval_per
                      n = int(MY_ENS%val_per(ith)/100.0_rp*nens)
                      n = max(n,1)
                      n = min(n,nens)
-                     res_prb_4(ix,iy,ith,it) = ens_rank(n) 
+                     res_prb_4(ix,iy,ith,it) = ens_rank(n)
                   end do
                end do
                end do
                end do
                !
                name_nc = TRIM(sblock)//TRIM(grn_nc_name)//TRIM(ens_per_nc_name)
-               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%nval_per,MY_ENS%pp_nt, res_prb_4, MY_ERR) 
+               call nc_IO_out_variable(file_pos, name_nc, nx,ny,MY_ENS%nval_per,MY_ENS%pp_nt, res_prb_4, MY_ERR)
                deallocate(res_prb_4)
             end if
             !
-         end if !  if(master_world)            
+         end if !  if(master_world)
          !
          !*** deallocates
          !
@@ -836,10 +836,10 @@
             deallocate(res_ens_4)
          end if
          !
-      end if ! if(MY_OUT%out_grn_total) 
+      end if ! if(MY_OUT%out_grn_total)
       !
    end do  ! do ispe = 1,MY_SPE%nspe
-   end if  ! if(master_model) 
+   end if  ! if(master_model)
   !
   !*** Normal end
   !

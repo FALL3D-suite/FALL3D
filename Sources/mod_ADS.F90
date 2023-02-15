@@ -46,7 +46,7 @@ MODULE ADS
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
   PUBLIC :: ADS_initialize
-  PUBLIC :: ADS_get_horizontal_vcomps
+  PUBLIC :: ADS_get_vcomps
   PUBLIC :: ADS_update_horizontal_vcomps
   PUBLIC :: ADS_release
   PUBLIC :: ADS_solve_along_x
@@ -157,22 +157,24 @@ CONTAINS
   end subroutine ADS_initialize
   !
   !----------------------------------------
-  !    subroutine ADS_get_horizontal_vcomps
+  !    subroutine ADS_get_vcomps
   !----------------------------------------
   !
   !>   @brief
-  !>   Get pointers to horizontal velocity components.
+  !>   Get pointers velocity components.
   !
-  subroutine ADS_get_horizontal_vcomps(my_u,my_v)
+  subroutine ADS_get_vcomps(my_u,my_v,my_w)
     implicit none
 
     real(rp),pointer,intent(INOUT) :: my_u(:,:,:)
     real(rp),pointer,intent(INOUT) :: my_v(:,:,:)
+    real(rp),pointer,intent(INOUT) :: my_w(:,:,:)
 
     my_u => CB%u
     my_v => CB%v
+    my_w => CB%w
 
-  end subroutine ADS_get_horizontal_vcomps
+  end subroutine ADS_get_vcomps
 
   !
   !----------------------------------------

@@ -15,6 +15,7 @@ MODULE Dbs
   use Time
   use Grid
   use Phys
+  use Coord
   implicit none
   save
   !
@@ -49,6 +50,7 @@ MODULE Dbs
   integer(ip), PRIVATE  :: ncID
   integer(ip), PRIVATE  :: dimID
   integer(ip), PRIVATE  :: varID
+  integer(ip), PRIVATE  :: UvarID, VvarID   ! Specific for the Ux,Uy components of the velocity
   !
   !    DICTIONARY DEFINITION
   !
@@ -93,6 +95,8 @@ MODULE Dbs
   integer(ip), PRIVATE, parameter :: VAR_QV    = 49
   integer(ip), PRIVATE, parameter :: VAR_RHO   = 50
   !
+  ! Note: sizes od EXISTS, COMPUTED and DICTIONARY must be equal or greater
+  ! than the maximum index of the above variables (eg: >= VAR_RHO=50)
   logical,               PRIVATE  :: EXISTS    (100)
   logical,               PRIVATE  :: COMPUTED  (100)
   character(len=s_name), PRIVATE  :: DICTIONARY(100)
@@ -101,6 +105,25 @@ MODULE Dbs
   integer(ip), parameter, private :: nwormax = 128
   integer(ip), parameter, private :: nparmax = 128
   !
+  ! Defines the MATRIX_ROTATION class used for meteo rotation
+  ! It can be used by the master node for the rotation of the meteo field around a pole
+  ! Rotation is activated by flag GL_METMODEL%rotate_meteo
+  ! NOTE: flag GL_METMODEL%rotate_meteo is different from flag rotate_wind used by WRF
+  type :: MATRIX_ROTATION
+     integer(ip)              :: nx, ny                ! Matrix dimensions
+     integer(ip), allocatable :: ilat(:,:), ilon(:,:)  ! Indices of the lat/lon points to be rotated
+     real(rp),    allocatable :: wx(:,:), wy(:,:)      ! Interpolations weights
+     real(rp),    allocatable :: sbeta(:,:), cbeta(:,:) ! Sin and cos of beta
+     !
+     ! F2003/F2008 extensions (not activated yet)
+     ! contains
+     !   procedure :: initalize   => matrix_rotation_initialize
+     !   procedure :: finalize    => matrix_rotation_finalize
+     !   procedure :: rotate2d    => matrix_rotation_rotate2d
+     !   procedure :: rotate3d    => matrix_rotation_rotate3d
+     !   procedure :: rotatevec2d => matrix_rotation_rotate_vector2d
+  end type MATRIX_ROTATION
+  !
 CONTAINS
   !
   !-----------------------------------------
@@ -108,7 +131,8 @@ CONTAINS
   !-----------------------------------------
   !
   !>   @brief
-  !>   Reads meteo model grid and terrain data nedded to generate MY_GRID (topography and lmask)
+  !>   Reads meteo model grid and terrain data needed to generate MY_GRID (topography and lmask)
+  !>   @Note Called by task_SetDbs only by the master process
   !
   subroutine dbs_read_metmodel_grid(MY_FILES,MY_GRID,MY_MET,GL_METMODEL,MY_ERR)
     implicit none
@@ -205,6 +229,7 @@ CONTAINS
     select case(MY_MET%meteo_data_type)
     case('WRF')
        !
+       ! Longitude
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_LON),varID)
        istat = nf90_get_var  (ncID,varID,GL_METMODEL%lon)
        if(istat.ne.0) then
@@ -213,6 +238,7 @@ CONTAINS
           return
        end if
        !
+       ! Latitude
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_LAT),varID)
        istat = nf90_get_var  (ncID,varID,GL_METMODEL%lat)
        if(istat.ne.0) then
@@ -223,6 +249,7 @@ CONTAINS
        !
     case('GFS','GDAS','ERA5','GRIB2NC','ERA5ML')
        !
+       ! Longitude
        allocate(work1d(GL_METMODEL%nx))
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_LON),varID)
        istat = nf90_get_var  (ncID,varID,work1d)
@@ -236,6 +263,7 @@ CONTAINS
        end do
        deallocate(work1d)
        !
+       ! Latitude
        allocate(work1d(GL_METMODEL%ny))
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_LAT),varID)
        istat = nf90_get_var  (ncID,varID,work1d)
@@ -269,7 +297,7 @@ CONTAINS
     select case(MY_MET%meteo_data_type)
        !
     case('GFS','GDAS','ERA5','GRIB2NC')
-       !   pres
+       ! pres
        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_ZLEV),varID)
        istat = nf90_get_var  (ncID,varID,GL_METMODEL%pres)
        if(istat.ne.0) then
@@ -298,11 +326,10 @@ CONTAINS
     select case(MY_MET%meteo_data_type)
        !
     case('GFS','ERA5','GRIB2NC')
-        GL_METMODEL%pres = GL_METMODEL%pres*100.0_rp  ! (converted from mb to Pa)
+       GL_METMODEL%pres = GL_METMODEL%pres*100.0_rp  ! (converted from mb to Pa)
     end select
     !
-    !*** Reads topography
-    !
+    ! Topography
     istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TOPO),varID)
     if(istat.ne.0) then
        EXISTS(VAR_TOPO)   = .false.
@@ -316,6 +343,11 @@ CONTAINS
             GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
             GL_METMODEL%topg, &
             MY_ERR)
+       !
+       ! NOTE: If the ROTATE_METEO is request, the topography is rotated by
+       ! matrix_rotation_initialize called by dbs_read_metmodel_data
+       ! Do not rotate the topography here
+       !
        select case(MY_MET%meteo_data_type)
        case('ERA5','ERA5ML')
           GL_METMODEL%topg = GL_METMODEL%topg / 9.81_rp
@@ -432,14 +464,14 @@ CONTAINS
     !
     select case(MY_MET%meteo_data_type)
     case('WRF','GFS','GRIB2NC','GDAS','ERA5','ERA5ML')
-        MY_ERR%flag    = 0
-        MY_ERR%source  = 'dbs_read_metmodel_times'
-        MY_ERR%message = ' '
+       MY_ERR%flag    = 0
+       MY_ERR%source  = 'dbs_read_metmodel_times'
+       MY_ERR%message = ' '
     case default
-        MY_ERR%flag    = 1
-        MY_ERR%source  = 'dbs_read_metmodel_times'
-        MY_ERR%message = 'Meteo model not implemented '
-        return
+       MY_ERR%flag    = 1
+       MY_ERR%source  = 'dbs_read_metmodel_times'
+       MY_ERR%message = 'Meteo model not implemented '
+       return
     end select
     !
     !*** Read dimensions
@@ -462,124 +494,125 @@ CONTAINS
     !
     select case(MY_MET%meteo_data_type)
     case('WRF')
-        !
-        !*** WRF model
-        !
-        allocate(WRF_string(GL_METMODEL%nt))  ! time instants in format YYYY-MM-DD_HH:MM:SS
-        !
-        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
-        istat = nf90_get_var(ncID,varID,WRF_string)
-        if(istat.ne.nf90_noerr) then
-            MY_ERR%flag    = istat
-            MY_ERR%message = nf90_strerror(istat)
-            return
-        end if
-        !
-        !*** Define for the driver:
-        !    time(nt)         in format YYYY-MM-DD HH:MM:SS
-        !    reference time   in format YYYY-MM-DD 00:00:00
-        !    driver_times(nt) in format seconds after the reference time
-        !
-        do it = 1,GL_METMODEL%nt
-            iyr = stoi1(WRF_string(it)(1 :1 ))*1000 + &
-                  stoi1(WRF_string(it)(2 :2 ))*100  + &
-                  stoi1(WRF_string(it)(3 :3 ))*10   + &
-                  stoi1(WRF_string(it)(4 :4 ))
-            imo = stoi1(WRF_string(it)(6 :6 ))*10   + &
-                  stoi1(WRF_string(it)(7 :7 ))
-            idy = stoi1(WRF_string(it)(9 :9 ))*10   + &
-                  stoi1(WRF_string(it)(10:10))
-            ihr = stoi1(WRF_string(it)(12:12))*10   + &
-                  stoi1(WRF_string(it)(13:13))
-            imi = stoi1(WRF_string(it)(15:15))*10   + &
-                  stoi1(WRF_string(it)(16:16))
-            ise = stoi1(WRF_string(it)(18:18))*10   + &
-                  stoi1(WRF_string(it)(19:19))
-            GL_METMODEL%time(it) = DATETIME(iyr,imo,idy,ihr,imi,ise)
-            if(it.eq.1) then
-                time_driver_ref = DATETIME(iyr,imo,idy,0,0,0)
-                call time_julian_date(iyr,imo,idy,julday1,MY_ERR)
-            end if
-            call time_julian_date(iyr,imo,idy,julday2,MY_ERR)
-            driver_times(it) = (julday2-julday1)*86400.0_dp + &
-                                ihr*3600.0_dp + imi*60.0_dp + &
-                                ise*1.0_dp
-        end do
+       !
+       !*** WRF model
+       !
+       allocate(WRF_string(GL_METMODEL%nt))  ! time instants in format YYYY-MM-DD_HH:MM:SS
+       !
+       istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
+       istat = nf90_get_var(ncID,varID,WRF_string)
+       if(istat.ne.nf90_noerr) then
+          MY_ERR%flag    = istat
+          MY_ERR%message = nf90_strerror(istat)
+          return
+       end if
+       !
+       !*** Define for the driver:
+       !    time(nt)         in format YYYY-MM-DD HH:MM:SS
+       !    reference time   in format YYYY-MM-DD 00:00:00
+       !    driver_times(nt) in format seconds after the reference time
+       !
+       do it = 1,GL_METMODEL%nt
+          iyr = stoi1(WRF_string(it)(1 :1 ))*1000 + &
+               stoi1(WRF_string(it)(2 :2 ))*100  + &
+               stoi1(WRF_string(it)(3 :3 ))*10   + &
+               stoi1(WRF_string(it)(4 :4 ))
+          imo = stoi1(WRF_string(it)(6 :6 ))*10   + &
+               stoi1(WRF_string(it)(7 :7 ))
+          idy = stoi1(WRF_string(it)(9 :9 ))*10   + &
+               stoi1(WRF_string(it)(10:10))
+          ihr = stoi1(WRF_string(it)(12:12))*10   + &
+               stoi1(WRF_string(it)(13:13))
+          imi = stoi1(WRF_string(it)(15:15))*10   + &
+               stoi1(WRF_string(it)(16:16))
+          ise = stoi1(WRF_string(it)(18:18))*10   + &
+               stoi1(WRF_string(it)(19:19))
+          GL_METMODEL%time(it) = DATETIME(iyr,imo,idy,ihr,imi,ise)
+          if(it.eq.1) then
+             time_driver_ref = DATETIME(iyr,imo,idy,0,0,0)
+             call time_julian_date(iyr,imo,idy,julday1,MY_ERR)
+          end if
+          call time_julian_date(iyr,imo,idy,julday2,MY_ERR)
+          driver_times(it) = (julday2-julday1)*86400.0_dp + &
+               ihr*3600.0_dp + imi*60.0_dp + &
+               ise*1.0_dp
+       end do
     case default
-        !
-        !*** Assuming CF Conventions for input file
-        !
-        istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
-        istat = nf90_get_var  (ncID,varID,driver_times)
-        if(istat.ne.nf90_noerr) then
+       !
+       !*** Assuming CF Conventions for input file
+       !
+       istat = nf90_inq_varid(ncID,DICTIONARY(VAR_TIME),varID)
+       istat = nf90_get_var  (ncID,varID,driver_times)
+       if(istat.ne.nf90_noerr) then
           MY_ERR%flag    = istat
           MY_ERR%source  = 'dbs_read_metmodel_times'
           MY_ERR%message = nf90_strerror(istat)
           return
-        end if
-        !
-        istat = nf90_inquire_attribute(ncID, varID, 'units')
-        if (istat.eq.nf90_noerr) then
+       end if
+       !
+       istat = nf90_inquire_attribute(ncID, varID, 'units')
+       if (istat.eq.nf90_noerr) then
           istat = nf90_get_att(ncID, varID, 'units', timeunit_string)
-        end if
-        !
-        if(istat.ne.nf90_noerr) then
-            MY_ERR%flag    = istat
-            MY_ERR%source  = 'dbs_read_metmodel_times'
-            MY_ERR%message = nf90_strerror(istat)
-            return
-        end if
-        !
-        call inpout_decode_timeunit(timeunit_string,time_factor,time_driver_ref,MY_ERR)
-        if(MY_ERR%flag.ne.0) return
-        !
-        !*** Convert to seconds
-        !
-        driver_times = time_factor*driver_times
-        !
-        !*** Compute driver time seconds after YYYY-MM-DD 00:00:00
-        !
-        driver_times = driver_times                     + &
-                       time_driver_ref%hour   * 3600_dp + &
-                       time_driver_ref%minute * 60.0_dp + &
-                       time_driver_ref%second * 1.0_dp
-        !
-        !time_addtime assumes a proleptic
-        !Gregorian calendar.
-        !If year<=1582 a difference of 2 days
-        !exists between the Julian and
-        !the proleptic Gregorian calendars.
-        if(time_driver_ref%year.le.1582_ip) then
-            driver_times = driver_times-48*3600_dp
-            call task_wriwarn(MY_ERR, "Assuming a Julian calendar for the driver met model")
-        end if
-        !
-        !*** Define for the driver:
-        !    time(nt)         in format YYYY-MM-DD HH:MM:SS
-        !    reference time   in format YYYY-MM-DD 00:00:00
-        !    driver_times(nt) in format seconds after the reference time
-        !
-        do it = 1,GL_METMODEL%nt
-            call time_addtime(time_driver_ref%year,    &
-                              time_driver_ref%month,   &
-                              time_driver_ref%day,     &
-                              0,                       &
-                              iyr,imo,idy,ihr,imi,ise, &
-                              driver_times(it),        &
-                              MY_ERR)
-            GL_METMODEL%time(it) = DATETIME(iyr,imo,idy,ihr,imi,ise)
+       end if
+       !
+       if(istat.ne.nf90_noerr) then
+          MY_ERR%flag    = istat
+          MY_ERR%source  = 'dbs_read_metmodel_times'
+          MY_ERR%message = nf90_strerror(istat)
+          return
+       end if
+       !
+       call inpout_decode_timeunit(timeunit_string,time_factor,time_driver_ref,MY_ERR)
+       if(MY_ERR%flag.ne.0) return
+       !
+       !*** Convert to seconds
+       !
+       driver_times = time_factor*driver_times
+       !
+       !*** Compute driver time seconds after YYYY-MM-DD 00:00:00
+       !
+       driver_times = driver_times                     + &
+            time_driver_ref%hour   * 3600_dp + &
+            time_driver_ref%minute * 60.0_dp + &
+            time_driver_ref%second * 1.0_dp
+       !
+       !time_addtime assumes a proleptic
+       !Gregorian calendar.
+       !If year<=1582 a difference of 2 days
+       !exists between the Julian and
+       !the proleptic Gregorian calendars.
+       if(time_driver_ref%year.le.1582_ip) then
+          driver_times = driver_times-48*3600_dp
+          call task_wriwarn(MY_ERR, "Assuming a Julian calendar for the driver met model")
+       end if
+       !
+       !*** Define for the driver:
+       !    time(nt)         in format YYYY-MM-DD HH:MM:SS
+       !    reference time   in format YYYY-MM-DD 00:00:00
+       !    driver_times(nt) in format seconds after the reference time
+       !
+       do it = 1,GL_METMODEL%nt
+          call time_addtime(time_driver_ref%year,    &
+               time_driver_ref%month,   &
+               time_driver_ref%day,     &
+               0,                       &
+               iyr,imo,idy,ihr,imi,ise, &
+               driver_times(it),        &
+               MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          GL_METMODEL%time(it) = DATETIME(iyr,imo,idy,ihr,imi,ise)
        end do
     end select
     !
     !*** Compute delta time
     !
     if(GL_METMODEL%nt.gt.1) then
-        GL_METMODEL%dt = driver_times(2) - driver_times(1)
+       GL_METMODEL%dt = driver_times(2) - driver_times(1)
     else
-        MY_ERR%flag    = 1
-        MY_ERR%source  = 'dbs_read_metmodel_times'
-        MY_ERR%message = 'Unable to interpolate: only one time step was found'
-        return
+       MY_ERR%flag    = 1
+       MY_ERR%source  = 'dbs_read_metmodel_times'
+       MY_ERR%message = 'Unable to interpolate: only one time step was found'
+       return
     end if
     !
     !*** Store driver model start time
@@ -611,31 +644,32 @@ CONTAINS
     !*** Prints log file
     !
     call time_addtime(MY_TIME%start_year,      &
-                      MY_TIME%start_month,     &
-                      MY_TIME%start_day,       &
-                      0,                       &
-                      iyr,imo,idy,ihr,imi,ise, &
-                      MY_TIME%dbs_start,       &
-                      MY_ERR)
-
+         MY_TIME%start_month,     &
+         MY_TIME%start_day,       &
+         0,                       &
+         iyr,imo,idy,ihr,imi,ise, &
+         MY_TIME%dbs_start,       &
+         MY_ERR)
+    if(MY_ERR%flag.ne.0) return
     time_dbs_start     = DATETIME(iyr,imo,idy,ihr,0,0)
     time_dbs_start_sec = MY_TIME%dbs_start
     call time_addtime(MY_TIME%start_year,      &
-                      MY_TIME%start_month,     &
-                      MY_TIME%start_day,       &
-                      0,                       &
-                      iyr,imo,idy,ihr,imi,ise, &
-                      MY_TIME%dbs_end,         &
-                      MY_ERR)
+         MY_TIME%start_month,     &
+         MY_TIME%start_day,       &
+         0,                       &
+         iyr,imo,idy,ihr,imi,ise, &
+         MY_TIME%dbs_end,         &
+         MY_ERR)
+    if(MY_ERR%flag.ne.0) return
     time_dbs_end       = DATETIME(iyr,imo,idy,ihr,0,0)
     time_dbs_end_sec   = MY_TIME%dbs_end
     !
     write(MY_FILES%lulog,10) TRIM(MY_MET%meteo_data_type),     &
-                             GL_METMODEL%time(1),              &
-                             GL_METMODEL%time(GL_METMODEL%nt), &
-                             time_dbs_start,                   &
-                             time_dbs_end,                     &
-                             MY_MET%time_lag/3600.0_rp
+         GL_METMODEL%time(1),              &
+         GL_METMODEL%time(GL_METMODEL%nt), &
+         time_dbs_start,                   &
+         time_dbs_end,                     &
+         MY_MET%time_lag/3600.0_rp
 10  format(/,2x,a,&
          ' meteo model time coverage : ',/, &
          '  From               : ',I4,2('-',I2.2),1x,I2.2,2(':',I2.2),/, &
@@ -672,7 +706,7 @@ CONTAINS
           return
        end if
        if( ((MY_MET%time_lag+time_dbs_start_sec).ge.GL_METMODEL%timesec(it  )).and. &
-           ((MY_MET%time_lag+time_dbs_start_sec).le.GL_METMODEL%timesec(it+1)) ) then
+            ((MY_MET%time_lag+time_dbs_start_sec).le.GL_METMODEL%timesec(it+1)) ) then
           found = .true.
           if((MY_MET%time_lag+time_dbs_start_sec).eq.GL_METMODEL%timesec(it+1)) then
              MY_MET%its = it+1
@@ -693,7 +727,7 @@ CONTAINS
           return
        end if
        if( ((MY_MET%time_lag+time_dbs_end_sec).ge.GL_METMODEL%timesec(it  )).and. &
-           ((MY_MET%time_lag+time_dbs_end_sec).le.GL_METMODEL%timesec(it+1)) ) then
+            ((MY_MET%time_lag+time_dbs_end_sec).le.GL_METMODEL%timesec(it+1)) ) then
           found = .true.
           if((MY_MET%time_lag+time_dbs_end_sec).eq.GL_METMODEL%timesec(it)) then
              MY_MET%ite = it
@@ -717,8 +751,8 @@ CONTAINS
     !
     write(MY_FILES%lulog,20) (MY_MET%time(it), MY_MET%its+it-1, it = 1,MY_MET%nt)
 20  format( /,2x,'Data will be interpolated at times (YYYY-MM-DD HH:MM:SS): ',/, &
-            *(2x,I4,2('-',I2.2),1x,I2.2,2(':',I2.2), &
-            ' (step ',i3,' of the meteorological model)',/) )
+         *(2x,I4,2('-',I2.2),1x,I2.2,2(':',I2.2), &
+         ' (step ',i3,' of the meteorological model)',/) )
     !
     return
   end subroutine dbs_read_metmodel_times
@@ -803,7 +837,7 @@ CONTAINS
     !>   @param MY_FILES    list of files
     !>   @param MY_MET      variables related to meteorology in MY_GRID
     !>   @param GL_METMODEL variables related to driving meteorological model
-    !>   @param GL_METPROFILES  variables related to metrorological profiles
+    !>   @param GL_METPROFILES  variables related to meteorological profiles
     !>   @param MY_GRID     grid configuration parameters
     !>   @param MY_ERR      error handler
     !
@@ -814,13 +848,15 @@ CONTAINS
     type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
     !
+    type(MATRIX_ROTATION)   :: GL_ROTATION
     integer(ip)             :: it,my_it,istat,ipoin,ielem,i,j,k,ix,iy,iz,ix_prof,iy_prof
     integer(ip)             :: nx,ny,nz,npoin,nx_stag,ny_stag,nz_stag
     real(rp)                :: s,t,st,myshape(4),z,rh,tc,e,es
-    logical                 :: rotate_winds
+    logical                 :: rotate_winds  ! Rotate wind field (for WRF)
     real(rp)                :: cone, cen_long, alpha, cos_alpha_prof, sin_alpha_prof, tmp_wind_prof
+    real(rp),   allocatable, target :: work3d(:,:,:)  ! 3D workspace
+    real(rp),   allocatable, target :: krow3d(:,:,:)  ! 3D workspace
     real(rp),   allocatable :: zmodel   (:,:,:)
-    real(rp),   allocatable :: work3d   (:,:,:)
     real(rp),   allocatable :: work3d2  (:,:,:)
     real(rp),   allocatable :: my_zmodel(:,:)
     integer(ip),allocatable :: my_iz    (:,:)
@@ -836,8 +872,15 @@ CONTAINS
     real(rp),   allocatable :: b_coeff  (:)
     real(rp),   allocatable :: zc       (:)
     !
+    ! Pointers (used for clarity)
+    real(rp), pointer :: u10(:,:), v10(:,:)
+    real(rp), pointer :: ux(:,:,:), uy(:,:,:)
+    !
+    real(rp) :: curfill   ! Current fillvalue
+    !
     !*** Initializations
     !
+    rotate_winds   = .false.   ! Eventually, set by dbs_get_map_projection_info
     MY_ERR%flag    = 0
     MY_ERR%source  = 'dbs_read_metmodel_data'
     MY_ERR%message = ' '
@@ -846,8 +889,15 @@ CONTAINS
     ny    = GL_METMODEL%ny
     nz    = GL_METMODEL%nz
     !
+    ! Initialize the matrix rotation
+    if(GL_METMODEL%rotate_meteo) then
+       call matrix_rotation_initialize(GL_ROTATION, GL_METMODEL, MY_ERR)
+       if(MY_ERR%flag .ne. 0) return
+    end if
+    !
     allocate(work2d(nx,ny))
     allocate(work3d(nx,ny,nz))
+    allocate(krow3d(nx,ny,nz))
     !
     !*** Initilize other model specific variables
     !
@@ -863,21 +913,23 @@ CONTAINS
             nz,a_coeff,b_coeff,    &
             GL_METMODEL%zreversed, &
             MY_ERR)
+       if(MY_ERR%flag.ne.0) return
        call parallel_bcast(MY_ERR%flag,1,0)
        if(MY_ERR%flag.ne.0) return
     case default
        continue
     end select
     !
-    !*** Rotation matrices for wind
+    !*** Matrices for rotated wind (eg: WRF, etc.)
     !
     select case(MY_MET%meteo_data_type)
     case('WRF')
        if(master_model) then
-          !Reads map projection parameters from WRF file
-          !rotate_winds defines if wind rotation will be required
-          !cone = cone*radians_per_degree
+          ! Reads map projection parameters from WRF file
+          ! rotate_winds defines if wind rotation is required
+          ! cone = cone*radians_per_degree
           call dbs_get_map_projection_info(cone,cen_long,rotate_winds,MY_ERR)
+          if(MY_ERR%flag.ne.0) return
        end if
        call parallel_bcast(cone,1,0)
        call parallel_bcast(cen_long,1,0)
@@ -906,7 +958,7 @@ CONTAINS
              end do
           end do
           !
-          !Rotation factor for wind profile
+          ! Rotation factor for wind profile
           alpha = GL_METPROFILES%lon - cen_long
           if(alpha.gt.180.0_rp) then
              alpha = alpha - 360.0_rp
@@ -922,6 +974,7 @@ CONTAINS
           sin_alpha_prof = sin(alpha)
        end if
     case default
+       ! Internal wind rotation does not apply for not WRF meteo files
        rotate_winds = .false.
     end select
     !
@@ -953,6 +1006,12 @@ CONTAINS
                GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                work2d, &
                MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          if(GL_METMODEL%rotate_meteo) then
+             curfill = work2d(1,1)   ! Set the fillvalue
+             call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+          end if
        end if
        npoin = nx*ny
        call parallel_bcast(work2d,npoin,0)
@@ -1002,6 +1061,12 @@ CONTAINS
                GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                work2d, &
                MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          if(GL_METMODEL%rotate_meteo) then
+             curfill = work2d(1,1)   ! Set the fillvalue
+             call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+          end if
        end if
        npoin = nx*ny
        call parallel_bcast(work2d,npoin,0)
@@ -1033,12 +1098,19 @@ CONTAINS
                GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                work2d, &
                MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          if(GL_METMODEL%rotate_meteo) then
+             curfill = work2d(1,1)   ! Set the fillvalue
+             call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+          end if
        end if
        npoin = nx*ny
        call parallel_bcast(work2d,npoin,0)
        call dbs_interpola2d(nx,ny,work2d, &
             MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
             MY_MET%my_z0c,MY_ERR)
+       if(MY_ERR%flag.ne.0) return
     end if
     !
     !*** Time-dependent 3D variables
@@ -1105,15 +1177,22 @@ CONTAINS
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                   work2d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = work2d(1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_pblhc(:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
        end if
        !
-       !my_ustc(my_ibs:my_ibe, my_jbs:my_jbe, nt)
+       ! my_ustc(my_ibs:my_ibe, my_jbs:my_jbe, nt)
        if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_UST),varID)
        end if
@@ -1129,15 +1208,22 @@ CONTAINS
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                   work2d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = work2d(1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_ustc(:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
        end if
        !
-       !my_smoic(my_ibs:my_ibe, my_jbs:my_jbe, nt)
+       ! my_smoic(my_ibs:my_ibe, my_jbs:my_jbe, nt)
        if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_SMOI),varID)
        end if
@@ -1153,12 +1239,19 @@ CONTAINS
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                   work2d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = work2d(1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_smoic(:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
        end if
        ! assigns smoi=1 over water
        do j = my_jbs,my_jbe
@@ -1169,7 +1262,7 @@ CONTAINS
           end do
        end do
        !
-       !my_prec(my_ibs:my_ibe, my_jbs:my_jbe, nt)
+       ! my_prec(my_ibs:my_ibe, my_jbs:my_jbe, nt)
        if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_PREC),varID)
        end if
@@ -1185,12 +1278,19 @@ CONTAINS
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                   work2d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = 0.0_rp   ! Set the fillvalue
+                call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_prec(:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
           !
           select case(MY_MET%meteo_data_type)
           case('ERA5','ERA5ML')
@@ -1199,6 +1299,10 @@ CONTAINS
              MY_MET%my_prec(:,:,my_it) = 3600.0_rp * MY_MET%my_prec(:,:,my_it)  ! mm/s to mm/h
           end select
        end if
+       !
+       ! Set U10, V10 pointers (just for convenience)
+       u10 => work3d(:,:,1)   ! Use the first layer as 2D work space
+       v10 => krow3d(:,:,1)
        !
        !my_u10(my_ibs:my_ibe, my_jbs:my_jbe, nt)
        if(master_model) then
@@ -1209,22 +1313,20 @@ CONTAINS
           EXISTS(VAR_U10)    = .false.
           COMPUTED(VAR_U10)  = .true.
           MY_MET%my_u10(:,:,my_it) = 0.0_rp
-       else
-          if(master_model) then
-             call dbs_read_metmodel_var3d(varID, &
-                  nx,ny,it, &
-                  GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
-                  work2d, &
-                  MY_ERR)
-          end if
-          npoin = nx*ny
-          call parallel_bcast(work2d,npoin,0)
-          call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
-               MY_MET%my_u10(:,:,my_it),MY_ERR)
+       end if
+       ! U10
+       if(master_model) then
+          call dbs_read_metmodel_var3d(varID, &
+               nx,ny,it, &
+               GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
+               u10, &
+               MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          ! Scale U10 wind
+          if(GL_METMODEL%scale_wind) u10 = GL_METMODEL%scale_wind_factor*u10
        end if
        !
-       !my_v10(my_ibs:my_ibe, my_jbs:my_jbe, nt)
+       ! my_v10(my_ibs:my_ibe, my_jbs:my_jbe, nt)
        if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_V10),varID)
        end if
@@ -1233,29 +1335,53 @@ CONTAINS
           EXISTS(VAR_V10)    = .false.
           COMPUTED(VAR_V10)  = .true.
           MY_MET%my_v10(:,:,my_it) = 0.0_rp
-       else
-          if(master_model) then
-             call dbs_read_metmodel_var3d(varID, &
-                  nx,ny,it, &
-                  GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
-                  work2d, &
-                  MY_ERR)
-          end if
-          npoin = nx*ny
-          call parallel_bcast(work2d,npoin,0)
-          call dbs_interpola2d(nx,ny,work2d, &
-               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
-               MY_MET%my_v10(:,:,my_it),MY_ERR)
+       end if
+       if(master_model) then
+          call dbs_read_metmodel_var3d(varID, &
+               nx,ny,it, &
+               GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
+               v10, &
+               MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          ! Scale V10 wind
+          if(GL_METMODEL%scale_wind) v10 = GL_METMODEL%scale_wind_factor*v10
        end if
        !
-       !Wind rotations
+       ! Rotate velocity field (if request)
+       if(master_model) then
+          if(GL_METMODEL%rotate_meteo) then
+             curfill = 0.0_rp   ! Set the fillvalue
+             call matrix_rotation_rotate_vector2d(GL_ROTATION, nx, ny, u10, v10, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, u10, curfill, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, v10, curfill, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+          end if
+       end if
+       !
+       ! Interpolate
+       npoin = nx*ny
+       call parallel_bcast(u10,npoin,0)
+       call dbs_interpola2d(nx,ny,u10, &
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+            MY_MET%my_u10(:,:,my_it),MY_ERR)
+       if(MY_ERR%flag.ne.0) return
+       !
+       call parallel_bcast(v10,npoin,0)
+       call dbs_interpola2d(nx,ny,v10, &
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+            MY_MET%my_v10(:,:,my_it),MY_ERR)
+       if(MY_ERR%flag.ne.0) return
+       !
+       ! Wind rotation (for WRF meteo, etc.)
        if(rotate_winds) then
           tmp_wind(:,:)            =  MY_MET%my_v10(:,:,my_it)*sin_alpha(:,:) +  MY_MET%my_u10(:,:,my_it)*cos_alpha(:,:)
           MY_MET%my_v10(:,:,my_it) =  MY_MET%my_v10(:,:,my_it)*cos_alpha(:,:) -  MY_MET%my_u10(:,:,my_it)*sin_alpha(:,:)
           MY_MET%my_u10(:,:,my_it) = tmp_wind(:,:)
        end if
        !
-       !my_t2(my_ibs:my_ibe, my_jbs:my_jbe, nt)
+       ! my_t2(my_ibs:my_ibe, my_jbs:my_jbe, nt)
        if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_T2),varID)
        end if
@@ -1271,15 +1397,22 @@ CONTAINS
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                   work2d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = work2d(1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_t2(:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
        end if
        !
-       !my_monc(my_ibs:my_ibe, my_jbs:my_jbe, nt)
+       ! my_monc(my_ibs:my_ibe, my_jbs:my_jbe, nt)
        if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_MON),varID)
        end if
@@ -1295,15 +1428,22 @@ CONTAINS
                   GL_METMODEL%xreversed,GL_METMODEL%yreversed, &
                   work2d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = work2d(1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           npoin = nx*ny
           call parallel_bcast(work2d,npoin,0)
           call dbs_interpola2d(nx,ny,work2d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                MY_MET%my_monc(:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
        end if
        !
-       !psfc(nx,ny): no interpolated. Required to compute mandatory variables
+       ! psfc(nx,ny): no interpolated. Required to compute mandatory variables
        if(master_model) then
           istat = nf90_inq_varid(ncID,DICTIONARY(VAR_PSFC),varID)
        end if
@@ -1326,7 +1466,13 @@ CONTAINS
                   GL_METMODEL%yreversed, &
                   psfc, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
              if(COMPUTED(VAR_PSFC)) psfc = exp(psfc)  ! I have read lnsp; need to convert
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = psfc(1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, psfc, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
        else
           select case(MY_MET%meteo_data_type)
@@ -1363,9 +1509,11 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d2, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
                 zmodel(:,:,:) = 0.5_rp*(work3d2(1:nx,1:ny,1:nz_stag-1)+work3d2(1:nx,1:ny,2:nz_stag))     ! z at mass point
+                ! No rotate here (need to add PH)
                 istat = nf90_inq_varid(ncID,'PH',varID)
-                ! perturbation potential PH
+                ! Add perturbation potential PH to zmodel
                 call dbs_read_metmodel_var4d(varID, &
                      nx,ny,nz_stag,it, &
                      GL_METMODEL%xreversed, &
@@ -1373,8 +1521,17 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d2, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
                 zmodel(:,:,:) = zmodel(:,:,:) + 0.5_rp*(work3d2(1:nx,1:ny,1:nz_stag-1)+work3d2(1:nx,1:ny,2:nz_stag))
                 deallocate(work3d2)
+                ! Now can rotate (if request)
+                if(GL_METMODEL%rotate_meteo) then
+                   do k = 1,nz
+                      curfill = zmodel(1,1,k)   ! Set the fillvalue
+                      call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, zmodel(:,:,k), curfill, MY_ERR)
+                      if(MY_ERR%flag.ne.0) return
+                   end do
+                end if
              end if
           end if
        case('ERA5ML')
@@ -1403,6 +1560,14 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+                if(GL_METMODEL%rotate_meteo) then
+                   do k = 1, nz
+                      curfill = work3d(1,1,k)   ! Set the fillvalue
+                      call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work3d(:,:,k), curfill, MY_ERR)
+                      if(MY_ERR%flag.ne.0) return
+                   end do
+                end if
              end if
           end if
           !
@@ -1427,6 +1592,14 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d2, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+                if(GL_METMODEL%rotate_meteo) then
+                   do k = 1,nz
+                      curfill = work3d2(1,1,k)   ! Set the fillvalue
+                      call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work3d2(:,:,k), curfill, MY_ERR)
+                      if(MY_ERR%flag.ne.0) return
+                   end do
+                end if
              end if
           end if
           !
@@ -1442,10 +1615,11 @@ CONTAINS
                   work3d2,          &
                   zmodel,           &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
              deallocate(work3d2)
           end if
           !
-       case default
+       case default  ! ERA5, etc.
           if(master_model) then
              istat = nf90_inq_varid(ncID,DICTIONARY(VAR_HGT),varID)
           end if
@@ -1464,10 +1638,17 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      zmodel, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+                if(GL_METMODEL%rotate_meteo) then
+                   do k = 1, nz
+                      curfill = zmodel(1,1,k)    ! Set the fillvalue
+                      call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, zmodel(:,:,k), curfill, MY_ERR)
+                      if(MY_ERR%flag.ne.0) return
+                   end do
+                end if
              end if
           end if
        end select
-       !
        !
        npoin = nx*ny*nz
        call parallel_bcast(zmodel,npoin,0)
@@ -1495,9 +1676,9 @@ CONTAINS
              !
              do k = 1,nz
                 my_zmodel(ipoin,k) = myshape(1)*zmodel(ix  ,iy  ,k) + &
-                                     myshape(2)*zmodel(ix+1,iy  ,k) + &
-                                     myshape(3)*zmodel(ix+1,iy+1,k) + &
-                                     myshape(4)*zmodel(ix  ,iy+1,k)
+                     myshape(2)*zmodel(ix+1,iy  ,k) + &
+                     myshape(3)*zmodel(ix+1,iy+1,k) + &
+                     myshape(4)*zmodel(ix  ,iy+1,k)
                 !
              end do
           end do
@@ -1563,6 +1744,8 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+                ! Do not rotate here (work3d is temporary)
                 istat = nf90_inq_varid(ncID,'PB',varID)
                 call dbs_read_metmodel_var4d(varID, &
                      nx,ny,nz,it, &
@@ -1571,8 +1754,16 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d2, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+                ! Do not rotate here (work3d2 is temporary)
                 work3d = work3d + work3d2
                 deallocate(work3d2)
+                ! OK: now can rotate
+                if(GL_METMODEL%rotate_meteo) then
+                   curfill = work3d(1,1,1)   ! Set the fillvalue
+                   call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, work3d, curfill, MY_ERR)
+                   if(MY_ERR%flag.ne.0) return
+                end if
              end if
           end if
        case('ERA5ML')
@@ -1581,11 +1772,21 @@ CONTAINS
                 work3d(:,:,iz) = 0.5_rp*(a_coeff(iz)+a_coeff(iz-1)) +  &
                      0.5_rp*(b_coeff(iz)+b_coeff(iz-1)) *  psfc(:,:)
              end do
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = work3d(1,1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, work3d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
        case('GRIB2NC','GFS','GDAS','ERA5')
           if(master_model) then
              do iz = 1,nz
                 work3d(:,:,iz) = GL_METMODEL%pres(iz)
+                if(GL_METMODEL%rotate_meteo) then
+                   curfill = work3d(1,1,iz)   ! Set the fillvalue
+                   call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work3d(:,:,iz), curfill, MY_ERR)
+                   if(MY_ERR%flag.ne.0) return
+                end if
              end do
           end if
        end select
@@ -1595,6 +1796,7 @@ CONTAINS
        call dbs_interpola3d(nx,ny,nz,work3d, &
             MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
             my_iz,my_sz,MY_MET%my_pc(:,:,:,my_it),MY_ERR)
+       if(MY_ERR%flag.ne.0) return
        !
        !     profile
        do k = 1,nz
@@ -1622,6 +1824,12 @@ CONTAINS
                   GL_METMODEL%zreversed, &
                   work3d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = work3d(1,1,1)   ! Set the fillvalue
+                call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, work3d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
              select case(MY_MET%meteo_data_type)
              case('WRF')
                 work3d = work3d + 300.0_rp ! add reference temperature
@@ -1632,7 +1840,7 @@ CONTAINS
           call dbs_interpola3d(nx,ny,nz,work3d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                my_iz,my_sz,MY_MET%my_tpc(:,:,:,my_it),MY_ERR)
-
+          if(MY_ERR%flag.ne.0) return
           !    store profile
           do k = 1,nz
              GL_METPROFILES%tp(k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
@@ -1660,12 +1868,21 @@ CONTAINS
                   GL_METMODEL%zreversed, &
                   work3d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                do k = 1, nz
+                   curfill = work3d(1,1,k)   ! Set the fillvalue
+                   call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work3d(:,:,k), curfill, MY_ERR)
+                   if(MY_ERR%flag.ne.0) return
+                end do
+             end if
           end if
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                my_iz,my_sz,MY_MET%my_tc(:,:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
           !     profile
           do k = 1,nz
              GL_METPROFILES%t (k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
@@ -1718,6 +1935,12 @@ CONTAINS
                   GL_METMODEL%zreversed, &
                   work3d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = 0.0_rp    ! Set the fillvalue
+                call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, work3d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
              !
              select case(MY_MET%meteo_data_type)
              case('WRF')
@@ -1733,6 +1956,7 @@ CONTAINS
           call dbs_interpola3d(nx,ny,nz,work3d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                my_iz,my_sz,MY_MET%my_qvc(:,:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
           !     profile
           do k = 1,nz
              GL_METPROFILES%qv(k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
@@ -1762,6 +1986,12 @@ CONTAINS
                   GL_METMODEL%zreversed, &
                   work3d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = 0.0_rp    ! Set the fillvalue
+                call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, work3d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           !
           npoin = nx*ny*nz
@@ -1769,6 +1999,7 @@ CONTAINS
           call dbs_interpola3d(nx,ny,nz,work3d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                my_iz,my_sz,MY_MET%my_qvc(:,:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
           !
           !  Convert rh to qv
           !  following Bolton (1980)
@@ -1839,12 +2070,21 @@ CONTAINS
                   GL_METMODEL%zreversed, &
                   work3d, &
                   MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             if(GL_METMODEL%rotate_meteo) then
+                do k =1,nz
+                   curfill = work3d(1,1,k)     ! Set the fillvalue
+                   call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work3d(:,:,k), curfill, MY_ERR)
+                   if(MY_ERR%flag.ne.0) return
+                end do
+             end if
           end if
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                my_iz,my_sz,MY_MET%my_tvc(:,:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
           !     profile
           do k = 1,nz
              GL_METPROFILES%tv(k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
@@ -1865,10 +2105,11 @@ CONTAINS
           GL_METPROFILES%rho(k,my_it) = GL_METPROFILES%p(k,my_it)/(287.06_rp*GL_METPROFILES%tv(k,my_it))
        end do
        !
-       !  9. u-velocity
+       !  9./10. u and v components of the velocity
        !
+       !  Get UvarID
        if(master_model) then
-          istat = nf90_inq_varid(ncID,DICTIONARY(VAR_U),varID)
+          istat = nf90_inq_varid(ncID,DICTIONARY(VAR_U),UvarID)
        end if
        call parallel_bcast(istat,1,0)
        if(istat.ne.0) then
@@ -1876,49 +2117,10 @@ CONTAINS
           MY_ERR%flag     = 1
           MY_ERR%message  = 'Unable to find variable '//TRIM(DICTIONARY(VAR_U))
           return
-       else
-          if(master_model) then
-             select case(MY_MET%meteo_data_type)
-             case('WRF')
-                allocate(work3d2(nx_stag,ny,nz))
-                call dbs_read_metmodel_var4d(varID, &
-                     nx_stag,ny,nz,it, &
-                     GL_METMODEL%xreversed, &
-                     GL_METMODEL%yreversed, &
-                     GL_METMODEL%zreversed, &
-                     work3d2, &
-                     MY_ERR)
-                work3d = 0.5_rp*(work3d2(1:nx_stag-1,1:ny,1:nz) + work3d2(2:nx_stag,1:ny,1:nz)) ! u box
-                deallocate(work3d2)
-             case default
-                call dbs_read_metmodel_var4d(varID, &
-                     nx,ny,nz,it, &
-                     GL_METMODEL%xreversed, &
-                     GL_METMODEL%yreversed, &
-                     GL_METMODEL%zreversed, &
-                     work3d, &
-                     MY_ERR)
-             end select
-          end if
-          npoin = nx*ny*nz
-          call parallel_bcast (work3d,npoin,0)
-          call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
-               my_iz,my_sz,MY_MET%my_uc(:,:,:,my_it),MY_ERR)
-          !
-          !     profile
-          do k = 1,nz
-             GL_METPROFILES%u (k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
-                  myshape(2)*work3d(ix_prof+1,iy_prof  ,k) + &
-                  myshape(3)*work3d(ix_prof+1,iy_prof+1,k) + &
-                  myshape(4)*work3d(ix_prof  ,iy_prof+1,k)
-          end do
        end if
-       !
-       !  10. v-velocity
-       !
+       ! Get VvarID
        if(master_model) then
-          istat = nf90_inq_varid(ncID,DICTIONARY(VAR_V),varID)
+          istat = nf90_inq_varid(ncID,DICTIONARY(VAR_V),VvarID)
        end if
        call parallel_bcast(istat,1,0)
        if(istat.ne.0) then
@@ -1926,53 +2128,110 @@ CONTAINS
           MY_ERR%flag     = 1
           MY_ERR%message  = 'Unable to find variable '//TRIM(DICTIONARY(VAR_V))
           return
-       else
-          if(master_model) then
-             select case(MY_MET%meteo_data_type)
-             case('WRF')
-                allocate(work3d2(nx,ny_stag,nz))
-                call dbs_read_metmodel_var4d(varID, &
-                     nx,ny_stag,nz,it, &
-                     GL_METMODEL%xreversed, &
-                     GL_METMODEL%yreversed, &
-                     GL_METMODEL%zreversed, &
-                     work3d2, &
-                     MY_ERR)
-                work3d = 0.5_rp*(work3d2(1:nx,1:ny_stag-1,1:nz) + work3d2(1:nx,2:ny_stag,1:nz)) ! v box
-                deallocate(work3d2)
-             case default
-                call dbs_read_metmodel_var4d(varID, &
-                     nx,ny,nz,it, &
-                     GL_METMODEL%xreversed, &
-                     GL_METMODEL%yreversed, &
-                     GL_METMODEL%zreversed, &
-                     work3d, &
-                     MY_ERR)
-             end select
-          end if
-          npoin = nx*ny*nz
-          call parallel_bcast (work3d,npoin,0)
-          call dbs_interpola3d(nx,ny,nz,work3d, &
-               MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
-               my_iz,my_sz,MY_MET%my_vc(:,:,:,my_it),MY_ERR)
-          !
-          !     profile
-          do k = 1,nz
-             GL_METPROFILES%v (k,my_it) = myshape(1)*work3d(ix_prof  ,iy_prof  ,k) + &
-                  myshape(2)*work3d(ix_prof+1,iy_prof  ,k) + &
-                  myshape(3)*work3d(ix_prof+1,iy_prof+1,k) + &
-                  myshape(4)*work3d(ix_prof  ,iy_prof+1,k)
-          end do
        end if
        !
-       !Wind rotations
+       ux => work3d        ! Set the UX pointer (used for clarity)
+       uy => krow3d        ! Set the UY pointer (used for clarity)
+       if(master_model) then
+          select case(MY_MET%meteo_data_type)
+          case('WRF')
+             ! Ux
+             allocate(work3d2(nx_stag,ny,nz))
+             call dbs_read_metmodel_var4d(UvarID, &
+                  nx_stag,ny,nz,it, &
+                  GL_METMODEL%xreversed, &
+                  GL_METMODEL%yreversed, &
+                  GL_METMODEL%zreversed, &
+                  work3d2, &                 ! Work2d2 is defined on a x-staggered grid
+                  MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             ux = 0.5_rp*(work3d2(1:nx_stag-1,1:ny,1:nz) + work3d2(2:nx_stag,1:ny,1:nz)) ! u box
+             deallocate(work3d2)
+             ! Uy
+             allocate(work3d2(nx,ny_stag,nz))
+             call dbs_read_metmodel_var4d(VvarID, &
+                  nx,ny_stag,nz,it, &
+                  GL_METMODEL%xreversed, &
+                  GL_METMODEL%yreversed, &
+                  GL_METMODEL%zreversed, &
+                  work3d2, &                 ! Work2d2 is defined on a y-staggered grid
+                  MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             uy = 0.5_rp*(work3d2(1:nx,1:ny_stag-1,1:nz) + work3d2(1:nx,2:ny_stag,1:nz)) ! v box
+             deallocate(work3d2)
+          case default
+             ! Ux
+             call dbs_read_metmodel_var4d(UvarID, &
+                  nx,ny,nz,it, &
+                  GL_METMODEL%xreversed, &
+                  GL_METMODEL%yreversed, &
+                  GL_METMODEL%zreversed, &
+                  ux, &
+                  MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             ! Uy
+             call dbs_read_metmodel_var4d(VvarID, &
+                  nx,ny,nz,it, &
+                  GL_METMODEL%xreversed, &
+                  GL_METMODEL%yreversed, &
+                  GL_METMODEL%zreversed, &
+                  uy, &
+                  MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+          end select
+          ! Scale Ux and Uy
+          if(GL_METMODEL%scale_wind) then
+             ux = GL_METMODEL%scale_wind_factor*ux
+             uy = GL_METMODEL%scale_wind_factor*uy
+          end if
+          ! Rotate meteo
+          if(GL_METMODEL%rotate_meteo) then
+             do k = 1, nz
+                call matrix_rotation_rotate_vector2d(GL_ROTATION, nx, ny, ux(:,:,k), uy(:,:,k), MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end do
+             curfill = 0.0_rp    ! Set the fillvalue
+             call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, ux, curfill, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+             call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, uy, curfill, MY_ERR)
+             if(MY_ERR%flag.ne.0) return
+          end if
+       end if
+       npoin = nx*ny*nz
+       ! Interpolate UX
+       call parallel_bcast (ux,npoin,0)
+       call dbs_interpola3d(nx, ny, nz, ux, &
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+            my_iz,my_sz,MY_MET%my_uc(:,:,:,my_it),MY_ERR)
+       if(MY_ERR%flag.ne.0) return
+       ! Profile UX
+       do k = 1,nz
+          GL_METPROFILES%u (k,my_it) = myshape(1)*ux(ix_prof  ,iy_prof  ,k) + &
+               myshape(2)*ux(ix_prof+1,iy_prof  ,k) + &
+               myshape(3)*ux(ix_prof+1,iy_prof+1,k) + &
+               myshape(4)*ux(ix_prof  ,iy_prof+1,k)
+       end do
+       ! Interpolate UY
+       call parallel_bcast (uy,npoin,0)
+       call dbs_interpola3d(nx, ny, nz, uy, &
+            MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
+            my_iz,my_sz,MY_MET%my_vc(:,:,:,my_it),MY_ERR)
+       if(MY_ERR%flag.ne.0) return
+       ! Profile UY
+       do k = 1,nz
+          GL_METPROFILES%v (k,my_it) = myshape(1)*uy(ix_prof  ,iy_prof  ,k) + &
+               myshape(2)*uy(ix_prof+1,iy_prof  ,k) + &
+               myshape(3)*uy(ix_prof+1,iy_prof+1,k) + &
+               myshape(4)*uy(ix_prof  ,iy_prof+1,k)
+       end do
+       !
+       ! Wind rotations (This is for WRF, etc. Do not confuse with rotate_meteo)
        if(rotate_winds) then
           do k = my_kbs,my_kbe
              tmp_wind(:,:)             =  MY_MET%my_vc(:,:,k,my_it)*sin_alpha(:,:) +  MY_MET%my_uc(:,:,k,my_it)*cos_alpha(:,:)
              MY_MET%my_vc(:,:,k,my_it) =  MY_MET%my_vc(:,:,k,my_it)*cos_alpha(:,:) -  MY_MET%my_uc(:,:,k,my_it)*sin_alpha(:,:)
              MY_MET%my_uc(:,:,k,my_it) =  tmp_wind(:,:)
           end do
-          !
           do k = 1,nz
              !Rotate profile winds
              tmp_wind_prof             = GL_METPROFILES%v(k,my_it)*sin_alpha_prof + GL_METPROFILES%u(k,my_it)*cos_alpha_prof
@@ -2005,6 +2264,7 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d2, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
                 work3d = 0.5_rp*(work3d2(1:nx,1:ny,1:nz_stag-1) + work3d2(1:nx,1:ny,2:nz_stag)) ! w box
                 deallocate(work3d2)
              case default
@@ -2015,13 +2275,23 @@ CONTAINS
                      GL_METMODEL%zreversed, &
                      work3d, &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
              end select
+             ! Scale W
+             if(GL_METMODEL%scale_wind) work3d = GL_METMODEL%scale_wind_factor*work3d
+             ! Rotate
+             if(GL_METMODEL%rotate_meteo) then
+                curfill = 0.0_rp    ! Set the fillvalue
+                call matrix_rotation_rotate3d(GL_ROTATION, nx, ny, nz, work3d, curfill, MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+             end if
           end if
           npoin = nx*ny*nz
           call parallel_bcast (work3d,npoin,0)
           call dbs_interpola3d(nx,ny,nz,work3d, &
                MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                my_iz,my_sz,MY_MET%my_wc(:,:,:,my_it),MY_ERR)
+          if(MY_ERR%flag.ne.0) return
           !
           select case(MY_MET%meteo_data_type)
           case('WRF')
@@ -2045,6 +2315,7 @@ CONTAINS
                   MY_MET%my_tvc (:,:,my_kbs+1,my_it), MY_MET%my_tvc(:,:,my_kbs,  my_it), &
                   MY_MET%my_uc  (:,:,my_kbs+1,my_it), MY_MET%my_vc (:,:,my_kbs+1,my_it), &
                   MY_MET%my_ustc(:,:,my_it), MY_ERR)
+             if(MY_ERR%flag.ne.0) return
           else
              MY_MET%my_ustc(:,:,my_it) = 0.0_rp
           end if
@@ -2059,6 +2330,7 @@ CONTAINS
                   MY_MET%my_tvc (:,:,my_kbs+1,my_it), MY_MET%my_tvc(:,:,my_kbs,  my_it), &
                   MY_MET%my_uc  (:,:,my_kbs+1,my_it), MY_MET%my_vc (:,:,my_kbs+1,my_it), &
                   MY_MET%my_ustc(:,:,my_it), MY_MET%my_monc(:,:,my_it), MY_ERR)
+             if(MY_ERR%flag.ne.0) return
           else
              MY_MET%my_monc(:,:,my_it) = 0.0_rp
           end if
@@ -2097,6 +2369,12 @@ CONTAINS
                      GL_METMODEL%yreversed, &
                      work2d,                &
                      MY_ERR)
+                if(MY_ERR%flag.ne.0) return
+                if(GL_METMODEL%rotate_meteo) then
+                   curfill = work2d(1,1)   ! Set the fillvalue
+                   call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                   if(MY_ERR%flag.ne.0) return
+                end if
                 select case(MY_MET%meteo_data_type)
                 case('WRF')
                    istat = nf90_inq_varid(ncID,'RAINC',varID)
@@ -2108,7 +2386,13 @@ CONTAINS
                            GL_METMODEL%yreversed, &
                            work2d2,               &
                            MY_ERR)
+                      if(MY_ERR%flag.ne.0) return
                       work2d = work2d + work2d2
+                      if(GL_METMODEL%rotate_meteo) then
+                         curfill = work2d(1,1)   ! Set the fillvalue
+                         call matrix_rotation_rotate2d(GL_ROTATION, nx, ny, work2d, curfill, MY_ERR)
+                         if(MY_ERR%flag.ne.0) return
+                      end if
                       deallocate(work2d2)
                    end if
                 end select
@@ -2120,10 +2404,12 @@ CONTAINS
                 call dbs_interpola2d(nx,ny,work2d, &
                      MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                      MY_MET%my_prec(:,:,my_it),MY_ERR)
+                if(MY_ERR%flag.ne.0) return
              else
                 call dbs_interpola2d(nx,ny,work2d, &
                      MY_MET%npoin,MY_MET%el_indexes,MY_MET%interp_factor, &
                      my_acc_prec_ref,MY_ERR)
+                if(MY_ERR%flag.ne.0) return
              end if
           end if
           !
@@ -2140,12 +2426,15 @@ CONTAINS
        deallocate(my_acc_prec_ref)
        !
     end if
+    ! Remove negative precipitations
+    where(MY_MET%my_prec<0.0) MY_MET%my_prec = 0.0
     !
     !
     !*** deallocate memory
     !
     deallocate(work2d)
     deallocate(work3d)
+    deallocate(krow3d)
     deallocate(psfc)
     deallocate(zmodel)
     !
@@ -2244,7 +2533,7 @@ CONTAINS
   !-----------------------------------------
   !
   !>   @brief
-  !>   Interpolates a variable from the 2D Q1 meto model grid to my_grid
+  !>   Interpolates a variable from the 2D Q1 meteo model grid to my_grid
   !
   subroutine dbs_interpola2d(nx,ny,var,npoin,el_indexes,interp_factor,my_var,MY_ERR,closest)
     implicit none
@@ -2314,9 +2603,9 @@ CONTAINS
           end if
           !
           my_var(i,j) = myshape(1)*var(ix  ,iy  ) + &
-                        myshape(2)*var(ix+1,iy  ) + &
-                        myshape(3)*var(ix+1,iy+1) + &
-                        myshape(4)*var(ix  ,iy+1)
+               myshape(2)*var(ix+1,iy  ) + &
+               myshape(3)*var(ix+1,iy+1) + &
+               myshape(4)*var(ix  ,iy+1)
        end do
     end do
     !
@@ -2328,7 +2617,7 @@ CONTAINS
   !-----------------------------------------
   !
   !>   @brief
-  !>   Interpolates a variable from the 2D Q1 meto model grid and profile to my_grid
+  !>   Interpolates a variable from the 2D Q1 meteo model grid and profile to my_grid
   !
   subroutine dbs_interpola3d(nx,ny,nz,var,npoin,el_indexes,interp_factor,my_iz,my_sz,my_var,MY_ERR)
     implicit none
@@ -2383,13 +2672,13 @@ CONTAINS
              iz = my_iz(ipoin,k)
              !
              my_var(i,j,k) = (myshape(1)*var(ix  ,iy  ,iz  ) + &
-                              myshape(2)*var(ix+1,iy  ,iz  ) + &
-                              myshape(3)*var(ix+1,iy+1,iz  ) + &
-                              myshape(4)*var(ix  ,iy+1,iz  ))*(1.0_rp-sz) + &
-                             (myshape(1)*var(ix  ,iy  ,iz+1) + &
-                              myshape(2)*var(ix+1,iy  ,iz+1) + &
-                              myshape(3)*var(ix+1,iy+1,iz+1) + &
-                              myshape(4)*var(ix  ,iy+1,iz+1))*sz
+                  myshape(2)*var(ix+1,iy  ,iz  ) + &
+                  myshape(3)*var(ix+1,iy+1,iz  ) + &
+                  myshape(4)*var(ix  ,iy+1,iz  ))*(1.0_rp-sz) + &
+                  (myshape(1)*var(ix  ,iy  ,iz+1) + &
+                  myshape(2)*var(ix+1,iy  ,iz+1) + &
+                  myshape(3)*var(ix+1,iy+1,iz+1) + &
+                  myshape(4)*var(ix  ,iy+1,iz+1))*sz
              !
           end do
        end do
@@ -2497,10 +2786,10 @@ CONTAINS
     !*** Get interpolation factors (parallel interpolation)
     !
     call maths_get_host_elemQ1(GL_METMODEL%GRID2D, &
-                               MY_MET%npoin,       &
-                               lon_po,lat_po,      &
-                               el_po,s_po,t_po,    &
-                               MY_ERR)
+         MY_MET%npoin,       &
+         lon_po,lat_po,      &
+         el_po,s_po,t_po,    &
+         MY_ERR)
     !
     !*** Error check across processors
     !
@@ -2559,7 +2848,7 @@ CONTAINS
     !
     !>   @param GL_METMODEL     variables related to driving meteorological model
     !>   @param MY_MET          variables related to meteorology in MY_GRID
-    !>   @param GL_METPROFILES  variables related to metrorological profiles
+    !>   @param GL_METPROFILES  variables related to meteorological profiles
     !>   @param MY_ERR          error handler
     !
     type(METEO_MODEL),   intent(IN   ) :: GL_METMODEL
@@ -2639,7 +2928,7 @@ CONTAINS
     implicit none
     !
     !>   @param MY_FILES    list of files
-    !>   @param GL_METPROFILES  variables related to metrorological profiles
+    !>   @param GL_METPROFILES  variables related to meteorological profiles
     !>   @param MY_ERR      error handler
     !
     type(FILE_LIST),     intent(INOUT) :: MY_FILES
@@ -2678,12 +2967,12 @@ CONTAINS
        !
        do iz = 1,GL_METPROFILES%nz
           write(90,3) (GL_METPROFILES%zavl(iz,it))/1e3_rp, &   ! km above terrain
-                       GL_METPROFILES%rho(iz,it),          &   ! kg/m3
-                       GL_METPROFILES%p(iz,it)/1e2_rp,     &   ! hPa
-                       GL_METPROFILES%t(iz,it),            &   ! K
-                       GL_METPROFILES%qv(iz,it)*1e3_rp,    &   ! g/kg
-                       GL_METPROFILES%u(iz,it),            &   ! m/s
-                       GL_METPROFILES%v(iz,it)                 ! m/s
+               GL_METPROFILES%rho(iz,it),          &   ! kg/m3
+               GL_METPROFILES%p(iz,it)/1e2_rp,     &   ! hPa
+               GL_METPROFILES%t(iz,it),            &   ! K
+               GL_METPROFILES%qv(iz,it)*1e3_rp,    &   ! g/kg
+               GL_METPROFILES%u(iz,it),            &   ! m/s
+               GL_METPROFILES%v(iz,it)                 ! m/s
 3         format(7(2x,f8.3))
        end do
     end do
@@ -2699,18 +2988,19 @@ CONTAINS
   !>   @brief
   !>   Reads the meteo data block form the input file
   !
-  subroutine dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METPROFILES, MY_ERR)
+  subroutine dbs_read_inp_meteo(MY_FILES, MY_TIME, MY_MET, GL_METMODEL, GL_METPROFILES, MY_ERR)
     implicit none
     !
     !>   @param MY_FILES    list of files
     !>   @param MY_TIME     run time related parameters
     !>   @param MY_MET      variables related to meteorology in MY_GRID
-    !>   @param GL_METPROFILES  variables related to metrorological profiles
+    !>   @param GL_METPROFILES  variables related to meteorological profiles
     !>   @param MY_ERR      error handler
     !
     type(FILE_LIST),    intent(INOUT) :: MY_FILES
     type(RUN_TIME),     intent(INOUT) :: MY_TIME
     type(METEOROLOGY),  intent(INOUT) :: MY_MET
+    type(METEO_MODEL),  intent(INOUT) :: GL_METMODEL
     type(METEO_PROFILE),intent(INOUT) :: GL_METPROFILES
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
@@ -2768,6 +3058,49 @@ CONTAINS
     call inpout_get_rea (file_inp, 'METEO_DATA','METEO_COUPLING_INTERVAL_(MIN)', MY_MET%meteo_coupling_interval, 1, MY_ERR)
     if(MY_ERR%flag.ne.0) return
     MY_MET%meteo_coupling_interval = MY_MET%meteo_coupling_interval*60  ! min --> s
+
+    ! Rotate meteo (optional)
+    call inpout_get_cha (file_inp, 'METEO_DATA','ROTATE_METEO', word, 1, MY_ERR, .true.)
+    if(MY_ERR%flag == 0) then
+       ! Rotate_meteo flag is present
+       if(TRIM(word) == 'YES') then
+          GL_METMODEL%rotate_meteo = .true.
+       else
+          GL_METMODEL%rotate_meteo = .false.
+       end if
+       ! Rotation_latpole, rotation_lonpole and rotation_angle are mandatory if rotate_meteo=.true.
+       if(GL_METMODEL%rotate_meteo) then
+          call inpout_get_rea (file_inp, 'METEO_DATA','ROTATION_LATPOLE', GL_METMODEL%rotation_latpole, 1, MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          call inpout_get_rea (file_inp, 'METEO_DATA','ROTATION_LONPOLE', GL_METMODEL%rotation_lonpole, 1, MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+          call inpout_get_rea (file_inp, 'METEO_DATA','ROTATION_ANGLE', GL_METMODEL%rotation_angle, 1, MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+       end if
+    else
+       ! Rotate_meteo flag is not present
+       GL_METMODEL%rotate_meteo = .false.
+    end if
+
+    ! Scale wind (optional)
+    call inpout_get_cha (file_inp, 'METEO_DATA','SCALE_WIND', word, 1, MY_ERR, .true.)
+    if(MY_ERR%flag == 0) then
+       ! Scale_wind flag is present
+       if(TRIM(word) == 'YES') then
+          GL_METMODEL%scale_wind = .true.
+       else
+          GL_METMODEL%scale_wind = .false.
+       end if
+       ! Wind_scale_factor scale_wind=.true.
+       if(GL_METMODEL%scale_wind) then
+          call inpout_get_rea (file_inp, 'METEO_DATA','SCALE_WIND_FACTOR', GL_METMODEL%scale_wind_factor, 1, MY_ERR)
+          if(MY_ERR%flag.ne.0) return
+       end if
+    else
+       ! Scale_wind flag is not present
+       GL_METMODEL%scale_wind = .false.
+    end if
+
     !
     !*** Reads info for profiles from SOURCE block
     !
@@ -2797,7 +3130,7 @@ CONTAINS
     !>   @param MY_FILES    list of files
     !>   @param MY_TIME     run time related parameters
     !>   @param MY_MET      variables related to meteorology in MY_GRID
-    !>   @param GL_METPROFILES  variables related to metrorological profiles
+    !>   @param GL_METPROFILES  variables related to meteorological profiles
     !>   @param MY_ERR      error handler
     !
     type(FILE_LIST),    intent(INOUT) :: MY_FILES
@@ -3126,7 +3459,7 @@ CONTAINS
        istat = nf90_get_var(ncID,varID,varDATA,start=(/1,1,1/),count=(/nx,ny,1/))
     end if
 
-    istat = nf90_inquire_attribute(ncID, varID, "scale_factor")
+    istat = nf90_inquire_attribute(ncID, varID, 'scale_factor')
     if (istat .eq. nf90_noerr) then
        use_scale_factor = .True.
        istat = NF90_GET_ATT(ncID,varID,'scale_factor',scale_factor)
@@ -3153,7 +3486,7 @@ CONTAINS
        !fillvalue without scale
        where(varDATA.eq.FillValue) varDATA=0.0_rp
     elseif(use_scale_factor) then
-       !scale withour fill
+       !scale without fill
        varDATA = varDATA*scale_factor + add_offset
     end if
 
@@ -3204,7 +3537,7 @@ CONTAINS
        istat = nf90_get_var(ncID,varID,varDATA,start=(/1,1,1,it/),count=(/nx,ny,1,1/))
     end if
 
-    istat = nf90_inquire_attribute(ncID, varID, "scale_factor")
+    istat = nf90_inquire_attribute(ncID, varID, 'scale_factor')
     if (istat .eq. nf90_noerr) then
        use_scale_factor = .True.
        istat = NF90_GET_ATT(ncID,varID,'scale_factor',scale_factor)
@@ -3231,7 +3564,7 @@ CONTAINS
        !fillvalue without scale
        where(varDATA.eq.FillValue) varDATA=0.0_rp
     elseif(use_scale_factor) then
-       !scale withour fill
+       !scale without fill
        varDATA = varDATA*scale_factor + add_offset
     end if
 
@@ -3309,7 +3642,7 @@ CONTAINS
        !fillvalue without scale
        where(varDATA.eq.FillValue) varDATA=0.0_rp
     elseif(use_scale_factor) then
-       !scale withour fill
+       !scale without fill
        varDATA = varDATA*scale_factor + add_offset
     end if
 
@@ -3443,7 +3776,10 @@ CONTAINS
     !
     !Decide if wind rotation will be applied
     select case(map_projection)
+       ! Projections: 1=Lambert, 2=Polar Stereographic, 3=Mercator, 6=Lat/Lon
+       ! Projections 4,5 don't appear to be supported any longer
     case(0,3,6)
+       ! No rotation needed for Mercator and Lat/Lon,
        rotate_winds = .false.
     case(1,2)
        rotate_winds = .true.
@@ -3453,7 +3789,7 @@ CONTAINS
        if (istat .ne. nf90_noerr) then
           istat = nf90_get_att(ncID,NF90_GLOBAL,'CEN_LON',cen_long)
           if (istat .ne. nf90_noerr) then
-             call task_wriwarn(MY_ERR,'Global attributes STAND_LON and CEN_LON not found. No wind rotation will be applied')
+             call task_wriwarn(MY_ERR,'Global attributes STAND_LON and CEN_LON not found. No map rotation will be applied')
              rotate_winds = .false.
           end if
        end if
@@ -3594,5 +3930,190 @@ CONTAINS
   end subroutine dbs_get_zo_from_24ldu
   !
   !
+  subroutine matrix_rotation_initialize(rot, met, MY_ERR)
+    ! Initializes the matrix rotation class
+    ! - Allocates memory
+    ! - Generates the interpolation factors
+    ! NOTE: It rotates the topography matrix
+    !
+    ! Author: Giovanni Macedonio (Last update 12-SEP-2021)
+    !
+    real(rp), parameter :: DEG2RAD = 3.14159265358979323846_rp/180.0_rp
+    class(MATRIX_ROTATION) :: rot
+    type(METEO_MODEL)      :: met
+    type(ERROR_STATUS)     :: MY_ERR
+    real(rp) :: lon, lat, newlon, newlat, beta
+    real(rp) :: lonmin, lonmax, latmin, latmax, dlon, dlat
+    integer :: i, j, klon, klat
+    !
+    MY_ERR%flag    = 0
+    MY_ERR%source  = 'matrix_rotation_initialize'
+    MY_ERR%message = ' '
+    !
+    ! Check if the meteo rotation was request
+    if(.not.met%rotate_meteo) return
+    !
+    rot%nx = met%nx
+    rot%ny = met%ny
+    allocate(rot%ilat(rot%nx, rot%ny))
+    allocate(rot%ilon(rot%nx, rot%ny))
+    allocate(rot%wx(rot%nx, rot%ny))
+    allocate(rot%wy(rot%nx, rot%ny))
+    allocate(rot%sbeta(rot%nx, rot%ny))
+    allocate(rot%cbeta(rot%nx, rot%ny))
+    !
+    !
+    ! NOTE: *** WE ASSUME REGULAR GRID *** !!!!
+    lonmin = met%lon(1, 1)
+    lonmax = met%lon(met%nx, 1)
+    latmin = met%lat(1, 1)
+    latmax = met%lat(1, met%ny)
+    dlon = met%lon(2,1) - met%lon(1,1)
+    dlat = met%lat(1,2) - met%lat(1,1)
+    !
+    ! Evaluate interpolation weights
+    do j = 1, rot%ny
+       lat = latmin + (j-1)*dlat
+       do i = 1, rot%nx
+          lon = lonmin + (i-1)*dlon
+          ! NOTE: Rotation angle must change sign here
+          call spherical_rotation(met%rotation_lonpole, met%rotation_latpole, &
+               -met%rotation_angle, lon, lat, newlon, newlat, beta)
+          beta = -beta  ! Correct the sign of beta due to the previous change of sign
+          rot%sbeta(i,j) = sin(deg2rad*beta)
+          rot%cbeta(i,j) = cos(deg2rad*beta)
+          ! Check domain
+          klon = int((newlon-lonmin)/dlon) + 1
+          klat = int((newlat-latmin)/dlat) + 1
+          if(klon < 1 .or. klon+1 > rot%nx .or. klat < 1 .or. klat+1 > rot%ny) then
+             ! Out of domain
+             rot%ilon(i,j) = 0    ! ilon=0 means out of the boundary
+             rot%ilat(i,j) = 0
+             rot%wx(i,j) = 0.0_rp
+             rot%wy(i,j) = 0.0_rp
+          else
+             ! Inside domain
+             rot%ilon(i,j) = klon
+             rot%ilat(i,j) = klat
+             rot%wx(i,j) = 1.0_rp - ((newlon-lonmin)/dlon - real(rot%ilon(i,j)-1, kind(rp)))
+             rot%wy(i,j) = 1.0_rp - ((newlat-latmin)/dlat - real(rot%ilat(i,j)-1, kind(rp)))
+          end if
+       end do
+    end do
+    !
+    ! Rotate the topography (Set the fillvalue equal 0.0_rp)
+    call matrix_rotation_rotate2d(rot, rot%nx, rot%ny, met%topg, 0.0_rp, MY_ERR)
+  end subroutine matrix_rotation_initialize
+
+  subroutine matrix_rotation_finalize(rot)
+    ! Deallocates memory allocated by matrix_rotation_initialize
+    !
+    ! Author: Giovanni Macedonio (Last update 12-SEP-2021)
+    !
+    class(MATRIX_ROTATION) :: rot
+    if(allocated(rot%ilat)) deallocate(rot%ilat)
+    if(allocated(rot%ilon)) deallocate(rot%ilon)
+    if(allocated(rot%wx)) deallocate(rot%wx)
+    if(allocated(rot%wy)) deallocate(rot%wy)
+    if(allocated(rot%sbeta)) deallocate(rot%sbeta)
+    if(allocated(rot%cbeta)) deallocate(rot%cbeta)
+  end subroutine matrix_rotation_finalize
+
+  subroutine matrix_rotation_rotate2d(rot, nx, ny, mat, fillvalue, MY_ERR)
+    ! Rotates a 2D-matrix mat(nx,ny)
+    ! NOTE: Matrix mat is overwritten
+    !
+    ! Author: Giovanni Macedonio (Last update 12-SEP-2021)
+    !
+    class(MATRIX_ROTATION)  :: rot
+    type(ERROR_STATUS)      :: MY_ERR
+    integer(ip), intent(in) :: nx, ny
+    real(rp), intent(inout) :: mat(nx,ny)
+    real(rp), intent(in)    :: fillvalue
+    real(rp)                :: copy(nx,ny)  ! Local copy of mat
+    real(rp)                :: cbl, cbr, ctl, ctr
+    integer :: i, j
+    MY_ERR%flag    = 0
+    MY_ERR%source  = 'matrix_rotation_rotate2d'
+    MY_ERR%message = ' '
+    !
+    if(nx .ne. rot%nx .or. ny .ne. rot%ny) then
+       MY_ERR%flag = 1
+       MY_ERR%message = 'Inconsistent NX or NY'
+       return
+    end if
+    copy = mat   ! Copies the matrix
+    do j = 1, ny
+       do i = 1, nx
+          if(rot%ilon(i,j) == 0) then
+             ! Out of the domain
+             mat(i,j) = fillvalue
+          else
+             ! Bilinear interpolation in the cell
+             cbl = copy(rot%ilon(i,j),   rot%ilat(i,j))      ! Bottom, left
+             cbr = copy(rot%ilon(i,j)+1, rot%ilat(i,j))      ! Bottom right
+             ctl = copy(rot%ilon(i,j),   rot%ilat(i,j)+1)    ! Top left
+             ctr = copy(rot%ilon(i,j)+1, rot%ilat(i,j)+1)    ! Top right
+             mat(i,j) = (cbl*rot%wx(i,j) + cbr*(1.0_rp-rot%wx(i,j)))*rot%wy(i,j) + &
+                  (ctl*rot%wx(i,j) + ctr*(1.0_rp-rot%wx(i,j)))*(1.0_rp-rot%wy(i,j))
+          end if
+       end do
+    end do
+  end subroutine matrix_rotation_rotate2d
+
+  subroutine matrix_rotation_rotate3d(rot, nx, ny, nz, mat, fillvalue, MY_ERR)
+    ! Rotates nz 2D layers of a 3D-matrix mat(x,y,z)
+    ! NOTE: Matrix mat is overwritten
+    !
+    ! Author: Giovanni Macedonio (Last update 12-SEP-2021)
+    !
+    class(MATRIX_ROTATION)  :: rot
+    type(ERROR_STATUS)      :: MY_ERR
+    integer(ip), intent(in) :: nx, ny, nz
+    real(rp), intent(inout) :: mat(nx,ny,nz)
+    real(rp), intent(in)    :: fillvalue
+    integer :: k
+    !
+    MY_ERR%flag    = 0
+    MY_ERR%source  = 'matrix_rotation_rotate3d'
+    MY_ERR%message = ' '
+    !
+    do k = 1, nz
+       call matrix_rotation_rotate2d(rot, nx, ny, mat(:,:,k), fillvalue, MY_ERR)
+    end do
+  end subroutine matrix_rotation_rotate3d
+
+  subroutine matrix_rotation_rotate_vector2d(rot, nx, ny, ux, uy, MY_ERR)
+    ! Rotates a vector with components (ux[nx,ny], uy[nx,ny])
+    ! NOTE: To be executed before matrix_rotation_rotate2d is applied to ux and uy
+    ! NOTE: matrices ux and uy are overwritten
+    !
+    ! Author: Giovanni Macedonio (Last update 12-SEP-2021)
+    !
+    class(MATRIX_ROTATION)  :: rot
+    type(ERROR_STATUS)      :: MY_ERR
+    integer(ip), intent(in) :: nx, ny
+    real(rp), intent(inout) :: ux(nx,ny), uy(nx,ny)
+    integer :: i, j
+    real(rp) :: uxcopy
+    !
+    MY_ERR%flag    = 0
+    MY_ERR%source  = 'matrix_rotation_rotate_vector2d'
+    MY_ERR%message = ' '
+    !
+    if(nx .ne. rot%nx .or. ny .ne. rot%ny) then
+       MY_ERR%flag = 1
+       MY_ERR%message = 'Inconsistent NX or NY'
+       return
+    end if
+    !
+    do j=1, ny
+       do i=1, nx
+          uxcopy = ux(i,j)
+          ux(i,j) = ux(i,j)*rot%cbeta(i,j) - uy(i,j)*rot%sbeta(i,j)
+          uy(i,j) = uxcopy *rot%sbeta(i,j) + uy(i,j)*rot%cbeta(i,j)
+       end do
+    end do
+  end subroutine matrix_rotation_rotate_vector2d
   !
 END MODULE Dbs

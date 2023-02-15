@@ -259,7 +259,7 @@ CONTAINS
             stop ' Finished with errors: check log files'
         end if
     else
-        stop 
+        stop
     end if
     !
     return

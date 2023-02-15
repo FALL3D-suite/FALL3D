@@ -81,7 +81,7 @@ subroutine task_SetSrc
   !
   !*** Master reads and broadcasts MODEL_PHYSICS block from input file (MY_MOD)
   !
-  if(master_model) call phys_read_inp_model(MY_FILES, MY_MOD, MY_ERR)
+  if(master_model) call phys_read_inp_model(MY_FILES, MY_MOD, MY_ENS, MY_ERR)
   call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_SET_DBS, MY_FILES, MY_ERR)
   !

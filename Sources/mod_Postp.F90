@@ -1,6 +1,6 @@
 !***********************************************************************
 !>
-!> Module for postprocess operations 
+!> Module for postprocess operations
 !> @author
 !> Arnau Folch
 !>
@@ -14,23 +14,23 @@ MODULE Postp
   !
   !    LIST OF PUBLIC VARIABLES
   !
- 
+
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
-  PUBLIC :: postp_read_dimension 
+  PUBLIC :: postp_read_dimension
   PUBLIC :: postp_check_dimension
   PUBLIC :: postp_interpolate_time
   PUBLIC :: postp_rank_vector
   !
-  INTERFACE postp_read_variable 
+  INTERFACE postp_read_variable
      MODULE PROCEDURE postp_read_variable_1d, postp_read_variable_2d, postp_read_variable_3d, postp_read_variable_4d
-  END INTERFACE postp_read_variable 
+  END INTERFACE postp_read_variable
   PRIVATE :: postp_read_variable_1d, postp_read_variable_2d, postp_read_variable_3d, postp_read_variable_4d
   !
-  INTERFACE postp_read_variable_attribute 
+  INTERFACE postp_read_variable_attribute
      MODULE PROCEDURE postp_read_variable_attribute_int, postp_read_variable_attribute_rea, postp_read_variable_attribute_str
-  END INTERFACE postp_read_variable_attribute 
+  END INTERFACE postp_read_variable_attribute
   PRIVATE :: postp_read_variable_attribute_int, postp_read_variable_attribute_rea, postp_read_variable_attribute_str
   !
 CONTAINS
@@ -180,7 +180,7 @@ CONTAINS
   !>   @brief
   !>   sort an array ra(1:n) into growing order using heapsort algorithm,
   !>   and considering two elements being equal if their values differ for less than "eps".
-  !>   Adapted from Numerical Recipes pg. 329 
+  !>   Adapted from Numerical Recipes pg. 329
   !
   subroutine postp_rank_vector(n, ra, ind, eps, MY_ERR)
     implicit none
@@ -189,87 +189,85 @@ CONTAINS
     !>   @param ra      vector to rank (overwritten)
     !>   @param ind     index table (exchange in the index array whenever an exchange is made on the sorted data array ra)
     !>                  If on input ind(1)  = 0 then indices are initialized in the routine
-    !>   @param eps     tolerance 
+    !>   @param eps     tolerance
     !>   @param MY_ERR  error handler
     !
-    integer(ip),        intent(IN   ) :: n  
-    integer(ip),        intent(INOUT) :: ind(n)  
+    integer(ip),        intent(IN   ) :: n
+    integer(ip),        intent(INOUT) :: ind(n)
     real(rp),           intent(INOUT) :: ra (n)
     real(rp),           intent(IN   ) :: eps
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
-    integer(ip) :: i, ir, j, l, iind  
-    real(rp)    :: rra  
-    !
-    real(rp), allocatable :: work(:)
+    integer(ip) :: i, ir, j, l, iind
+    real(rp)    :: rra
     !
     !*** Initializations
     !
     MY_ERR%flag    = 0
     MY_ERR%source  = 'postp_rank_vector'
     MY_ERR%message = ' '
-    ! 
+    !
     !*** Initialize index array
     !
-    IF (ind (1) .eq.0) then  
-       DO i = 1, n  
-          ind (i) = i  
+    IF (ind (1) .eq.0) then
+       DO i = 1, n
+          ind (i) = i
        ENDDO
     ENDIF
     ! nothing to order
-    IF (n.lt.2) return  
+    IF (n.lt.2) return
     ! initialize indices for hiring and retirement-promotion phase
-    l  = n / 2 + 1  
-    ir = n  
+    l  = n / 2 + 1
+    ir = n
     !
-    sorting: do 
+    sorting: do
     ! still in hiring phase
-    IF ( l .gt. 1 ) then  
-       l    = l - 1  
-       rra  = ra (l)  
-       iind = ind (l)  
+    IF ( l .gt. 1 ) then
+       l    = l - 1
+       rra  = ra (l)
+       iind = ind (l)
        ! in retirement-promotion phase.
-    ELSE  
+    ELSE
        ! clear a space at the end of the array
-       rra  = ra (ir)  
+       rra  = ra (ir)
        !
-       iind = ind (ir)  
+       iind = ind (ir)
        ! retire the top of the heap into it
-       ra (ir) = ra (1)  
+       ra (ir) = ra (1)
        !
-       ind (ir) = ind (1)  
+       ind (ir) = ind (1)
        ! decrease the size of the corporation
-       ir = ir - 1  
+       ir = ir - 1
        ! done with the last promotion
-       IF ( ir .eq. 1 ) then  
+       IF ( ir .eq. 1 ) then
           ! the least competent worker at all !
-          ra (1)  = rra  
+          ra (1)  = rra
           !
-          ind (1) = iind  
-          exit sorting  
+          ind (1) = iind
+          exit sorting
        ENDIF
     ENDIF
     ! wheter in hiring or promotion phase, we
-    i = l  
+    i = l
     ! set up to place rra in its proper level
-    j = l + l  
+    j = l + l
     !
-    DO while ( j .le. ir )  
-       IF ( j .lt. ir ) then  
+    DO while ( j .le. ir )
+       IF ( j .lt. ir ) then
           ! compare to better underling
-          IF ( hslt( ra (j),  ra (j + 1) ) ) then  
-             j = j + 1  
+          IF ( hslt( ra (j),  ra (j + 1) ) ) then
+             j = j + 1
           !else if ( .not. hslt( ra (j+1),  ra (j) ) ) then
              ! this means ra(j) == ra(j+1) within tolerance
            !  if (ind (j) .lt.ind (j + 1) ) j = j + 1
           ENDIF
        ENDIF
        ! demote rra
-       IF ( hslt( rra, ra (j) ) ) then  
-          ra (i) = ra (j)  
-          ind (i) = ind (j)  
-          i = j  
-          j = j + j  
+       IF ( hslt( rra, ra (j) ) ) then
+          ra (i) = ra (j)
+          ind (i) = ind (j)
+          i = j
+          j = j + j
        !else if ( .not. hslt ( ra(j) , rra ) ) then
           !this means rra == ra(j) within tolerance
           ! demote rra
@@ -285,13 +283,13 @@ CONTAINS
           ! this is the right place for rra
        ELSE
           ! set j to terminate do-while loop
-          j = ir + 1  
+          j = ir + 1
        ENDIF
     ENDDO
-    ra (i) = rra  
-    ind (i) = iind  
+    ra (i) = rra
+    ind (i) = iind
 
-  END DO sorting   
+  END DO sorting
   !
   ! ascending order
   !allocate(work(n))
@@ -302,10 +300,10 @@ CONTAINS
   !   ra(j) = work(i)
   !end do
   !
-  return 
+  return
   !
-  contains 
-  !  internal function 
+  contains
+  !  internal function
   !  compare two real number and return the result
 
   logical function hslt( a, b )
@@ -466,7 +464,7 @@ CONTAINS
     !
     character(s_file),  intent(IN   ) :: file_name
     character(len=* ),  intent(IN   ) :: var_name
-    character(len=* ),  intent(IN   ) :: att_name 
+    character(len=* ),  intent(IN   ) :: att_name
     integer(ip),        intent(INOUT) :: val
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
@@ -494,7 +492,7 @@ CONTAINS
     !
     character(s_file),  intent(IN   ) :: file_name
     character(len=* ),  intent(IN   ) :: var_name
-    character(len=* ),  intent(IN   ) :: att_name 
+    character(len=* ),  intent(IN   ) :: att_name
     real(rp),           intent(INOUT) :: val
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !
@@ -522,7 +520,7 @@ CONTAINS
     !
     character(s_file),  intent(IN   ) :: file_name
     character(len=* ),  intent(IN   ) :: var_name
-    character(len=* ),  intent(IN   ) :: att_name 
+    character(len=* ),  intent(IN   ) :: att_name
     character(len=* ),  intent(INOUT) :: val
     type(ERROR_STATUS), intent(INOUT) :: MY_ERR
     !

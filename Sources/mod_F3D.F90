@@ -225,9 +225,12 @@ CONTAINS
        write(lulog,271) MY_MOD%kh0
     case(MOD_CMAQ)
        write(lulog,272)
+    case(MOD_RAMS)
+       write(lulog,273)
     end select
 271 format('  Horizontal turbulence    : Kh constant ( ',e12.4,' )')
 272 format('  Horizontal turbulence    : Kh CMAQ                ')
+273 format('  Horizontal turbulence    : Kh RAMS                ')
     !
     select case(MY_MOD%modv)
     case(MOD_ARASTOPOUR)
@@ -331,6 +334,8 @@ CONTAINS
          '                                                    ',/,   &
          '----------------------------------------------------',/)
     !
+    ! Flush log file
+    if(master_model) flush(lulog)   ! This is F2003 standard
     return
   end subroutine F3D_write_data
   !
@@ -543,6 +548,9 @@ CONTAINS
        MY_MOD%MY_GC%h_tot          = maxval(GL_SRC%z)     ! maximum column height (top of source)
     end if
     !
+    ! Flush log file
+    if(master_model) flush(lulog)   ! This is F2003 standard
+    !
     return
   end subroutine F3D_set_source_term
   !
@@ -583,7 +591,6 @@ CONTAINS
     real(rp)          :: time1,time2,time,s_time
     real(rp)          :: my_max,gl_max_u,gl_max_v,gl_max_w,gl_max_r,gl_max_t,gl_max_k1,gl_max_k3
     real(rp)          :: my_min,gl_min_u,gl_min_v,gl_min_w,gl_min_r,gl_min_t,gl_min_k1,gl_min_k3
-    real(rp)          :: my_dt,gl_dt
     !
     real(rp), allocatable :: my_max_vs(:,:),gl_max(:)
     real(rp), allocatable :: my_min_vs(:,:),gl_min(:)
@@ -919,32 +926,6 @@ CONTAINS
          MY_MET%my_k1, my_met_k2, my_met_k3, MY_MET%my_rho, &
          MY_TRA%my_vs, MY_TRA%MY_BIN%nbins, MY_GRID,MY_ERR)
     !
-    !*** Calculates the critical time step at mid-time interval using already the scaled quantities
-    !
-    allocate(my_u(my_ibs_1h:my_ibe_1h,my_jps   :my_jpe   ,my_kps   :my_kpe   ))
-    allocate(my_v(my_ips   :my_ipe   ,my_jbs_1h:my_jbe_1h,my_kps   :my_kpe   ))
-    allocate(my_w(my_ips   :my_ipe   ,my_jps   :my_jpe   ,my_kbs_1h:my_kbe_1h))
-    !
-    my_u(:,:,:) = (1.0_rp-s_time) * MY_MET%my_u(:,:,:,1) + s_time * MY_MET%my_u(:,:,:,2)
-    my_v(:,:,:) = (1.0_rp-s_time) * my_met_v(:,:,:,1)    + s_time * my_met_v(:,:,:,2)
-    !
-    !if(MY_MOD%gravity_current) MY_MOD%CFL_safety_factor = 0.3_rp  ! conservative option to ensure CFL
-    !
-    MY_TIME%my_dt = MY_TIME%run_end
-    MY_TIME%gl_dt = MY_TIME%run_end
-    !
-    do ibin = 1,MY_TRA%MY_BIN%nbins
-       my_w(:,:,:) = (1.0_rp-s_time) * my_met_w(:,:,:,1) + s_time * my_met_w(:,:,:,2)
-       my_w(:,:,:) = my_w(:,:,:) - MY_TRA%my_vs(:,:,:,ibin)
-       !
-       call grid_get_time_step(&
-            my_dt,gl_dt,my_u,my_v,my_w,MY_MET%my_k1,my_met_k2,my_met_k3,MY_GRID,MY_MOD,MY_ERR)
-       !
-       MY_TIME%my_dt = min(my_dt,MY_TIME%my_dt)
-       MY_TIME%gl_dt = min(gl_dt,MY_TIME%gl_dt)
-       !
-    end do
-    !
     !*** Store velocity and diffusion components
     !
     do k=my_kps,my_kpe
@@ -966,7 +947,24 @@ CONTAINS
     deallocate( my_met_w)
     deallocate( my_met_k2)
     deallocate( my_met_k3)
-
+    !
+    !*** Calculates the critical time step at mid-time interval using already the scaled quantities
+    !
+    allocate(my_u (my_ibs_1h:my_ibe_1h, my_jps:my_jpe, my_kps:my_kpe))
+    allocate(my_v (my_jbs_1h:my_jbe_1h, my_ips:my_ipe, my_kps:my_kpe))
+    allocate(my_w (my_kbs_1h:my_kbe_1h, my_ips:my_ipe, my_jps:my_jpe))
+    !
+    my_u(:,:,:) = (1.0_rp-s_time) * MY_MET%my_u(:,:,:,1) + s_time * MY_MET%my_u(:,:,:,2)
+    my_v(:,:,:) = (1.0_rp-s_time) * MY_MET%my_v(:,:,:,1) + s_time * MY_MET%my_v(:,:,:,2)
+    my_w(:,:,:) = (1.0_rp-s_time) * MY_MET%my_w(:,:,:,1) + s_time * MY_MET%my_w(:,:,:,2)
+    !
+    call grid_get_time_step(my_u,my_v,my_w,MY_MET,MY_GRID,MY_MOD,MY_TRA,MY_TIME,MY_ERR)
+    !
+    MY_TIME%update_step = .False.
+    !
+    ! Flush log file
+    if(master_model) flush(lulog)   ! This is F2003 standard
+    !
     return
   end subroutine F3D_update_meteo_term
   !
@@ -988,7 +986,7 @@ CONTAINS
     !>                    Be awared this component is reshaped
     !>   @param MY_ERR    error handler
     !
-    type(RUN_TIME),      intent(IN   ) :: MY_TIME
+    type(RUN_TIME),      intent(INOUT) :: MY_TIME
     type(MODEL_PHYS),    intent(INOUT) :: MY_MOD
     type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     real(rp),            intent(INOUT) :: my_u(my_ibs_1h:my_ibe_1h,my_jps   :my_jpe   ,my_kps   :my_kpe)
@@ -999,7 +997,7 @@ CONTAINS
     integer(ip)       :: ix,iy,iz,i,j,k
     !
     real(rp)    :: c_flow_rate,k_entrain,brunt_vaisala,lambda_grav
-    real(rp)    :: wind_center_x, wind_center_y, Hm1
+    real(rp)    :: wind_center_x, wind_center_y, Hm1, fu
     real(rp)    :: c_gravr,min_radius,max_radius,radius_grav,c_gravu,c_grav_factor
     real(rp)    :: th_grav,h_tot,h_umbr,hmin,hmax,deltax,deltay,radius,rvel
     real(rp)    :: mass_flow_rate, time_since_eruption, vol_flow_rate
@@ -1032,16 +1030,20 @@ CONTAINS
     !
     if(mass_flow_rate.le.0.0_rp) return
     !
-    !*** Get the he minimum radius of the gravity current. This value is set only for
+    !*** Get the the minimum radius of the gravity current. This value is set only for
     !*** numerical reasons; too small radius results may lead to strong asymmetry
     !*** of the deposit and/or large radial velocities (small dt)
-    !
     deltax = REARTH*MY_GRID%Hm1_c(my_jbs)*(MY_GRID%lon_c(my_ibs)-MY_GRID%lon_c(my_ibs+1))*PI/180.0_rp
     deltay = REARTH*                      (MY_GRID%lat_c(my_jbs)-MY_GRID%lat_c(my_jbs+1))*PI/180.0_rp
-    radius = 1.5_rp*sqrt(deltax*deltax + deltay*deltay)         ! a cetain cell distance, proportional to diagonal of the cell
+    radius = 1.5_rp*sqrt(deltax*deltax + deltay*deltay)         ! a certain cell distance, proportional to diagonal of the cell
     !
+    ! Set the minimum radius
     min_radius = 0.0_rp
-    call parallel_min(radius, min_radius, COMM_MODEL )
+    call parallel_max(radius, min_radius, COMM_MODEL )
+    if(MY_MOD%MY_GC%input_min_radius > 0.0_rp) then
+       ! Use the input value (a value > 0.0 means that the input_min_radius was set)
+       min_radius = MY_MOD%MY_GC%input_min_radius
+    end if
     !
     !*** Evaluate parameters for gravity current model
     !
@@ -1052,7 +1054,7 @@ CONTAINS
     c_gravr = 3.0_rp*lambda_grav*brunt_vaisala*vol_flow_rate/(2.0_rp*PI)   ! constant
     !
     radius_grav = (c_gravr*time_since_eruption**2)**(0.33333_rp)           ! Radius(t) of the front
-    radius_grav = max(radius_grav,min_radius)                              ! Avoid division by zero
+    radius_grav = max(radius_grav, min_radius)                             ! Avoid division by zero
     !
     c_gravu       = sqrt(2.0_rp*lambda_grav*brunt_vaisala*vol_flow_rate/(3.0_rp*PI))
     c_grav_factor = 0.75_rp*c_gravu*sqrt(radius_grav)
@@ -1060,11 +1062,11 @@ CONTAINS
     !
     h_umbr = h_tot/1.2_rp                      ! Height of NBL (empirical). This should be consistent with C_UMBRELLA in plume model
     !
-    hmin   = max(h_umbr-0.5_rp*th_grav,0.5_rp*h_tot) ! Higher that H_tot/2 (empirical)
-    hmax   = min(h_umbr+0.5_rp*th_grav,h_tot)        ! Lower than total column height
+    hmin   = max(h_umbr-0.5_rp*th_grav, 0.5_rp*h_tot)  ! Higher that H_tot/2 (empirical)
+    hmax   = min(h_umbr+0.5_rp*th_grav, h_tot)         ! Lower than total column height
     !
-    !*** Find the wind velocity modulus at the center of the umbrella (h_umbr). This is used only to estimate timescales and
-    !*** therefore the nearest mass point is considered (no interpolation)
+    !*** Find the wind velocity modulus at the center of the umbrella (h_umbr).
+    !*** This is used only to estimate timescales and therefore the nearest mass point is considered (no interpolation)
     !
     lonmin  = MY_GRID%lon_c(my_ibs)
     lonmax  = MY_GRID%lon_c(my_ibe)
@@ -1102,7 +1104,7 @@ CONTAINS
        ! Search in z
        !
        foundz = .false.
-       do k   = my_kbs,my_kbe-1
+       do k   = my_kbs, my_kbe-1
           if((h_umbr.gt.MY_GRID%z_c(ix,iy,k)).and.(h_umbr.le.MY_GRID%z_c(ix,iy,k+1))) then
              foundz = .true.
              iz     = k
@@ -1111,12 +1113,13 @@ CONTAINS
        !
        if(foundx.and.foundy.and.foundz) then
           Hm1     = MY_GRID%Hm1_c(iy)
+          ! @@@ WHY multiply wind by Hm1 ??? @@@
           my_wind = sqrt(Hm1*my_u(ix,iy,iz)*Hm1*my_u(ix,iy,iz)+my_v(iy,ix,iz)*my_v(iy,ix,iz))
        end if
        !
     end if
     !
-    v_wind = 0.0_rp
+    v_wind = 0.0_rp    ! v_wind is the wind speed at z=h_umbr
     call parallel_max(my_wind, v_wind, COMM_MODEL )
     !
     !*** Radius_grav(Tp) where Tp=64/27*c_gravr/v^3. Transition at Ri=025 for passive transport transition
@@ -1132,17 +1135,34 @@ CONTAINS
           !
           deltax = REARTH*MY_GRID%Hm1_p(j)*(MY_GRID%lon_c(i)-wind_center_x)*PI/180.0_rp
           deltay = REARTH*                 (MY_GRID%lat_p(j)-wind_center_y)*PI/180.0_rp
-          radius = sqrt(deltax*deltax + deltay*deltay)                        ! approx distance (in m)
+          radius = sqrt(deltax*deltax + deltay*deltay)  ! approx distance (in m)
           !
-          if(abs(radius) <= min_radius ) cycle ! Skip for R <= Rmin
-          if(abs(radius) >  max_radius ) cycle ! Skip for R >  Rmin
+          if(radius > radius_grav) cycle ! Skip for r > R_max
+          ! LAM: removed
+          !if(radius >  max_radius ) cycle ! Skip for R >  Rmax
           !
-          rvel = c_grav_factor/radius*(1.0_rp+radius**2 /(3.0_rp*radius_grav**2))
+          if(radius < 1e-3_rp) then
+             ! Avoid division by zero
+             fu = 0.0_rp
+          else
+             fu = deltax/radius/MY_GRID%Hm1_p(j) ! Wind factor
+          end if
+          radius = max(radius, min_radius)
+          !
+          ! if(radius <= min_radius) then
+          !    fu = 2.0*fu    ! @@@ ????
+          !    ! radius = min(min_radius,radius_grav)  ! radius_grav is always >= min_radius
+          !    radius = min_radius
+          ! end if
+          !
+          rvel = fu*c_grav_factor/radius*(1.0_rp+radius**2 /(3.0_rp*radius_grav**2))
           !
           do k = my_kps,my_kpe
-             zp = 0.25_rp*(MY_GRID%z_c(i,j,k)+MY_GRID%z_c(i,j+1,k)+MY_GRID%z_c(i,j,k+1)+MY_GRID%z_c(i,j+1,k+1))
+             ! @@@ k+1 can be out of domain
+             ! zp = 0.25_rp*(MY_GRID%z_c(i,j,k)+MY_GRID%z_c(i,j+1,k)+MY_GRID%z_c(i,j,k+1)+MY_GRID%z_c(i,j+1,k+1))
+             zp = MY_GRID%z_c(i,j,k)
              if((zp.ge.hmin).and.(zp.le.hmax)) then
-                my_u(i,j,k) = my_u(i,j,k) + rvel * deltax/radius/MY_GRID%Hm1_p(j)
+                my_u(i,j,k) = my_u(i,j,k) + rvel
              end if
           end do
        end do
@@ -1155,17 +1175,33 @@ CONTAINS
           !
           deltax = REARTH*MY_GRID%Hm1_c(j)*(MY_GRID%lon_p(i)-wind_center_x)*PI/180.0_rp
           deltay = REARTH*                 (MY_GRID%lat_c(j)-wind_center_y)*PI/180.0_rp
-          radius = sqrt(deltax*deltax + deltay*deltay)                        ! approx distance (in m)
+          radius = sqrt(deltax*deltax + deltay*deltay)  ! approx distance (in m)
           !
-          if(abs(radius) <= min_radius ) cycle ! Skip for R <= Rmin
-          if(abs(radius) >  max_radius ) cycle ! Skip for R >  Rmin
+          if(radius > radius_grav) cycle ! Skip for r > R_max
+          ! LAM: removed
+          !if(radius >  max_radius ) cycle ! Skip for R >  Rmax
           !
-          rvel = c_grav_factor/radius*(1.0_rp+radius**2 /(3.0_rp*radius_grav**2))
+          if(radius < 1e-3_rp) then
+             ! Avod division by zero
+             fu = 0.0_rp
+          else
+             fu = deltay/radius ! Wind factor
+          end if
+          radius = max(radius, min_radius)
+          !
+          ! if(radius <= min_radius) then
+          !    fu = 2.0*fu  ! @@@ ???
+          !    ! radius = min(min_radius,radius_grav)
+          !    radius = min_radius
+          ! end if
+          !
+          rvel = fu*c_grav_factor/radius*(1.0_rp+radius**2 /(3.0_rp*radius_grav**2))
           !
           do k = my_kps,my_kpe
-             zp = 0.25_rp*(MY_GRID%z_c(i,j,k)+MY_GRID%z_c(i+1,j,k)+MY_GRID%z_c(i,j,k+1)+MY_GRID%z_c(i+1,j,k+1))
+             ! zp = 0.25_rp*(MY_GRID%z_c(i,j,k)+MY_GRID%z_c(i+1,j,k)+MY_GRID%z_c(i,j,k+1)+MY_GRID%z_c(i+1,j,k+1))
+             zp = MY_GRID%z_c(i,j,k)
              if((zp.ge.hmin).and.(zp.le.hmax)) then
-                my_v(j,i,k) = my_v(j,i,k) + rvel * deltay/radius
+                my_v(j,i,k) = my_v(j,i,k) + rvel
              end if
           end do
        end do
@@ -1176,12 +1212,15 @@ CONTAINS
     call domain_swap_velo_points_1halo_x ( my_u )
     call domain_swap_velo_points_1halo_reshaped_y ( my_v )
     !
-    !*** Finally, store some (global) values for eventually writting res file
+    !*** Finally, store some (global) values for eventually writing res file
     !
     MY_MOD%MY_GC%vol_flow_rate = vol_flow_rate
+    MY_MOD%MY_GC%min_radius    = min_radius
     MY_MOD%MY_GC%max_radius    = max_radius
     MY_MOD%MY_GC%radius_grav   = radius_grav
     MY_MOD%MY_GC%th_grav       = th_grav
+    !
+    MY_TIME%update_step        = .True.
     !
     return
   end subroutine F3D_add_radial_wind
@@ -1279,7 +1318,7 @@ CONTAINS
                '   (3) Mass sink terms (wet dep.)  : ',e13.6,' (',f7.2,'%)' ,/,  &
                '   (4) Mass at ground              : ',e13.6,' (',f7.2,'%)' ,/, &
                '       ----------------------------  ' ,/,  &
-               '   Summ (1)+(2)+(3)+(4)            : ',e13.6,/,  &
+               '   Sum (1)+(2)+(3)+(4)             : ',e13.6,/,  &
                '   Injected mass                   : ',e13.6)
           !
        end if
@@ -1342,6 +1381,9 @@ CONTAINS
        end if
     end if
     !
+    ! Flush log file
+    if(master_model) flush(lulog)   ! This is F2003 standard
+    !
     return
   end subroutine F3D_end_time_step
   !
@@ -1362,10 +1404,10 @@ CONTAINS
     !>   @param MY_TRA    variables related to tracers
     !>   @param MY_ERR    error handler
     !
-    type(RUN_TIME),      intent(IN   ) :: MY_TIME
+    type(RUN_TIME),      intent(INOUT) :: MY_TIME
     type(ARAKAWA_C_GRID),intent(IN   ) :: MY_GRID
     type(MODEL_PHYS),    intent(INOUT) :: MY_MOD
-    type(METEOROLOGY),   intent(INOUT) :: MY_MET
+    type(METEOROLOGY),   intent(IN   ) :: MY_MET
     type(SPECIES_PARAMS),intent(IN   ) :: MY_SPE
     type(TRACERS),       intent(INOUT) :: MY_TRA
     type(ERROR_STATUS),  intent(INOUT) :: MY_ERR
@@ -1376,6 +1418,7 @@ CONTAINS
     real(rp)    :: dX,dY,dZ,vol,Hm1,Hm2,Hm3
     real(rp),pointer :: my_u(:,:,:)
     real(rp),pointer :: my_v(:,:,:)
+    real(rp),pointer :: my_w(:,:,:)
     !
     !*** Initializations
     !
@@ -1384,6 +1427,29 @@ CONTAINS
     MY_ERR%message = ' '
     !
     nbins     = MY_TRA%nbins
+    !
+    !*** Before proceeding with advection and diffusion, we need to update
+    !    velocity with gravity current if required. For that, velocity components in current
+    !    iteration are updated and then we add gravity current
+    !
+    call ADS_get_vcomps( my_u, my_v, my_w )
+    !
+    s_time = (MY_TIME%time - MY_MET%timesec(MY_MET%its))/(MY_MET%timesec(MY_MET%ite)-MY_MET%timesec(MY_MET%its))  ! time interpolation factor
+    my_u(:,:,:) = (1.0_rp-s_time) * MY_MET%my_u(:,:,:,1) + s_time * MY_MET%my_u(:,:,:,2)
+    my_v(:,:,:) = (1.0_rp-s_time) * MY_MET%my_v(:,:,:,1) + s_time * MY_MET%my_v(:,:,:,2)
+    !
+    !*** For gravity currents, modify the wind field adding a null-divergence wind field
+    !
+    if(MY_MOD%gravity_current) then
+       call F3D_add_radial_wind(MY_TIME,MY_MOD,MY_GRID,my_u,my_v,MY_ERR)
+    end if
+    !
+    !*** Update time step
+    !
+    if(MY_TIME%update_step) then
+       my_w(:,:,:) = (1.0_rp-s_time) * MY_MET%my_w(:,:,:,1) + s_time * MY_MET%my_w(:,:,:,2)
+       call grid_get_time_step(my_u,my_v,my_w,MY_MET,MY_GRID,MY_MOD,MY_TRA,MY_TIME,MY_ERR)
+    end if
     !
     !*** Source term. Note that using the scaled concentration S* / dXdYdZ = S / dlon*dlat*dz
     !
@@ -1405,23 +1471,6 @@ CONTAINS
           end do
        end do
     end do
-    !
-    s_time = (MY_TIME%time - MY_MET%timesec(MY_MET%its))/(MY_MET%timesec(MY_MET%ite)-MY_MET%timesec(MY_MET%its))  ! time interpolation factor
-    !
-    !*** Before proceeding with advection and diffusion, we need to update
-    !    velocity with gravity current if required. For that, velocity components in current
-    !    iteration are updated and then we add gravity current
-    !
-    call ADS_get_horizontal_vcomps( my_u, my_v )
-
-    my_u(:,:,:) = (1.0_rp-s_time) * MY_MET%my_u(:,:,:,1) + s_time * MY_MET%my_u(:,:,:,2)
-    my_v(:,:,:) = (1.0_rp-s_time) * MY_MET%my_v(:,:,:,1) + s_time * MY_MET%my_v(:,:,:,2)
-    !
-    !*** For gravity currents, modify the wind field adding a null-divergence wind field
-    !
-    if(MY_MOD%gravity_current) then
-       call F3D_add_radial_wind(MY_TIME,MY_MOD,MY_GRID,my_u,my_v,MY_ERR)
-    end if
     !
     !*** Advection and diffusion
     !
@@ -1691,7 +1740,7 @@ CONTAINS
     !
     !*** Get wet deposition at corner points (my_awetc in kg/m2)
     !
-    do ibin = 1,nbins    
+    do ibin = 1,nbins
        call domain_swap_mass_points_2halo_2Dx ( MY_TRA%my_awet(:,:,ibin) )
        call domain_swap_mass_points_2halo_2Dy ( MY_TRA%my_awet(:,:,ibin) )
        !

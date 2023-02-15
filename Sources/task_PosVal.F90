@@ -8,11 +8,11 @@
   !>   Task for model validation (including ensemble runs) in FALL3D
   !>   @note
   !>   This tasks assumes that nens = 1 and NPZ = 1
-  !>   @author 
+  !>   @author
   !>   A. Folch
   !
   use KindType,   only: TASK_POS_VAL
-  use Shared,     only: MY_FILES, MY_ERR 
+  use Shared,     only: MY_FILES, MY_ERR
   use Validation
   use Sat
   use Deposit
@@ -43,13 +43,13 @@
   !*** Master world opens log file
   !
   if(master_world) call inpout_open_log_file(TASK_POS_VAL, MY_FILES, MY_ERR)
-  call parallel_bcast(MY_ERR%flag,1_ip,0_ip,COMM_WORLD) 
+  call parallel_bcast(MY_ERR%flag,1_ip,0_ip,COMM_WORLD)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_POS_VAL, MY_FILES, MY_ERR)
   !
   !*** Master reads and broadcasts MODEL_VALIDATION block from input file
   !
   if(master_model) call validation_read_inp(MY_FILES,MY_OBS,MY_RES,MY_ERR)
-  call parallel_bcast(MY_ERR%flag,1,0) 
+  call parallel_bcast(MY_ERR%flag,1,0)
   if(MY_ERR%flag.ne.0) call task_runend(TASK_POS_VAL, MY_FILES, MY_ERR)
   call validation_bcast_inp_params(MY_OBS,MY_RES,MY_ERR)
   !
@@ -62,8 +62,8 @@
   !
   !*** Master reads and broadcasts observations
   !
-  select case(MY_OBS%type)  
-  case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL) 
+  select case(MY_OBS%type)
+  case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL)
      !
      !*** Read and broadcast satellite metadata (stored in GL_SAT_INFO)
      !
@@ -131,15 +131,15 @@
      !*** Satellite observations interpolated to the FALL3D grid
      !
      call validation_interpolate_sat_obs(MY_FILES,MY_OBS,MY_RES,GL_SAT_INFO,GL_SAT_DATA2D,MY_ERR)
-     !  
+     !
    case (OBS_TYPE_DEPOSIT_CONTOURS)
-     !  
+     !
      !*** Deposit observations interpolated to the FALL3D grid
      !
      call validation_interpolate_dep_obs(MY_FILES,MY_OBS,MY_RES,GL_DEP_DATA,MY_ERR)
      !
    case (OBS_TYPE_DEPOSIT_POINTS)
-     !  
+     !
      !*** FALL3D results interpolated to deposit points (only interpolation factors computed
      !*** at this stage)
      !
@@ -156,14 +156,14 @@
   !*** Get time interpolation factors
   !
   select case(MY_OBS%type)
-  case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL, & 
+  case(OBS_TYPE_SATELLITE_DETECTION, OBS_TYPE_SATELLITE_RETRIEVAL, &
        OBS_TYPE_DEPOSIT_CONTOURS,    OBS_TYPE_DEPOSIT_POINTS)
      !
      !*** For satellite observations time lag is already corrected in GL_SAT_INFO
      !*** For deposit observations only last model time step is considered
      !
-     call validation_get_time_factors(MY_FILES,MY_OBS,MY_RES,MY_ERR) 
-     !  
+     call validation_get_time_factors(MY_FILES,MY_OBS,MY_RES,MY_ERR)
+     !
   case (OBS_TYPE_VAA)
      !
      MY_ERR%source  = 'task_PosVal'

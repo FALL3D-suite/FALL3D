@@ -15,14 +15,14 @@ MODULE Ensemble
   !
   !    LIST OF PUBLIC VARIABLES
   !
-  integer(ip), parameter :: nper = 14   !< number of possible perturbated parameters 
+  integer(ip), parameter :: nper = 14   !< number of possible perturbated parameters
   !
   integer(ip), parameter :: ID_COLUMN_HEIGHT       = 1
   integer(ip), parameter :: ID_MASS_FLOW_RATE      = 2
   integer(ip), parameter :: ID_SOURCE_START        = 3
   integer(ip), parameter :: ID_SOURCE_DURATION     = 4
   integer(ip), parameter :: ID_TOP_HAT_THICKNESS   = 5
-  integer(ip), parameter :: ID_SUZUKI_A            = 6 
+  integer(ip), parameter :: ID_SUZUKI_A            = 6
   integer(ip), parameter :: ID_SUZUKI_L            = 7
   integer(ip), parameter :: ID_U_WIND              = 8
   integer(ip), parameter :: ID_V_WIND              = 9
@@ -51,7 +51,7 @@ MODULE Ensemble
   !
   !    LIST OF PUBLIC ROUTINES IN THE MODULE
   !
-  PUBLIC :: ensemble_read_inp 
+  PUBLIC :: ensemble_read_inp
   PUBLIC :: ensemble_bcast_params
   PUBLIC :: ensemble_init_random
   PUBLIC :: ensemble_write_random
@@ -123,13 +123,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_COLUMN_HEIGHT',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_COLUMN_HEIGHT) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_COLUMN_HEIGHT) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_COLUMN_HEIGHT) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_COLUMN_HEIGHT) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_COLUMN_HEIGHT) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_COLUMN_HEIGHT) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_COLUMN_HEIGHT).ne.PERTURBATION_TYPE_NONE ) then
@@ -158,13 +158,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_MASS_FLOW_RATE',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_MASS_FLOW_RATE) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_MASS_FLOW_RATE) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_MASS_FLOW_RATE) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_MASS_FLOW_RATE) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_MASS_FLOW_RATE) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_MASS_FLOW_RATE) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_MASS_FLOW_RATE).ne.PERTURBATION_TYPE_NONE ) then
@@ -193,13 +193,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_SOURCE_START',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_SOURCE_START) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SOURCE_START) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_SOURCE_START) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_SOURCE_START) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_SOURCE_START) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SOURCE_START) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_SOURCE_START).ne.PERTURBATION_TYPE_NONE ) then
@@ -228,13 +228,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_SOURCE_DURATION',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_SOURCE_DURATION) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SOURCE_DURATION) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_SOURCE_DURATION) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_SOURCE_DURATION) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_SOURCE_DURATION) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SOURCE_DURATION) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_SOURCE_DURATION).ne.PERTURBATION_TYPE_NONE ) then
@@ -263,13 +263,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_TOP-HAT_THICKNESS',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_TOP_HAT_THICKNESS) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_TOP_HAT_THICKNESS) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_TOP_HAT_THICKNESS) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_TOP_HAT_THICKNESS) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_TOP_HAT_THICKNESS) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_TOP_HAT_THICKNESS) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_TOP_HAT_THICKNESS).ne.PERTURBATION_TYPE_NONE ) then
@@ -298,13 +298,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_SUZUKI_A',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_SUZUKI_A) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SUZUKI_A) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_SUZUKI_A) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_SUZUKI_A) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_SUZUKI_A) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SUZUKI_A) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_SUZUKI_A).ne.PERTURBATION_TYPE_NONE ) then
@@ -333,13 +333,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_SUZUKI_L',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_SUZUKI_L) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SUZUKI_L) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_SUZUKI_L) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_SUZUKI_L) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_SUZUKI_L) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_SUZUKI_L) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_SUZUKI_L).ne.PERTURBATION_TYPE_NONE ) then
@@ -368,8 +368,8 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_WIND',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_U_WIND) = PERTURBATION_TYPE_NONE 
-        MY_ENS%perturbation_type(ID_V_WIND) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_U_WIND) = PERTURBATION_TYPE_NONE
+        MY_ENS%perturbation_type(ID_V_WIND) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_U_WIND) = PERTURBATION_TYPE_RELATIVE
         MY_ENS%perturbation_type(ID_V_WIND) = PERTURBATION_TYPE_RELATIVE
@@ -377,8 +377,8 @@ CONTAINS
         MY_ENS%perturbation_type(ID_U_WIND) = PERTURBATION_TYPE_ABSOLUTE
         MY_ENS%perturbation_type(ID_V_WIND) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_U_WIND) = PERTURBATION_TYPE_NONE 
-        MY_ENS%perturbation_type(ID_V_WIND) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_U_WIND) = PERTURBATION_TYPE_NONE
+        MY_ENS%perturbation_type(ID_V_WIND) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_U_WIND).ne.PERTURBATION_TYPE_NONE ) then
@@ -411,13 +411,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_DATA_INSERTION_CLOUD_HEIGHT',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_CLOUD_HEIGHT) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_CLOUD_HEIGHT) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_CLOUD_HEIGHT) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_CLOUD_HEIGHT) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_CLOUD_HEIGHT) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_CLOUD_HEIGHT) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_CLOUD_HEIGHT).ne.PERTURBATION_TYPE_NONE ) then
@@ -446,13 +446,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_DATA_INSERTION_CLOUD_THICKNESS',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_CLOUD_THICKNESS) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_CLOUD_THICKNESS) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_CLOUD_THICKNESS) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_CLOUD_THICKNESS) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_CLOUD_THICKNESS) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_CLOUD_THICKNESS) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_CLOUD_THICKNESS).ne.PERTURBATION_TYPE_NONE ) then
@@ -481,13 +481,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_FI_MEAN',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_FI_MEAN) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_FI_MEAN) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_FI_MEAN) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_FI_MEAN) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_FI_MEAN) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_FI_MEAN) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_FI_MEAN).ne.PERTURBATION_TYPE_NONE ) then
@@ -516,13 +516,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_DIAMETER_AGGREGATES_(MIC)',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_DIAMETER_AGGREGATES) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_DIAMETER_AGGREGATES) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_DIAMETER_AGGREGATES) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_DIAMETER_AGGREGATES) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_DIAMETER_AGGREGATES) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_DIAMETER_AGGREGATES) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_DIAMETER_AGGREGATES).ne.PERTURBATION_TYPE_NONE ) then
@@ -551,13 +551,13 @@ CONTAINS
     call inpout_get_cha (file_inp,'ENSEMBLE','PERTURBATE_DENSITY_AGGREGATES',word,1,MY_ERR,.true.)
     select case(TRIM(word))
     case('NO')
-        MY_ENS%perturbation_type(ID_DENSITY_AGGREGATES) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_DENSITY_AGGREGATES) = PERTURBATION_TYPE_NONE
     case('RELATIVE')
         MY_ENS%perturbation_type(ID_DENSITY_AGGREGATES) = PERTURBATION_TYPE_RELATIVE
     case('ABSOLUTE')
         MY_ENS%perturbation_type(ID_DENSITY_AGGREGATES) = PERTURBATION_TYPE_ABSOLUTE
     case default
-        MY_ENS%perturbation_type(ID_DENSITY_AGGREGATES) = PERTURBATION_TYPE_NONE 
+        MY_ENS%perturbation_type(ID_DENSITY_AGGREGATES) = PERTURBATION_TYPE_NONE
     end select
     !
     if( MY_ENS%perturbation_type(ID_DENSITY_AGGREGATES).ne.PERTURBATION_TYPE_NONE ) then
@@ -723,7 +723,7 @@ CONTAINS
     if(MY_ENS%nth_col_mass_DU.gt.0) call parallel_bcast(MY_ENS%th_col_mass_DU,MY_ENS%nth_col_mass_DU,0)
     if(MY_ENS%nth_grn_load   .gt.0) call parallel_bcast(MY_ENS%th_grn_load,   MY_ENS%nth_grn_load,   0)
     if(MY_ENS%nval_per       .gt.0) call parallel_bcast(MY_ENS%val_per,       MY_ENS%nval_per,       0)
-    !   
+    !
     return
   end subroutine ensemble_bcast_params
   !
@@ -768,7 +768,7 @@ CONTAINS
     npoin = nsam*nper
     call parallel_bcast(rand_arr, npoin, 0, COMM_COUPLE)
     !
-    !*** Loop over perturbated parameters 
+    !*** Loop over perturbated parameters
     !*** (except for master_world; i.e. for 1st ensemble member)
     !
     do iper = 1,nper
@@ -883,7 +883,7 @@ CONTAINS
   !-----------------------------------------
   !
   !>   @brief
-  !>   Computes perturbation of a variable 
+  !>   Computes perturbation of a variable
   !
   elemental real(rp) function ensemble_perturbate_variable(var_ID,var,MY_ENS)
     implicit none
@@ -930,7 +930,7 @@ CONTAINS
        if(ensemble_perturbate_variable.lt.0.0_rp) ensemble_perturbate_variable = 1.0_rp
     case(ID_DENSITY_AGGREGATES)
        if(ensemble_perturbate_variable.lt.0.0_rp) ensemble_perturbate_variable = 1.0_rp
-    end select 
+    end select
     !
   end function
   !
@@ -946,8 +946,8 @@ CONTAINS
   !>   Implementation of the hypercube sampling algorithm
   !>
   !>   N Points are selected in a NDIM dimensional Latin hypercube.
-  !>   Each of the NDIM coordinate dimensions is discretized to 
-  !>   the values 1 through N. The points are to be chosen in such 
+  !>   Each of the NDIM coordinate dimensions is discretized to
+  !>   the values 1 through N. The points are to be chosen in such
   !>   a way that no two points have any coordinate value in common.
   !
   subroutine ensemble_lhs(N,NDIM,PDF,X)
@@ -993,8 +993,8 @@ CONTAINS
             BIN(:) = BIN_GAUSSIAN(:)
         end select
         !
-        !*** Force the corresponding i-th components of 
-        !*** X to lie in the PERM(I)-th interval 
+        !*** Force the corresponding i-th components of
+        !*** X to lie in the PERM(I)-th interval
         !
         do i = 1,N
           ! Input  X in [0,1]
@@ -1043,7 +1043,7 @@ CONTAINS
       !*** Perform a binary search to found inner intervals
       !
       do i=2,N
-        l_x = X(i-1) 
+        l_x = X(i-1)
         r_x = X(N+1)
         l_p = ensemble_cumm_tnorm(l_x)
         r_p = 1.0_rp
@@ -1106,8 +1106,8 @@ CONTAINS
         perm(j) = tmp
     end do
     !
-    return  
-  end subroutine ensemble_perm_uniform 
+    return
+  end subroutine ensemble_perm_uniform
   !
   !--------------------------------------------
   !    function ensemble_random_int
@@ -1138,10 +1138,10 @@ CONTAINS
       !
       !*** Scale r to lie between min-0.5 and max+0.5
       !
-      r = ( real(limits(1), kind=rp) - 0.5_rp ) * (1.0_rp-r) & 
+      r = ( real(limits(1), kind=rp) - 0.5_rp ) * (1.0_rp-r) &
         + ( real(limits(2), kind=rp) + 0.5_rp ) * r
       !
-      !*** Use rounding to convert R to an 
+      !*** Use rounding to convert R to an
       !*** integer between A and B
       !
       x = nint(r, kind=ip)
@@ -1156,7 +1156,7 @@ CONTAINS
   !--------------------------------------------
   !
   !>   @brief
-  !>   Returns cummulative probability Pr[X<L] 
+  !>   Returns cummulative probability Pr[X<L]
   !>   for a truncated normal PDF in range [-1,1]
   !
   function ensemble_cumm_tnorm(x) result(y)
